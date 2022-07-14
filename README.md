@@ -32,6 +32,12 @@ The following extensions are supported:
 - *binary literals* (C23 feature)  
   When a number is prefixed with `0b`, it is interpreted as a binary literal (similar to hexadecimal literals [`0x` prefix] and octal literals [`0` prefix])
 
+All extensions can be disabled by using the appropriate command line argument:
+
+- `-fno-elifdef`: disables `#elifdef` and `#elifndef`
+- `-fno-func`: disabled `__func__`
+- `-fno-binary-literals`: disables binary literals
+
 ## Sources (incomplete)
 
 - [ANSI/ISO 9899-1990; ANSI X3.159-1989](https://www.iso.org/standard/17782.html) (C Standard) - officially withdraw, but still available here:

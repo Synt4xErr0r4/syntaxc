@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import at.syntaxerror.syntaxc.io.CharStream;
+import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.NumericType;
@@ -94,6 +95,10 @@ public class Lexer extends CommonLexer {
 				integer = true;
 				
 				skip();
+				
+				if(!Flag.BINARY_LITERALS.isEnabled())
+					error(Flag.BINARY_LITERALS, "Binary literals are not allowed");
+				
 				c = next();
 				
 				if(!isBinDigit(c))

@@ -38,7 +38,9 @@ import lombok.Setter;
 @RequiredArgsConstructor
 @Getter
 public enum Flag implements NamedToggle {
-
+	ELIFDEF			("elifdef", 		"Specifies whether #elifdef and #elifndef preprocessing directives are allowed"),
+	FUNC			("func",			"Specifies whether __FUNCTION__ and __func__ return the current function name"),
+	BINARY_LITERALS	("binary-literals",	"Specifies whether binary literals are allowed")
 	;
 	
 	private static final Map<String, Flag> FLAGS;

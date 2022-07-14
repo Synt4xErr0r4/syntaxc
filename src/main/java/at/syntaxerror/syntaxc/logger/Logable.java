@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.logger;
 
+import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 
@@ -128,6 +129,16 @@ public interface Logable extends Positioned {
 	default void error(String message, Object...args) {
 		Logger.log(LogLevel.ERROR, getPosition(), getDefaultWarning(), message, args);
 	}
+
+	
+	default void error(Positioned position, Flag flag, String message, Object...args) {
+		Logger.error(position, flag, message, args);
+	}
+
+	default void error(Flag flag, String message, Object...args) {
+		Logger.error(flag, message, args);
+	}
+	
 	
 	default void terminate() {
 		System.exit(1);

@@ -23,6 +23,7 @@
 package at.syntaxerror.syntaxc.logger;
 
 import at.syntaxerror.syntaxc.SyntaxC;
+import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
@@ -224,83 +225,97 @@ public class Logger {
 	}
 
 	public static void log(LogLevel level, Positioned position, String message, Object...args) {
-		Logger.log(level, position, null, message, args);
+		log(level, position, null, message, args);
 	}
 
 	public static void log(LogLevel level, Warning warning, String message, Object...args) {
-		Logger.log(level, null, warning, message, args);
+		log(level, null, warning, message, args);
 	}
 	
 	public static void log(LogLevel level, String message, Object...args) {
-		Logger.log(level, null, null, message, args);
+		log(level, null, null, message, args);
 	}
 	
 
 	public static void note(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.NOTE, position, warning, message, args);
+		log(LogLevel.NOTE, position, warning, message, args);
 	}
 	
 	public static void note(Positioned position, String message, Object...args) {
-		Logger.log(LogLevel.NOTE, position, null, message, args);
+		log(LogLevel.NOTE, position, null, message, args);
 	}
 
 	public static void note(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.NOTE, null, warning, message, args);
+		log(LogLevel.NOTE, null, warning, message, args);
 	}
 	
 	public static void note(String message, Object...args) {
-		Logger.log(LogLevel.NOTE, null, null, message, args);
+		log(LogLevel.NOTE, null, null, message, args);
 	}
 	
 
 	public static void info(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.INFO, position, warning, message, args);
+		log(LogLevel.INFO, position, warning, message, args);
 	}
 	
 	public static void info(Positioned position, String message, Object...args) {
-		Logger.log(LogLevel.INFO, position, null, message, args);
+		log(LogLevel.INFO, position, null, message, args);
 	}
 
 	public static void info(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.INFO, null, warning, message, args);
+		log(LogLevel.INFO, null, warning, message, args);
 	}
 	
 	public static void info(String message, Object...args) {
-		Logger.log(LogLevel.INFO, null, null, message, args);
+		log(LogLevel.INFO, null, null, message, args);
 	}
 	
 
 	public static void warn(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.WARN, position, warning, message, args);
+		log(LogLevel.WARN, position, warning, message, args);
 	}
 	
 	public static void warn(Positioned position, String message, Object...args) {
-		Logger.log(LogLevel.WARN, position, null, message, args);
+		log(LogLevel.WARN, position, null, message, args);
 	}
 
 	public static void warn(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.WARN, null, warning, message, args);
+		log(LogLevel.WARN, null, warning, message, args);
 	}
 	
 	public static void warn(String message, Object...args) {
-		Logger.log(LogLevel.WARN, null, null, message, args);
+		log(LogLevel.WARN, null, null, message, args);
 	}
 	
 
 	public static void error(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.ERROR, position, warning, message, args);
+		log(LogLevel.ERROR, position, warning, message, args);
 	}
 	
 	public static void error(Positioned position, String message, Object...args) {
-		Logger.log(LogLevel.ERROR, position, null, message, args);
+		log(LogLevel.ERROR, position, null, message, args);
 	}
 
 	public static void error(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.ERROR, null, warning, message, args);
+		log(LogLevel.ERROR, null, warning, message, args);
 	}
 	
 	public static void error(String message, Object...args) {
-		Logger.log(LogLevel.ERROR, null, null, message, args);
+		log(LogLevel.ERROR, null, null, message, args);
+	}
+
+	
+	public static void error(Positioned position, Flag flag, String message, Object...args) {
+		String name = flag.getName();
+		
+		if(!flag.isEnabled())
+			name = "no-" + name;
+		
+		log(LogLevel.ERROR, position, null, message + " §8[§a-f" + name + "§8]", args);
+	}
+
+	public static void error(Flag flag, String message, Object...args) {
+		error(null, flag, message, args);
 	}
 	
 }
