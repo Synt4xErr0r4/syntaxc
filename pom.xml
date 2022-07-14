@@ -1,0 +1,104 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>at.syntaxerror</groupId>
+	<artifactId>syntaxc</artifactId>
+	<version>1.0.0</version>
+	
+	<name>SyntaxC</name>
+	<description>An ANSI-C compiler written in Java 18</description>
+
+	<licenses>
+		<license>
+			<name>The MIT License</name>
+			<url>https://github.com/Synt4xErr0r4/syntaxc/blob/main/LICENSE</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+	
+	<developers>
+		<developer>
+			<id>thomas-kasper</id>
+			<name>Thomas Kasper</name>
+			<email>thomas@syntaxerror.at</email>
+			<url>https://syntaxerror.at</url>
+			<timezone>Europe/Vienna</timezone>
+		</developer>
+	</developers>
+	
+	<scm>
+		<connection>scm:git:git://github.com/Synt4xErr0r4/syntaxc.git</connection>
+		<url>http://github.com/Synt4xErr0r4/syntaxc</url>
+	</scm>
+	
+	<issueManagement>
+		<system>GitHub Issues</system>
+		<url>https://github.com/Synt4xErr0r4/syntaxc/issues</url>
+	</issueManagement>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<release>18</release>
+					<annotationProcessorPaths>
+						<path>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+							<version>1.18.24</version>
+						</path>
+					</annotationProcessorPaths>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+  
+	<dependencies>
+		<!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
+		<dependency>
+		    <groupId>org.projectlombok</groupId>
+		    <artifactId>lombok</artifactId>
+		    <version>1.18.24</version>
+		    <scope>provided</scope>
+		</dependency>
+		
+		<!-- for system information (architecture etc.) -->
+		<dependency>
+		    <groupId>net.java.dev.jna</groupId>
+		    <artifactId>jna</artifactId>
+		    <version>5.10.0</version>
+		</dependency>
+		<dependency>
+		    <groupId>net.java.dev.jna</groupId>
+		    <artifactId>jna-platform</artifactId>
+		    <version>5.10.0</version>
+		</dependency>
+		
+		<!-- for syntax trees -->
+		<dependency>
+		    <groupId>guru.nidi</groupId>
+		    <artifactId>graphviz-java</artifactId>
+		    <version>0.18.1</version>
+
+			<exclusions>
+				<exclusion>
+		            <groupId>org.slf4j</groupId>
+		            <artifactId>jcl-over-slf4j</artifactId>
+		        </exclusion>
+		        <exclusion>
+		            <groupId>org.slf4j</groupId>
+		            <artifactId>jul-to-slf4j</artifactId>
+		        </exclusion>
+			</exclusions>
+		</dependency>
+		
+		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-nop -->
+		<dependency>
+		    <groupId>org.slf4j</groupId>
+		    <artifactId>slf4j-nop</artifactId>
+		    <version>1.7.36</version>
+		    <scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>
