@@ -62,7 +62,6 @@ public enum Punctuator {
 	MINUS			("-"), // ambiguous
 	BITWISE_NOT		("~"),
 	LOGICAL_NOT		("!"),
-	SIZEOF			("sizeof"),
 	DIVIDE			("/"),
 	MODULO			("%"),
 	LSHIFT			("<<"),
@@ -105,8 +104,6 @@ public enum Punctuator {
 		Stream.of(values()).forEach(kw -> MAPPED.put(kw.name, kw));
 		
 		List<String> names = new ArrayList<>(MAPPED.keySet());
-		
-		names.remove("sizeof"); // sizeof is handled differently (like a keyword/identifier; see Lexer#nextIdentifier)
 		
 		// sort by length, in reverse order (longest to smallest)
 		Collections.sort(names, (a, b) -> Integer.compare(b.length(), a.length()));

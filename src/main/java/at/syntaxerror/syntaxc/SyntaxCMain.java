@@ -71,7 +71,8 @@ public class SyntaxCMain {
 			args = new String[] {
 				"/opt/syntaxc/test/test.c",
 				"-o", "-",
-				"--no-stdlib"
+				"--no-stdlib",
+				"-fno-long-double"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -246,7 +247,7 @@ public class SyntaxCMain {
 				
 				Position pos = new Position(Position.ARGUMENT, 0, 0, 0, value.length(), null);
 				
-				PreLexer lexer = new PreLexer(CharStream.fromString(value, pos, true));
+				PreLexer lexer = new PreLexer(CharStream.fromString(value, pos));
 				
 				List<Token> tokens = new ArrayList<>();
 				

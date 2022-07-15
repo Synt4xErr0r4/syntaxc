@@ -51,8 +51,8 @@ public abstract class CharStream implements Logable, Closeable {
 		return new FileCharStream(file, includedFrom);
 	}
 	
-	public static CharStream fromString(String string, Position position, boolean staticPosition) {
-		return new StringCharStream(string, position, staticPosition);
+	public static CharStream fromString(String string, Position position) {
+		return new StringCharStream(string, position);
 	}
 	
 	@Getter
@@ -483,11 +483,12 @@ class StringCharStream extends CharStream {
 
 	private final byte[] bytes;
 	private final long length;
-	private final boolean staticPosition;
+	
+	private int offset;
 
 	private Position selfPosition;
 	
-	protected StringCharStream(String string, Position pos, boolean staticPosition) {
+	protected StringCharStream(String string, Position pos) {
 		super(
 			pos.bytenum() == Position.ARGUMENT
 				? "<argument>"
@@ -495,8 +496,6 @@ class StringCharStream extends CharStream {
 			Paths.get(""),
 			null
 		);
-		
-		this.staticPosition = staticPosition;
 		
 		selfPosition = pos;
 		
@@ -516,16 +515,7 @@ class StringCharStream extends CharStream {
 	
 	@Override
 	public Position getPosition() {
-		return staticPosition
-			? selfPosition
-			: new Position(
-				selfPosition.bytenum(),
-				selfPosition.position(),
-				selfPosition.column(),
-				selfPosition.line(),
-				bytenum - selfPosition.bytenum(),
-				selfPosition.file()
-			);
+		return selfPosition;
 	}
 	
 	@Override
@@ -533,22 +523,20 @@ class StringCharStream extends CharStream {
 	
 	@Override
 	protected long tell() {
-		return bytenum;
+		return selfPosition.bytenum() + offset;
 	}
 	
 	@Override
 	protected void seek(long position) {
-		bytenum = position;
+		offset = (int) (position - selfPosition.bytenum());
 	}
 	
 	@Override
 	protected int nextByte() {
-		int index = (int) (bytenum - selfPosition.bytenum());
+		if(offset < 0 || offset >= length)
+			return -1;
 		
-		return index < 0
-			|| index >= length
-				? -1
-				: bytes[index++] & 0xFF;
+		return bytes[offset++] & 0xFF;
 	}
 	
 }

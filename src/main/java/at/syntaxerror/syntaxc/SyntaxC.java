@@ -136,6 +136,8 @@ public class SyntaxC {
 				postprocessed.add(Token.ofConstant(token.getPosition(), token.getInteger(), NumericType.SIGNED_INT));
 			
 			else postprocessed.add(token);
+			
+			System.out.println(token + " => " + postprocessed.get(postprocessed.size() - 1));
 		}
 		
 		System.out.println(postprocessed);
@@ -146,7 +148,7 @@ public class SyntaxC {
 	}
 
 	private static Token postprocess(Token token) {
-		Lexer lexer = new Lexer(CharStream.fromString(token.getRaw(), token.getPosition(), false));
+		Lexer lexer = new Lexer(CharStream.fromString(token.getRaw(), token.getPosition()));
 		
 		Token result = lexer.nextToken();
 		

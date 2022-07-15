@@ -58,9 +58,6 @@ public class Lexer extends CommonLexer {
 		if(keyword != null)
 			return Token.ofKeyword(ident.getPosition(), keyword);
 		
-		if(ident.getString().equals("sizeof"))
-			return Token.ofPunctuator(ident.getPosition(), Punctuator.SIZEOF);
-		
 		return ident;
 	}
 	
@@ -246,8 +243,10 @@ public class Lexer extends CommonLexer {
 		else if(c == 'l' || c == 'L') {
 			skip();
 			
-			if(floating)
-				type = NumericType.LDOUBLE;
+			if(floating) {
+				if(Flag.LONG_DOUBLE.isEnabled())
+					type = NumericType.LDOUBLE;
+			}
 			
 			else {
 				integer = true;
@@ -269,14 +268,20 @@ public class Lexer extends CommonLexer {
 			error("Illegal suffix »%c« for numeric literal", (char) next());
 		
 		if(floating) {
-			BigDecimal value = new BigDecimal(sb.toString());
+			BigDecimal value;
 			
-			if(!type.inRange(value)) {
+			try {
+				// throws an exception when there are more than 10 exponent digits
+				value = new BigDecimal(sb.toString());
+			} catch (Exception e) {
+				value = null;
+			}
+			
+			if(value == null || !type.inRange(value)) {
 				warn(Warning.FLOAT_OVERFLOW, "Decimal literal is too big for its type");
 				
-				if(value.compareTo(BigDecimal.ZERO) < 0)
-					value = (BigDecimal) type.getMin();
-				else value = (BigDecimal) type.getMax();
+				// value cannot be less than the minimum value (there are no negative constants yet)
+				value = (BigDecimal) type.getMax();
 			}
 			
 			return Token.ofConstant(getPosition(), value, type);

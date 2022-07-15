@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -36,11 +37,14 @@ import lombok.Setter;
  * 
  */
 @RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public enum Flag implements NamedToggle {
-	ELIFDEF			("elifdef", 		"Specifies whether #elifdef and #elifndef preprocessing directives are allowed"),
-	FUNC			("func",			"Specifies whether __FUNCTION__ and __func__ return the current function name"),
-	BINARY_LITERALS	("binary-literals",	"Specifies whether binary literals are allowed")
+	ELIFDEF			("elifdef", 		"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
+	FUNC			("func",			"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
+	BINARY_LITERALS	("binary-literals",	"Specifies whether binary literals are allowed"),
+	LONG_DOUBLE		("long-double",		"When disabled, §clong double §fis an alias for §cdouble"),
+	UNSIGNED_CHAR	("unsigned-char",	"When enabled, §cchar§fs will be unsigned", false)
 	;
 	
 	private static final Map<String, Flag> FLAGS;

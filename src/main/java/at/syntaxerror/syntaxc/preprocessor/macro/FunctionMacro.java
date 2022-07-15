@@ -93,7 +93,7 @@ public record FunctionMacro(Token name, LinkedHashMap<String, Token> args, List<
 	private Token concat(Token first, Token second, Positioned self, Position pos) {
 		String string = first.getRaw() + second.getRaw();
 		
-		PreLexer lexer = new PreLexer(CharStream.fromString(string, pos, true));
+		PreLexer lexer = new PreLexer(CharStream.fromString(string, pos));
 		
 		Token concatenated = lexer.nextToken();
 		

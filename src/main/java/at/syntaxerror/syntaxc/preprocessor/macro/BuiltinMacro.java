@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.preprocessor.macro;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -120,38 +121,63 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 		);
 	}
 	
-	public static void defineLong(String name, Function<Token, Long> function) {
+	public static void defineNumber(String name, Function<Token, Number> function) {
+		defineNumber(name, function, NumericType.SIGNED_INT);
+	}
+	
+	public static void defineNumber(String name, Function<Token, Number> function, NumericType type) {
 		defineToken(
 			name,
-			self -> {
-				BigInteger value = BigInteger.valueOf(function.apply(self));
-				
-				return Token.ofConstant(
-					self.getPosition(),
-					value,
-					NumericType.SIGNED_INT
-				).setRaw(value.toString());
-			},
+			self -> makeNumberToken(self, function.apply(self), type),
 			false
 		);
 	}
 	
-	public static void defineLong(String name, long constant) {
-		final BigInteger value = BigInteger.valueOf(constant);
+	public static void defineNumber(String name, Number constant) {
+		defineNumber(name, constant, NumericType.SIGNED_INT);
+	}
+	
+	public static void defineNumber(String name, Number constant, NumericType type) {
+		final Number value;
+		
+		if(constant instanceof BigInteger || constant instanceof BigDecimal)
+			value = constant;
+		
+		else if(type.isFloating())
+			value = BigDecimal.valueOf(constant.doubleValue());
+		
+		else value = BigInteger.valueOf(constant.longValue());
 		
 		defineToken(
 			name,
-			self -> Token.ofConstant(
-				self.getPosition(),
-				value,
-				NumericType.SIGNED_INT
-			).setRaw(value.toString()),
+			self -> makeNumberToken(self, value, type),
 			true
 		);
 	}
 	
+	private static Token makeNumberToken(Token self, Number num, NumericType type) {
+		if(num instanceof BigInteger bigint)
+			return Token.ofConstant(
+				self.getPosition(),
+				type.mask(bigint),
+				type
+			).setRaw(bigint.toString());
+		
+		BigDecimal bigdec = (BigDecimal) num;
+		
+		return Token.ofConstant(
+			self.getPosition(),
+			type.inRange(bigdec)
+				? bigdec
+				: bigdec.compareTo((BigDecimal) type.getMax()) > 0
+					? (BigDecimal) type.getMax()
+					: (BigDecimal) type.getMin(),
+			type
+		).setRaw(bigdec.toEngineeringString());
+	}
+	
 	public static void define(String name) {
-		defineLong(name, 1L);
+		defineNumber(name, 1L);
 	}
 	
 	static {
@@ -159,8 +185,8 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 		defineString("__DATE__", DATE);
 		defineString("__TIME__", TIME);
 		
-		defineLong("__LINE__", self -> self.getPosition().file().getOverridenLineOffset() + self.getPosition().line());
-		defineLong("__STDC__", 1L);
+		defineNumber("__LINE__", self -> self.getPosition().file().getOverridenLineOffset() + self.getPosition().line());
+		defineNumber("__STDC__", 1L);
 		
 		// extension
 		defineToken("__FUNCTION__", self -> Token.ofIdentifier(self.getPosition(), "__func__"), true);
@@ -171,15 +197,15 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 			| (SyntaxC.Version.MINOR << 16)
 			| SyntaxC.Version.PATCH;
 		
-		defineLong("__SYNTAXC__", versionFull);
+		defineNumber("__SYNTAXC__", versionFull);
 		
-		defineLong("__SYNTAXC_MAJOR__", SyntaxC.Version.MAJOR);
-		defineLong("__SYNTAXC_MINOR__", SyntaxC.Version.MINOR);
-		defineLong("__SYNTAXC_PATCH__", SyntaxC.Version.PATCH);
+		defineNumber("__SYNTAXC_MAJOR__", SyntaxC.Version.MAJOR);
+		defineNumber("__SYNTAXC_MINOR__", SyntaxC.Version.MINOR);
+		defineNumber("__SYNTAXC_PATCH__", SyntaxC.Version.PATCH);
 		defineString("__SYNTAXC_VERSION__", SyntaxC.Version.VERSION);
 		
-		defineLong("__ORDER_BIG_ENDIAN__", 4321);
-		defineLong("__ORDER_LITTLE_ENDIAN__", 1234);
+		defineNumber("__ORDER_BIG_ENDIAN__", 4321);
+		defineNumber("__ORDER_LITTLE_ENDIAN__", 1234);
 	}
 
 	@Override
@@ -223,7 +249,9 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 			? function.apply(DUMMY)
 				.stream()
 				.map(Token::getRaw)
+				.map(s -> s + ' ')
 				.reduce(String::concat)
+				.map(String::strip)
 				.orElse("§8<empty>§r")
 			: "§8<dynamic>§r";
 	}

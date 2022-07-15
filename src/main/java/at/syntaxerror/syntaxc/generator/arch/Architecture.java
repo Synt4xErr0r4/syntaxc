@@ -23,15 +23,23 @@
 package at.syntaxerror.syntaxc.generator.arch;
 
 import java.nio.ByteOrder;
+import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
+import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.misc.IEEE754Utils;
+import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
+import at.syntaxerror.syntaxc.type.NumericType;
 import lombok.Getter;
 import lombok.NonNull;
+
+import static at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro.defineNumber;
 
 /**
  * @author Thomas Kasper
@@ -160,6 +168,101 @@ public class Architecture {
 			Logger.error("Unsupported operating system »%s«", System.getProperty("os.name"));
 			break;
 		}
+		
+		initFloat();
+		initLimits();
+		initStddef();
+	}
+	
+	private static Token asToken(Token pos, String part) {
+		Punctuator punct = Punctuator.of(part);
+		
+		if(punct != null)
+			return Token.ofPunctuator(pos.getPosition(), punct);
+		
+		return Token.ofIdentifier(pos.getPosition(), part);
+	}
+	
+	protected static final void defineType(String name, String type) {
+		String[] parts = type.split(" ");
+		
+		BuiltinMacro.defineList(
+			name,
+			self -> Stream
+				.of(parts)
+				.map(part -> asToken(self, part))
+				.toList(),
+			true
+		);
+	}
+
+	protected void initFloat() {
+		/* § 5.2.4.2.2 Characteristics of floating types <float.h>
+		 * 
+		 * IEEE 754
+		 */
+		
+		defineNumber("__FLT_RADIX__",	2); // binary
+		defineNumber("__FLT_ROUNDS__",	1); // round to nearest
+
+		List<Pair<NumericType, String>> floatings = List.of(
+			Pair.of(NumericType.FLOAT,		"__FLT_"),
+			Pair.of(NumericType.DOUBLE,		"__DBL_"),
+			Pair.of(NumericType.LDOUBLE,	"__LDBL_")
+		);
+		
+		for(var floating : floatings) {
+			NumericType type = floating.getFirst();
+			String name = floating.getSecond();
+			
+			var exp = IEEE754Utils.getExponentRange(type.getExponent());
+			var exp10 = IEEE754Utils.get10ExponentRange(type.getExponent(), type.getMantissa());
+			
+			defineNumber(name + "MANT_DIG__",	type.getMantissa() + (type.isImplicitBit() ? 1 : 0));
+			defineNumber(name + "DIG__",		IEEE754Utils.getDecimalDigits(type.getMantissa()));
+			defineNumber(name + "MIN_EXP__",	exp.getFirst());
+			defineNumber(name + "MIN_10_EXP__",	exp10.getFirst());
+			defineNumber(name + "MAX_EXP__",	exp.getSecond());
+			defineNumber(name + "MAX_10_EXP__",	exp10.getSecond());
+			defineNumber(name + "MAX__",		IEEE754Utils.getMaxValue(type.getExponent(), type.getMantissa(), type.isImplicitBit()), type);
+			defineNumber(name + "EPSILON__",	IEEE754Utils.getEpsilon(type.getExponent(), type.getMantissa(), type.isImplicitBit()), type);
+			defineNumber(name + "MIN__",		IEEE754Utils.getMinValue(type.getExponent(), type.getMantissa(), type.isImplicitBit()), type);
+		}
+	}
+	
+	protected void initLimits() {
+		defineNumber("__CHAR_BIT__",	NumericType.CHAR.getSize() * 8);
+		defineNumber("__MB_LEN_MAX__",	16); // https://www.man7.org/linux/man-pages/man3/MB_LEN_MAX.3.html
+
+		List<Pair<NumericType, String>> integers = List.of(
+			Pair.of(NumericType.SIGNED_CHAR,	"__SCHAR_"),
+			Pair.of(NumericType.UNSIGNED_CHAR,	"__UCHAR_"),
+			Pair.of(NumericType.SIGNED_SHORT,	"__SHRT_"),
+			Pair.of(NumericType.UNSIGNED_SHORT,	"__USHRT_"),
+			Pair.of(NumericType.SIGNED_INT,		"__INT_"),
+			Pair.of(NumericType.UNSIGNED_INT,	"__UINT_"),
+			Pair.of(NumericType.SIGNED_LONG,	"__LONG_"),
+			Pair.of(NumericType.UNSIGNED_LONG,	"__ULONG_")
+		);
+		
+		for(var integer : integers) {
+			NumericType type = integer.getFirst();
+			String name = integer.getSecond();
+			
+			if(type.isSigned())
+				defineNumber(name + "MIN__", type.getMin(), type);
+			
+			defineNumber(name + "MAX__", type.getMax(), type);
+		}
+		
+		defineNumber("__CHAR_MIN__",	NumericType.CHAR.getMin(),	NumericType.CHAR);
+		defineNumber("__CHAR_MAX__",	NumericType.CHAR.getMax(),	NumericType.CHAR);
+	}
+	
+	protected void initStddef() {
+		defineType("__PTRDIFF_TYPE__",	NumericType.PTRDIFF.getAsSigned().getCode());
+		defineType("__SIZE_TYPE__",		NumericType.SIZE.getAsUnsigned().getCode());
+		defineType("__WCHAR_TYPE__",	NumericType.WCHAR.getCode());
 	}
 	
 	public static Architecture unsupported(String name) {

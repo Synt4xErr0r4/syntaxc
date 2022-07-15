@@ -83,7 +83,7 @@ public enum Warning implements NamedToggle {
 	 */
 	$3(CompilationStage.SEMANTIC),
 	SEM_NONE,
-	OVERFLOW			("overflow",				"Warns when implicitly casting a constant expression alters its value"),
+	OVERFLOW			("implicit-overflow",		"Warns when implicitly casting a constant expression alters its value"),
 
 	/**
 	 * ===== OPTIMIZATION =====
@@ -126,6 +126,7 @@ public enum Warning implements NamedToggle {
 			}
 		
 		group("all", "Enables all warnings", WARNINGS.values().toArray(Warning[]::new));
+		group("overflow", "Enables all *-overflow warnings", CHAR_HEX_OVERFLOW, CHAR_OCT_OVERFLOW, CHAR_OVERFLOW, INT_OVERFLOW, FLOAT_OVERFLOW);
 		
 		// default values
 		

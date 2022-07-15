@@ -28,6 +28,7 @@ import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
 import at.syntaxerror.syntaxc.type.NumericType;
 
@@ -43,8 +44,6 @@ public class X86Architecture extends Architecture {
 	
 	@Override
 	public void onInit(OperatingSystem system, BitSize bitSize, ByteOrder endianness) {
-		super.onInit(system, bitSize, endianness);
-		
 		/* https://agner.org/optimize/calling_conventions.pdf
 		 * § 18 Predefined macros
 		 * 
@@ -52,6 +51,12 @@ public class X86Architecture extends Architecture {
 		 * § AMD64
 		 * § Intel x86
 		 */
+		
+		if(Flag.LONG_DOUBLE.isEnabled())
+			NumericType.LDOUBLE.modify(16, 15, 64, false);
+		
+		if(Flag.UNSIGNED_CHAR.isEnabled())
+			NumericType.CHAR = NumericType.UNSIGNED_CHAR;
 		
 		if(bitSize == BitSize.B64) {
 			BuiltinMacro.define("__M_X64");
@@ -76,11 +81,12 @@ public class X86Architecture extends Architecture {
 			BuiltinMacro.define("_ILP32");
 			BuiltinMacro.define("__ILP32__");
 			
-			NumericType.SIGNED_LONG.inhert(NumericType.SIGNED_INT);
-			NumericType.UNSIGNED_LONG.inhert(NumericType.UNSIGNED_INT);
-			NumericType.POINTER.inhert(NumericType.UNSIGNED_LONG);
+			NumericType.SIGNED_LONG.inherit(NumericType.SIGNED_INT);
+			NumericType.UNSIGNED_LONG.inherit(NumericType.UNSIGNED_INT);
 		}
-		else Logger.error("Unsupported bit size for x86 architecture: %s (only 32 and 64 is supported)", bitSize);
+		else Logger.error("Unsupported bit size for x86 architecture: %s (only 32 and 64 are supported)", bitSize);
+		
+		super.onInit(system, bitSize, endianness);
 	}
 
 }

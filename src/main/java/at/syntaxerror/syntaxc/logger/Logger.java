@@ -140,7 +140,9 @@ public class Logger {
 		    	long offset = 0;
 		    	
 		    	for(int l = 0; l < nLines + 1; ++l) {
-		    		System.out.printf("§#c§f % " + lineWidth + "d §r§8| §f", line + l + 1);
+		    		int currentLineWidth = (int) (Math.log10((double) line + l + 1) + 1);
+		    		
+		    		System.out.printf("§#c§f  %s%d §r§8| §f", " ".repeat(lineWidth - currentLineWidth), line + l + 1);
 		    		
 		    		if(l == 0 && !newlineStart) // indicate that there is code on this line before the displayed section
 		    			System.out.print("...");

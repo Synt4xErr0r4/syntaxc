@@ -165,13 +165,13 @@ public class Token implements Positioned {
 	public String toString() {
 		switch(type) {
 		case IDENTIFIER:	return "Token(ident=" + string + ")";
-		case STRING:		return "Token(string=" + string + ", wide=" + wide + ")";
+		case STRING:		return "Token(string=" + StringUtils.quote(string) + ", wide=" + wide + ")";
 		case PUNCTUATOR:	return "Token(" + punctuator.getName() + ")";
 		
 		case KEYWORD:		return "Token(" + keyword.getName() + ")";
 		case CONSTANT:		return "Token(" + (integer == null ? decimal : integer) + ", type=" + numericType + ")";
 		
-		case HEADER:		return "Token(" + string + ", pp)";
+		case HEADER:		return "Token(" + StringUtils.quote(string) + ", pp)";
 		case NUMBER:		return "Token(" + string + ", pp)";
 		case CHARACTER:		return "Token(" + integer + ", pp)";
 		case WHITESPACE:	return "Token(whitespace, pp)";

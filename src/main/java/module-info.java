@@ -25,4 +25,5 @@ module syntaxc {
 	requires transitive com.sun.jna;
 	requires transitive com.sun.jna.platform;
 	requires guru.nidi.graphviz;
+	requires ch.obermuhlner.math.big;
 }
