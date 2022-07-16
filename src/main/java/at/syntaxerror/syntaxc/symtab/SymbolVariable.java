@@ -20,54 +20,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.preprocessor.directive;
+package at.syntaxerror.syntaxc.symtab;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.Type;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class ErrorDirective extends Directive {
+@RequiredArgsConstructor
+@Getter
+@ToString(exclude = "position")
+public class SymbolVariable {
 
-	public ErrorDirective(Preprocessor preprocessor, Token self) {
-		super(preprocessor, self);
+	private final Position position;
+	private final String name;
+	private final SymbolKind kind;
+	private final SymbolObject object;
+	
+	private final boolean implicit; // implicit function declaration
+	
+	public Type getType() {
+		return object.getType();
 	}
-
-	@Override
-	public void processSimple() {
-		Position pos = getSelf().getPosition();
-		
-		List<Token> tokens = new ArrayList<>();
-		
-		Token tok;
-		boolean nonWhitespace = false;
-		
-		while((tok = nextTokenRaw()) != null && !tok.is(TokenType.NEWLINE)) {
-			tokens.add(tok);
-			
-			if(!tok.is(TokenType.WHITESPACE))
-				nonWhitespace = true;
-		}
-		
-		error(
-			nonWhitespace
-				? pos.range(tokens.get(tokens.size() - 1))
-				: pos,
-			"%s",
-			tokens.stream()
-				.map(Token::getRaw)
-				.reduce(String::concat)
-				.map(String::strip)
-				.filter(s -> !s.isBlank())
-				.orElse("Error directive encountered")
-		);
+	
+	public boolean isVariable() {
+		return kind == SymbolKind.VARIABLE;
 	}
-
+	
+	public boolean isTypedef() {
+		return kind == SymbolKind.TYPEDEF;
+	}
+	
+	public boolean isEnumerator() {
+		return kind == SymbolKind.ENUMERATOR;
+	}
+	
 }

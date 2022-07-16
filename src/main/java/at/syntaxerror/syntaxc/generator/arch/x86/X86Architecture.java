@@ -29,8 +29,9 @@ import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Flag;
+import at.syntaxerror.syntaxc.misc.IEEE754Utils.FloatingSpec;
 import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
-import at.syntaxerror.syntaxc.type.NumericType;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 
 /**
  * @author Thomas Kasper
@@ -53,10 +54,10 @@ public class X86Architecture extends Architecture {
 		 */
 		
 		if(Flag.LONG_DOUBLE.isEnabled())
-			NumericType.LDOUBLE.modify(16, 15, 64, false);
+			NumericValueType.LDOUBLE.modify(16, FloatingSpec.EXTENDED);
 		
 		if(Flag.UNSIGNED_CHAR.isEnabled())
-			NumericType.CHAR = NumericType.UNSIGNED_CHAR;
+			NumericValueType.CHAR = NumericValueType.UNSIGNED_CHAR;
 		
 		if(bitSize == BitSize.B64) {
 			BuiltinMacro.define("__M_X64");
@@ -81,8 +82,8 @@ public class X86Architecture extends Architecture {
 			BuiltinMacro.define("_ILP32");
 			BuiltinMacro.define("__ILP32__");
 			
-			NumericType.SIGNED_LONG.inherit(NumericType.SIGNED_INT);
-			NumericType.UNSIGNED_LONG.inherit(NumericType.UNSIGNED_INT);
+			NumericValueType.SIGNED_LONG.inherit(NumericValueType.SIGNED_INT);
+			NumericValueType.UNSIGNED_LONG.inherit(NumericValueType.UNSIGNED_INT);
 		}
 		else Logger.error("Unsupported bit size for x86 architecture: %s (only 32 and 64 are supported)", bitSize);
 		

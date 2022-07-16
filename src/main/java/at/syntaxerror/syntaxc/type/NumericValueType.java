@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
+import at.syntaxerror.syntaxc.misc.IEEE754Utils.FloatingSpec;
 import lombok.Getter;
 
 /**
@@ -33,32 +34,32 @@ import lombok.Getter;
  * 
  */
 @Getter
-public enum NumericType {
+public enum NumericValueType {
 
-	SIGNED_CHAR		(true,	1, "signed char"),			// char, signed char
-	UNSIGNED_CHAR	(false,	1, "unsigned char"),		// unsigned char
+	SIGNED_CHAR		(true,	1, "signed char"),		// char, signed char
+	UNSIGNED_CHAR	(false,	1, "unsigned char"),	// unsigned char
 	
-	SIGNED_SHORT	(true,	2, "signed short int"),		// short, signed short, short int, signed short int
-	UNSIGNED_SHORT	(false,	2, "unsigned short int"),	// unsigned short, unsigned short int
+	SIGNED_SHORT	(true,	2, "short"),			// short, signed short, short int, signed short int
+	UNSIGNED_SHORT	(false,	2, "unsigned short"),	// unsigned short, unsigned short int
 	
-	SIGNED_INT		(true,	4, "signed int"),			// int, signed, signed int
-	UNSIGNED_INT	(false,	4, "unsigned int"),			// unsigned, unsigned int
+	SIGNED_INT		(true,	4, "int"),				// int, signed, signed int
+	UNSIGNED_INT	(false,	4, "unsigned int"),		// unsigned, unsigned int
 	
-	SIGNED_LONG		(true,	8, "signed long"),			// long, signed long, long int, signed long int
-	UNSIGNED_LONG	(false,	8, "unsigned long"),		// unsigned long, unsigned long int
+	SIGNED_LONG		(true,	8, "long"),				// long, signed long, long int, signed long int
+	UNSIGNED_LONG	(false,	8, "unsigned long"),	// unsigned long, unsigned long int
 	
-	FLOAT			(4,	8,	23,	true,	"float"),		// float
-	DOUBLE			(8,	11,	53,	true,	"double"),		// double
-	LDOUBLE			(8,	11,	53,	true,	"long double");	// long double (equivalent to double by default)
+	FLOAT			(4,	FloatingSpec.SINGLE, "float"),		// float
+	DOUBLE			(8,	FloatingSpec.DOUBLE, "double"),		// double
+	LDOUBLE			(8,	FloatingSpec.DOUBLE, "long double");	// long double (equivalent to double by default)
 
-	public static NumericType CHAR = SIGNED_CHAR;		// char			(equivalent to 'signed char' by default)
-	public static NumericType POINTER = UNSIGNED_LONG;	// e.g. void *	(equivalent to 'unsigned long' by default)
-	public static NumericType WCHAR = SIGNED_INT;		// wchar_t		(equivalent to 'signed int' by default)
-	public static NumericType PTRDIFF = SIGNED_INT;		// ptrdiff_t	(equivalent to 'signed int' by default)
-	public static NumericType SIZE = UNSIGNED_INT;		// size_t		(equivalent to 'unsigned int' by default)
+	public static NumericValueType CHAR = SIGNED_CHAR;		// char			(equivalent to 'signed char' by default)
+	public static NumericValueType POINTER = UNSIGNED_LONG;	// e.g. void *	(equivalent to 'unsigned long' by default)
+	public static NumericValueType WCHAR = SIGNED_INT;		// wchar_t		(equivalent to 'signed int' by default)
+	public static NumericValueType PTRDIFF = SIGNED_INT;		// ptrdiff_t	(equivalent to 'signed int' by default)
+	public static NumericValueType SIZE = UNSIGNED_INT;		// size_t		(equivalent to 'unsigned int' by default)
 	
 	static {
-		for(NumericType type : values())
+		for(NumericValueType type : values())
 			if(type.floating)
 				type.asSigned = type.asUnsigned = type;
 			
@@ -83,35 +84,30 @@ public enum NumericType {
 	private Number min;
 	private Number max;
 	
-	private int exponent;
-	private int mantissa;
-	private boolean implicitBit;
+	private FloatingSpec floatingSpec;
 
 	private BigInteger mask;
 	
 	private final String code;
 	
-	private NumericType asSigned;
-	private NumericType asUnsigned;
+	private NumericValueType asSigned;
+	private NumericValueType asUnsigned;
 	
-	private NumericType(int size, int exponent, int mantissa, boolean implicitBit, String code) {
+	private NumericValueType(int size, FloatingSpec floatingSpec, String code) {
 		floating = true;
 		signed = false;
 		
 		this.size = size;
+		this.floatingSpec = floatingSpec;
 		this.code = code;
 		
-		this.exponent = exponent;
-		this.mantissa = mantissa;
-		this.implicitBit = implicitBit;
-		
-		max = IEEE754Utils.getMaxValue(exponent, mantissa, implicitBit);
+		max = IEEE754Utils.getMaxValue(floatingSpec);
 		min = ((BigDecimal) max).negate();
 		
 		asSigned = asUnsigned = this;
 	}
 	
-	private NumericType(boolean signed, int size, String code) {
+	private NumericValueType(boolean signed, int size, String code) {
 		floating = false;
 		
 		this.signed = signed;
@@ -122,7 +118,7 @@ public enum NumericType {
 		this.code = code;
 	}
 	
-	public void inherit(NumericType type) {
+	public void inherit(NumericValueType type) {
 		if(type.floating != floating)
 			throw new IllegalArgumentException("Type " + this + " cannot inhert from " + (type.floating ? "floating" : "integer") + " type " + type);
 		
@@ -133,10 +129,8 @@ public enum NumericType {
 		
 		min = type.min;
 		max = type.max;
-		
-		exponent = type.exponent;
-		mantissa = type.mantissa;
-		implicitBit = type.implicitBit;
+
+		floatingSpec = type.floatingSpec;
 	}
 	
 	public void modify(int size) {
@@ -150,17 +144,15 @@ public enum NumericType {
 		}
 	}
 	
-	public void modify(int size, int exponent, int mantissa, boolean implicitBit) {
+	public void modify(int size, FloatingSpec floatingSpec) {
 		if(size < 1) throw new IllegalArgumentException("Illegal non-positive size for type " + this);
 		if(!floating) throw new IllegalArgumentException("Cannot set floating bounds for integer type " + this);
 		
 		this.size = size;
 		
-		this.exponent = exponent;
-		this.mantissa = mantissa;
-		this.implicitBit = implicitBit;
+		this.floatingSpec = floatingSpec;
 		
-		max = IEEE754Utils.getMaxValue(exponent, mantissa, implicitBit);
+		max = IEEE754Utils.getMaxValue(floatingSpec);
 		min = ((BigDecimal) max).negate();
 	}
 	
@@ -235,6 +227,10 @@ public enum NumericType {
 		if(size == 8) return value;
 		
 		return BigInteger.valueOf(value).and(mask).longValue();
+	}
+	
+	public Type asType() {
+		return NumberType.of(this);
 	}
 	
 }

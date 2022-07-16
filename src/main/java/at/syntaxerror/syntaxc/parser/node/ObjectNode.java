@@ -20,54 +20,35 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.preprocessor.directive;
+package at.syntaxerror.syntaxc.parser.node;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
+import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.Type;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class ErrorDirective extends Directive {
+@Getter
+@RequiredArgsConstructor
+public class ObjectNode extends Node {
 
-	public ErrorDirective(Preprocessor preprocessor, Token self) {
-		super(preprocessor, self);
-	}
-
+	private final Position position;
+	private final String name;
+	private Type type;
+	
 	@Override
-	public void processSimple() {
-		Position pos = getSelf().getPosition();
-		
-		List<Token> tokens = new ArrayList<>();
-		
-		Token tok;
-		boolean nonWhitespace = false;
-		
-		while((tok = nextTokenRaw()) != null && !tok.is(TokenType.NEWLINE)) {
-			tokens.add(tok);
-			
-			if(!tok.is(TokenType.WHITESPACE))
-				nonWhitespace = true;
-		}
-		
-		error(
-			nonWhitespace
-				? pos.range(tokens.get(tokens.size() - 1))
-				: pos,
-			"%s",
-			tokens.stream()
-				.map(Token::getRaw)
-				.reduce(String::concat)
-				.map(String::strip)
-				.filter(s -> !s.isBlank())
-				.orElse("Error directive encountered")
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("name", name),
+			child("type", type)
 		);
 	}
-
+	
 }

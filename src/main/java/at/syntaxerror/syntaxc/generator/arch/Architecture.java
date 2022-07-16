@@ -33,9 +33,10 @@ import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
+import at.syntaxerror.syntaxc.misc.IEEE754Utils.FloatingSpec;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
-import at.syntaxerror.syntaxc.type.NumericType;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.Getter;
 import lombok.NonNull;
 
@@ -169,9 +170,14 @@ public class Architecture {
 			break;
 		}
 		
-		initFloat();
-		initLimits();
-		initStddef();
+		initFloat();	// <float.h>
+		initLimits();	// <limits.h>
+		initStddef();	// <stddef.h>
+		initStdlib();	// <stdlib.h>
+		initStdio();	// <stdio.h>
+		initSetjmp();	// <setjmp.h>
+		initSignal();	// <signal.h>
+		initMath();		// <math.h>
 	}
 	
 	private static Token asToken(Token pos, String part) {
@@ -205,48 +211,50 @@ public class Architecture {
 		defineNumber("__FLT_RADIX__",	2); // binary
 		defineNumber("__FLT_ROUNDS__",	1); // round to nearest
 
-		List<Pair<NumericType, String>> floatings = List.of(
-			Pair.of(NumericType.FLOAT,		"__FLT_"),
-			Pair.of(NumericType.DOUBLE,		"__DBL_"),
-			Pair.of(NumericType.LDOUBLE,	"__LDBL_")
+		List<Pair<NumericValueType, String>> floatings = List.of(
+			Pair.of(NumericValueType.FLOAT,		"__FLT_"),
+			Pair.of(NumericValueType.DOUBLE,		"__DBL_"),
+			Pair.of(NumericValueType.LDOUBLE,	"__LDBL_")
 		);
 		
 		for(var floating : floatings) {
-			NumericType type = floating.getFirst();
+			NumericValueType type = floating.getFirst();
 			String name = floating.getSecond();
 			
-			var exp = IEEE754Utils.getExponentRange(type.getExponent());
-			var exp10 = IEEE754Utils.get10ExponentRange(type.getExponent(), type.getMantissa());
+			FloatingSpec spec = type.getFloatingSpec();
 			
-			defineNumber(name + "MANT_DIG__",	type.getMantissa() + (type.isImplicitBit() ? 1 : 0));
-			defineNumber(name + "DIG__",		IEEE754Utils.getDecimalDigits(type.getMantissa()));
+			var exp = IEEE754Utils.getExponentRange(spec);
+			var exp10 = IEEE754Utils.get10ExponentRange(spec);
+			
+			defineNumber(name + "MANT_DIG__",	spec.mantissa() + (spec.implicit() ? 1 : 0));
+			defineNumber(name + "DIG__",		IEEE754Utils.getDecimalDigits(spec));
 			defineNumber(name + "MIN_EXP__",	exp.getFirst());
 			defineNumber(name + "MIN_10_EXP__",	exp10.getFirst());
 			defineNumber(name + "MAX_EXP__",	exp.getSecond());
 			defineNumber(name + "MAX_10_EXP__",	exp10.getSecond());
-			defineNumber(name + "MAX__",		IEEE754Utils.getMaxValue(type.getExponent(), type.getMantissa(), type.isImplicitBit()), type);
-			defineNumber(name + "EPSILON__",	IEEE754Utils.getEpsilon(type.getExponent(), type.getMantissa(), type.isImplicitBit()), type);
-			defineNumber(name + "MIN__",		IEEE754Utils.getMinValue(type.getExponent(), type.getMantissa(), type.isImplicitBit()), type);
+			defineNumber(name + "MAX__",		IEEE754Utils.getMaxValue(spec), type);
+			defineNumber(name + "EPSILON__",	IEEE754Utils.getEpsilon(spec), type);
+			defineNumber(name + "MIN__",		IEEE754Utils.getMinValue(spec), type);
 		}
 	}
 	
 	protected void initLimits() {
-		defineNumber("__CHAR_BIT__",	NumericType.CHAR.getSize() * 8);
+		defineNumber("__CHAR_BIT__",	NumericValueType.CHAR.getSize() * 8);
 		defineNumber("__MB_LEN_MAX__",	16); // https://www.man7.org/linux/man-pages/man3/MB_LEN_MAX.3.html
 
-		List<Pair<NumericType, String>> integers = List.of(
-			Pair.of(NumericType.SIGNED_CHAR,	"__SCHAR_"),
-			Pair.of(NumericType.UNSIGNED_CHAR,	"__UCHAR_"),
-			Pair.of(NumericType.SIGNED_SHORT,	"__SHRT_"),
-			Pair.of(NumericType.UNSIGNED_SHORT,	"__USHRT_"),
-			Pair.of(NumericType.SIGNED_INT,		"__INT_"),
-			Pair.of(NumericType.UNSIGNED_INT,	"__UINT_"),
-			Pair.of(NumericType.SIGNED_LONG,	"__LONG_"),
-			Pair.of(NumericType.UNSIGNED_LONG,	"__ULONG_")
+		List<Pair<NumericValueType, String>> integers = List.of(
+			Pair.of(NumericValueType.SIGNED_CHAR,	"__SCHAR_"),
+			Pair.of(NumericValueType.UNSIGNED_CHAR,	"__UCHAR_"),
+			Pair.of(NumericValueType.SIGNED_SHORT,	"__SHRT_"),
+			Pair.of(NumericValueType.UNSIGNED_SHORT,	"__USHRT_"),
+			Pair.of(NumericValueType.SIGNED_INT,		"__INT_"),
+			Pair.of(NumericValueType.UNSIGNED_INT,	"__UINT_"),
+			Pair.of(NumericValueType.SIGNED_LONG,	"__LONG_"),
+			Pair.of(NumericValueType.UNSIGNED_LONG,	"__ULONG_")
 		);
 		
 		for(var integer : integers) {
-			NumericType type = integer.getFirst();
+			NumericValueType type = integer.getFirst();
 			String name = integer.getSecond();
 			
 			if(type.isSigned())
@@ -255,14 +263,51 @@ public class Architecture {
 			defineNumber(name + "MAX__", type.getMax(), type);
 		}
 		
-		defineNumber("__CHAR_MIN__",	NumericType.CHAR.getMin(),	NumericType.CHAR);
-		defineNumber("__CHAR_MAX__",	NumericType.CHAR.getMax(),	NumericType.CHAR);
+		defineNumber("__CHAR_MIN__",	NumericValueType.CHAR.getMin(),	NumericValueType.CHAR);
+		defineNumber("__CHAR_MAX__",	NumericValueType.CHAR.getMax(),	NumericValueType.CHAR);
 	}
 	
 	protected void initStddef() {
-		defineType("__PTRDIFF_TYPE__",	NumericType.PTRDIFF.getAsSigned().getCode());
-		defineType("__SIZE_TYPE__",		NumericType.SIZE.getAsUnsigned().getCode());
-		defineType("__WCHAR_TYPE__",	NumericType.WCHAR.getCode());
+		defineType("__PTRDIFF_TYPE__",	NumericValueType.PTRDIFF.getAsSigned().getCode());
+		defineType("__SIZE_TYPE__",		NumericValueType.SIZE.getAsUnsigned().getCode());
+		defineType("__WCHAR_TYPE__",	NumericValueType.WCHAR.getCode());
+	}
+	
+	protected void initStdlib() {
+		defineType("__DIV_TYPE__",		"");
+		defineType("__LDIV_TYPE__",		"");
+	}
+	
+	protected void initStdio() {
+		defineType("__FILE_TYPE__",		"");
+		defineType("__FPOS_TYPE__",		"");
+		defineType("___IOFBF",			"");
+		defineType("___IOLBF",			"");
+		defineType("___IONBF",			"");
+		defineType("__BUFSIZ",			"");
+		defineType("__EOF",				"");
+		defineType("__FILENAME_MAX",	"");
+		defineType("__FOPEN_MAX",		"");
+		defineType("__L_tmpnam__",		"");
+		defineType("__SEEK_CUR",		"");
+		defineType("__SEEK_END",		"");
+		defineType("__SEEK_SET",		"");
+		defineType("__TMP_MAX",		"");
+		defineType("__stderr",		"");
+		defineType("__stdin",		"");
+		defineType("__stdout",		"");
+	}
+	
+	protected void initSetjmp() {
+		defineType("__JMP_BUF_TYPE__",	"");
+	}
+	
+	protected void initSignal() {
+		defineType("__JMP_BUF_TYPE__",	"");
+	}
+	
+	protected void initMath() {
+		defineNumber("__HUGE_VAL__",	NumericValueType.DOUBLE.getMax(), NumericValueType.DOUBLE);
 	}
 	
 	public static Architecture unsupported(String name) {

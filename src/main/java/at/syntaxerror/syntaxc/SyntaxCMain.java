@@ -72,7 +72,8 @@ public class SyntaxCMain {
 				"/opt/syntaxc/test/test.c",
 				"-o", "-",
 				"--no-stdlib",
-				"-fno-long-double"
+				"-fno-long-double",
+				"-fsyntax-tree"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -311,6 +312,7 @@ public class SyntaxCMain {
 		
 		CharStream input = CharStream.fromFile(file, null);
 		
+		String base = file.substring(0, file.length() - 2);
 		String out;
 		
 		if(result.has('o')) {
@@ -319,7 +321,7 @@ public class SyntaxCMain {
 			
 			out = result.get('o').get(0);
 		}
-		else out = file.substring(0, file.length() - 2)
+		else out = base 
 			+ (SyntaxC.preprocessOnly
 				? ".preprocessed.c"
 				: SyntaxC.dontAssemble
@@ -331,16 +333,10 @@ public class SyntaxCMain {
 		if(out.equals("-"))
 			output = AnsiPipe.getStdout();
 		
-		else try {
-			Path path = Paths.get(out);
-			
-			Files.createDirectories(path.getParent());
-			
-			output = Files.newOutputStream(path, StandardOpenOption.CREATE);
-		} catch (Exception e) {
-			parser.showUsage("Failed to open output file: %s", e.getMessage());
-			return;
-		}
+		else output = createStream(parser, out);
+		
+		if(Flag.SYNTAX_TREE.isEnabled())
+			SyntaxC.syntaxTree = createStream(parser, base + ".syntaxtree.dot");
 		
 		SyntaxC.compile(input, output);
 		
@@ -348,6 +344,19 @@ public class SyntaxCMain {
 			output.flush();
 			output.close();
 		} catch (Exception e) { }
+	}
+	
+	private static OutputStream createStream(OptionParser parser, String file) {
+		try {
+			Path path = Paths.get(file);
+			
+			Files.createDirectories(path.getParent());
+			
+			return Files.newOutputStream(path, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+		} catch (Exception e) {
+			parser.showUsage("Failed to open output file: %s", e.getMessage());
+			return null;
+		}
 	}
 	
 	private static Pair<String, String> split(String value, char delimiter) {

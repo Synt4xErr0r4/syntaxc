@@ -80,7 +80,7 @@ public class LineDirective extends Directive {
 			if(!tokens.isEmpty())
 				warn(
 					tokens.get(tokens.size() - 1).getPosition()
-						.range(tokens.get(0).getPosition()),
+						.range(tokens.get(0)),
 					Warning.TRAILING,
 					"Trailing data after preprocessing directive"
 				);

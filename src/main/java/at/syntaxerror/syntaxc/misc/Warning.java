@@ -84,7 +84,8 @@ public enum Warning implements NamedToggle {
 	$3(CompilationStage.SEMANTIC),
 	SEM_NONE,
 	OVERFLOW			("implicit-overflow",		"Warns when implicitly casting a constant expression alters its value"),
-
+	IMPLICIT_FUNCTION	("implicit-function",		"Warns when a function is not explicitly declared"),
+	
 	/**
 	 * ===== OPTIMIZATION =====
 	 */

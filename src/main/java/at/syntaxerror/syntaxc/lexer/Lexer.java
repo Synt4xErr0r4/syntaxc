@@ -29,7 +29,7 @@ import at.syntaxerror.syntaxc.io.CharStream;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.type.NumericType;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 
 /**
  * @author Thomas Kasper
@@ -207,7 +207,7 @@ public class Lexer extends CommonLexer {
 		
 		c = peek();
 		
-		NumericType type = floating ? NumericType.DOUBLE : null;
+		NumericValueType type = floating ? NumericValueType.DOUBLE : null;
 		
 		int suffix = 0;
 		
@@ -217,7 +217,7 @@ public class Lexer extends CommonLexer {
 			if(integer || !floating)
 				error("Illegal suffix »%c« for integer literal", (char) c);
 			
-			type = NumericType.FLOAT;
+			type = NumericValueType.FLOAT;
 		}
 		
 		else if(c == 'u' || c == 'U') {
@@ -245,7 +245,7 @@ public class Lexer extends CommonLexer {
 			
 			if(floating) {
 				if(Flag.LONG_DOUBLE.isEnabled())
-					type = NumericType.LDOUBLE;
+					type = NumericValueType.LDOUBLE;
 			}
 			
 			else {
@@ -292,50 +292,50 @@ public class Lexer extends CommonLexer {
 		
 		BigInteger value = new BigInteger(sb.toString(), radix);
 		
-		NumericType[] toCheck = null;
+		NumericValueType[] toCheck = null;
 		
 		switch(suffix) {
 		case UNSIGNED: // unsigned int, unsigned long int
-			toCheck = new NumericType[] {
-				NumericType.UNSIGNED_INT
+			toCheck = new NumericValueType[] {
+				NumericValueType.UNSIGNED_INT
 			};
 			break;
 		
 		case LONG: // long int, unsigned long int
-			toCheck = new NumericType[] {
-				NumericType.SIGNED_LONG
+			toCheck = new NumericValueType[] {
+				NumericValueType.SIGNED_LONG
 			};
 			break;
 		
 		case UNSIGNED | LONG: // unsigned long int
-			toCheck = new NumericType[] { };
+			toCheck = new NumericValueType[] { };
 			break;
 		
 		default:
 			if(radix == 10) // int, long int, unsigned long int
-				toCheck = new NumericType[] {
-					NumericType.SIGNED_INT,
-					NumericType.SIGNED_LONG
+				toCheck = new NumericValueType[] {
+					NumericValueType.SIGNED_INT,
+					NumericValueType.SIGNED_LONG
 				};
 			
 			// int, unsigned int, long int, unsigned long int
-			else toCheck = new NumericType[] {
-				NumericType.SIGNED_INT,
-				NumericType.UNSIGNED_INT,
-				NumericType.SIGNED_LONG
+			else toCheck = new NumericValueType[] {
+				NumericValueType.SIGNED_INT,
+				NumericValueType.UNSIGNED_INT,
+				NumericValueType.SIGNED_LONG
 			};
 			
 			break;
 		}
 		
-		for(NumericType nt : toCheck)
+		for(NumericValueType nt : toCheck)
 			if(nt.inRange(value)) {
 				type = nt;
 				break;
 			}
 		
 		if(type == null) {
-			type = NumericType.UNSIGNED_LONG;
+			type = NumericValueType.UNSIGNED_LONG;
 			
 			if(!type.inRange(value)) {
 				warn(Warning.INT_OVERFLOW, "Integer literal is too big for its type");

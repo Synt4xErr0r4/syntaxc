@@ -32,7 +32,7 @@ import at.syntaxerror.syntaxc.misc.StringUtils;
 import at.syntaxerror.syntaxc.preprocessor.macro.Macro;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
-import at.syntaxerror.syntaxc.type.NumericType;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -73,11 +73,11 @@ public class Token implements Positioned {
 		return new Token(position, TokenType.KEYWORD).setKeyword(keyword);
 	}
 
-	public static Token ofConstant(Position position, BigInteger integer, NumericType type) {
+	public static Token ofConstant(Position position, BigInteger integer, NumericValueType type) {
 		return new Token(position, TokenType.CONSTANT).setInteger(integer).setNumericType(type);
 	}
 
-	public static Token ofConstant(Position position, BigDecimal decimal, NumericType type) {
+	public static Token ofConstant(Position position, BigDecimal decimal, NumericValueType type) {
 		return new Token(position, TokenType.CONSTANT).setDecimal(decimal).setNumericType(type);
 	}
 
@@ -112,7 +112,7 @@ public class Token implements Positioned {
 	private BigInteger integer;
 	private BigDecimal decimal;
 	
-	private NumericType numericType;
+	private NumericValueType numericType;
 	private boolean wide;
 	
 	@Setter(AccessLevel.PUBLIC)
@@ -134,15 +134,18 @@ public class Token implements Positioned {
 				return true;
 			
 			if(arg instanceof String str) {
-				if(keyword != null && keyword.getName().equals(arg))
+				if(keyword != null && keyword.getName().equals(str))
 					return true;
 
-				if(punctuator != null && punctuator.getName().equals(arg))
+				if(punctuator != null && punctuator.getName().equals(str))
+					return true;
+				
+				if(type == TokenType.IDENTIFIER && string.equals(str))
 					return true;
 			}
 			
 			if(arg instanceof Punctuator punct && punctuator != null && punct.getName().equals(punctuator.getName()))
-					return true;
+				return true;
 		}
 		
 		return false;

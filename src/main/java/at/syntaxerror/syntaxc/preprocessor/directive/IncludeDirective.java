@@ -175,7 +175,7 @@ public class IncludeDirective extends Directive {
 			
 			if(angle) {
 				Position range = tokens.get(0).getPosition()
-					.range(tokens.get(tokens.size() - 1).getPosition());
+					.range(tokens.get(tokens.size() - 1));
 				
 				StringBuilder file = new StringBuilder();
 				

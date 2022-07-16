@@ -22,12 +22,15 @@
  */
 package at.syntaxerror.syntaxc.preprocessor;
 
+import at.syntaxerror.syntaxc.SyntaxC;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.AbstractParser;
+import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 
 /**
  * @author Thomas Kasper
@@ -36,6 +39,7 @@ import at.syntaxerror.syntaxc.tracking.Position;
 public class PreParser extends AbstractParser implements Logable {
 
 	private Preprocessor preprocessor;
+	private boolean eol;
 	
 	public PreParser(Preprocessor preprocessor) {
 		this.preprocessor = preprocessor;
@@ -50,18 +54,52 @@ public class PreParser extends AbstractParser implements Logable {
 	public Position getPosition() {
 		return preprocessor.getPosition();
 	}
+	
+	@Override
+	public void markTokenState() {
+		preprocessor.getInput().mark();
+	}
+	
+	@Override
+	public void unmarkTokenState() {
+		preprocessor.getInput().unmark();
+	}
+	
+	@Override
+	public void resetTokenState() {
+		preprocessor.getInput().reset();
+	}
 
 	@Override
-	public Token next() {
+	public Token readNextToken() {
+		if(eol) return null;
+		
 		Token tok = preprocessor.nextToken();
 		
-		if(tok == null || tok.is(TokenType.NEWLINE))
-			error("Truncated constant expression");
+		eol = tok == null || tok.is(TokenType.NEWLINE);
+		
+		if(eol) return null;
+		
+		if(tok.is(TokenType.IDENTIFIER, TokenType.NUMBER))
+			return SyntaxC.postprocess(tok);
+		
+		if(tok.is(TokenType.CHARACTER))
+			return Token.ofConstant(
+				tok.getPosition(),
+				tok.getInteger(),
+				NumericValueType.SIGNED_INT
+			);
 		
 		return tok;
 	}
 	
+	@Override
+	public SymbolTable getSymbolTable() {
+		return null;
+	}
+	
 	public boolean evaluate() {
+		eol = false;
 		
 		// TODO
 		

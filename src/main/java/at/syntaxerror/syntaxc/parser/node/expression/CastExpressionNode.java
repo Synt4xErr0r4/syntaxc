@@ -20,53 +20,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.preprocessor.directive;
+package at.syntaxerror.syntaxc.parser.node.expression;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
+import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.Type;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class ErrorDirective extends Directive {
+@RequiredArgsConstructor
+@Getter
+@ToString(exclude = "position")
+public class CastExpressionNode extends ExpressionNode {
 
-	public ErrorDirective(Preprocessor preprocessor, Token self) {
-		super(preprocessor, self);
-	}
-
+	private final Position position;
+	private final ExpressionNode target;
+	private final Type type;
+	
 	@Override
-	public void processSimple() {
-		Position pos = getSelf().getPosition();
-		
-		List<Token> tokens = new ArrayList<>();
-		
-		Token tok;
-		boolean nonWhitespace = false;
-		
-		while((tok = nextTokenRaw()) != null && !tok.is(TokenType.NEWLINE)) {
-			tokens.add(tok);
-			
-			if(!tok.is(TokenType.WHITESPACE))
-				nonWhitespace = true;
-		}
-		
-		error(
-			nonWhitespace
-				? pos.range(tokens.get(tokens.size() - 1))
-				: pos,
-			"%s",
-			tokens.stream()
-				.map(Token::getRaw)
-				.reduce(String::concat)
-				.map(String::strip)
-				.filter(s -> !s.isBlank())
-				.orElse("Error directive encountered")
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("target", target),
+			child("type", type)
 		);
 	}
 

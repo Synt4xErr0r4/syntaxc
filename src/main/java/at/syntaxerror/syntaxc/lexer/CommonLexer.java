@@ -29,7 +29,7 @@ import at.syntaxerror.syntaxc.io.CharStream;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.type.NumericType;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -99,7 +99,7 @@ public abstract class CommonLexer implements Logable {
 	
 	/* § 6.1.3.4 Character constants */
 	private int nextEscapeSequence(boolean wide, String where, StringBuilder raw) {
-		NumericType type = wide ? NumericType.WCHAR : NumericType.CHAR;
+		NumericValueType type = wide ? NumericValueType.WCHAR : NumericValueType.CHAR;
 		
 		source.mark();
 		
@@ -205,14 +205,14 @@ public abstract class CommonLexer implements Logable {
 	 */
 	public Token nextCharacter(boolean wide) {
 		StringBuilder raw = new StringBuilder();
-		NumericType type;
+		NumericValueType type;
 		
 		if(wide) {
-			type = NumericType.WCHAR;
+			type = NumericValueType.WCHAR;
 			raw.append("L'");
 		}
 		else {
-			type = NumericType.CHAR;
+			type = NumericValueType.CHAR;
 			raw.append("'");
 		}
 		
@@ -252,9 +252,9 @@ public abstract class CommonLexer implements Logable {
 		if(count == 0)
 			error("Empty character literal");
 		
-		if(!NumericType.SIGNED_INT.inRange(value)) {
+		if(!NumericValueType.SIGNED_INT.inRange(value)) {
 			warn(Warning.CHAR_OVERFLOW, "Character literal is too big for its type");
-			value = NumericType.SIGNED_INT.mask(value);
+			value = NumericValueType.SIGNED_INT.mask(value);
 		}
 		
 		else if(count > 1)

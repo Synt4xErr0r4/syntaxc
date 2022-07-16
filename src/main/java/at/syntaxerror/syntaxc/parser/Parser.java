@@ -22,9 +22,14 @@
  */
 package at.syntaxerror.syntaxc.parser;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 
 import at.syntaxerror.syntaxc.lexer.Token;
+import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.symtab.SymbolTable;
 
 /**
  * @author Thomas Kasper
@@ -35,16 +40,72 @@ public class Parser extends AbstractParser {
 	private List<Token> tokens;
 	private int index;
 	
+	private Stack<Integer> marks;
+	
+	private SymbolTable globalSymbolTable;
+	
+	private Stack<SymbolTable> symbolTables;
+	
+	private ExpressionParser expressionParser;
+	
 	public Parser(List<Token> tokens) {
 		this.tokens = tokens;
+		
+		marks = new Stack<>();
+		
+		globalSymbolTable = new SymbolTable();
+		
+		symbolTables = new Stack<>();
+		symbolTables.push(globalSymbolTable);
+		
+		expressionParser = new ExpressionParser(this);
 	}
 	
 	@Override
-	public Token next() {
+	public void markTokenState() {
+		marks.push(index);
+	}
+	
+	@Override
+	public void resetTokenState() {
+		index = marks.pop();
+	}
+	
+	@Override
+	public void unmarkTokenState() {
+		marks.pop();
+	}
+	
+	@Override
+	public Token readNextToken() {
 		if(index < 0 || index >= tokens.size())
 			return null;
 		
 		return tokens.get(index++);
+	}
+	
+	@Override
+	public SymbolTable getSymbolTable() {
+		return symbolTables.peek();
+	}
+	
+	private void enterScope() {
+		symbolTables.push(getSymbolTable().newChild());
+	}
+	
+	private void leaveScope() {
+		symbolTables.pop();
+	}
+	
+	private ExpressionNode nextExpression() {
+		expressionParser.next();
+		return expressionParser.nextExpression();
+	}
+	
+	public List<Node> parse() {
+		List<Node> nodes = new ArrayList<>();
+		
+		return nodes;
 	}
 
 }

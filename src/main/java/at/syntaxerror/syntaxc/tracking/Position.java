@@ -63,4 +63,8 @@ public record Position(long bytenum, long position, long column, long line, long
 		);
 	}
 
+	public Position range(Positioned other) {
+		return range(other.getPosition());
+	}
+
 }

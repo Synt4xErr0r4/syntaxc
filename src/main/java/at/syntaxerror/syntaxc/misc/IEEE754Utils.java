@@ -44,12 +44,12 @@ public class IEEE754Utils {
 	
 	private static final BigDecimal LOG10_2 = BigDecimalMath.log10(TWO, MathContext.DECIMAL128);
 	
-	private static void sanitizeBits(int exp, int mant) {
-		if(exp < 1) throw new IllegalArgumentException("Illegal non-positive exponent size");
-		if(mant < 1) throw new IllegalArgumentException("Illegal non-positive mantissa size");
+	private static void sanitizeBits(FloatingSpec spec) {
+		if(spec.exponent() < 1) throw new IllegalArgumentException("Illegal non-positive exponent size");
+		if(spec.mantissa() < 1) throw new IllegalArgumentException("Illegal non-positive mantissa size");
  
-		if(exp > 30) throw new IllegalArgumentException("Exponent size is too big");
-		if(mant > 1024) throw new IllegalArgumentException("Mantissa size is too big");
+		if(spec.exponent() > 30) throw new IllegalArgumentException("Exponent size is too big");
+		if(spec.mantissa() > 512) throw new IllegalArgumentException("Mantissa size is too big");
 	}
 	
 	/** 
@@ -58,8 +58,8 @@ public class IEEE754Utils {
 	 * and {@code mantBits} is the number of bits for the mantissa.
 	 * {@code implicit} denotes whether there is an implicit/hidden bit 
 	 */
-	public static BigInteger decimalToFloat(BigDecimal value, int expBits, int mantBits, boolean implicit) {
-		sanitizeBits(expBits, mantBits);
+	public static BigInteger decimalToFloat(BigDecimal value, FloatingSpec spec) {
+		sanitizeBits(spec);
 		
 		if(value.compareTo(BigDecimal.ZERO) == 0)
 			return BigInteger.ZERO;
@@ -95,7 +95,7 @@ public class IEEE754Utils {
 		 * }
 		 */
 		while(fraction.compareTo(BigDecimal.ZERO) != 0) {
-			if(n >= exp + mantBits)
+			if(n >= exp + spec.mantissa())
 				break;
 			
 			++n;
@@ -118,19 +118,19 @@ public class IEEE754Utils {
 		int off = 0;
 		
 		// clear most significant bit if it is implicit
-		if(implicit)
+		if(spec.implicit())
 			mantissa = mantissa.clearBit(mantissa.bitLength() - 1);
 		else off = 1;
 		
 		return BigInteger.valueOf(sign) 
 			// add bias to exponent
-			.shiftLeft(expBits)
-			.or(BigInteger.valueOf(exp + (1 << (expBits - 1)) - 1))
+			.shiftLeft(spec.exponent())
+			.or(BigInteger.valueOf(exp + getBias(spec)))
 			// align mantissa to the left
-			.shiftLeft(mantBits)
-			.or(mantissa.shiftLeft(mantBits - n - exp - off));
+			.shiftLeft(spec.mantissa())
+			.or(mantissa.shiftLeft(spec.mantissa() - n - exp - off));
 	}
-
+	
 	// create a bit mask with n bits set (e.g. n=4 returns 0b1111)
 	private static BigInteger mask(int n) {
 		return BigInteger.ONE.shiftLeft(n).subtract(BigInteger.ONE);
@@ -141,20 +141,20 @@ public class IEEE754Utils {
 		return BigDecimal.ONE.divide(new BigDecimal(BigInteger.ONE.shiftLeft(n), MathContext.UNLIMITED));
 	}
 	
-	public static BigDecimal floatToDecimal(BigInteger value, int expBits, int mantBits, boolean implicit) {
-		sanitizeBits(expBits, mantBits);
+	public static BigDecimal floatToDecimal(BigInteger value, FloatingSpec spec) {
+		sanitizeBits(spec);
 		
 		// extract sign (most significant bit)
-		boolean sign = value.testBit(expBits + mantBits);
+		boolean sign = isNegative(value, spec);
 		
 		// extract mantissa
-		BigInteger mantissa = value.and(mask(mantBits));
+		BigInteger mantissa = getMantissa(value, spec);
 		
 		// extract (biased) exponent
-		int exponent = value.shiftRight(mantBits).and(mask(expBits)).intValue();
+		int exponent = getExponent(value, spec).intValue();
 		
 		// calculate exponent bias
-		int bias = ((1 << (expBits - 1)) - 1);
+		int bias = getBias(spec);
 		
 		boolean subnormal = false;
 		
@@ -172,21 +172,21 @@ public class IEEE754Utils {
 		}
 		
 		// exponent is all 1s => infinity, NaN
-		else if(exponent == mask(expBits).intValue())
+		else if(exponent == mask(spec.exponent()).intValue())
 			return null; // BigDecimal does have neither infinity nor NaN, so we just return null
 		
 		// make exponent unbiased
 		else exponent -= bias;
 		
 		// integer part's offset. offset is decreased by 1 when most significant bit is implicit
-		int off = mantBits - exponent - (implicit ? 0 : 1);
+		int off = spec.mantissa() - exponent - (spec.implicit() ? 0 : 1);
 		
 		// extract integer part from mantissa
 		BigInteger integer = mantissa.shiftRight(off);
 		
 		BigDecimal result = null;
 		
-		if(implicit && !subnormal) { // add implicit bit, unless subnormal
+		if(spec.implicit() && !subnormal) { // add implicit bit, unless subnormal
 			if(exponent < 0) // add 1/(2^(-exponent)) [effectively equal to 2^exponent]
 				result = new BigDecimal(integer, MathContext.UNLIMITED)
 					.add(pow2negative(-exponent));
@@ -207,74 +207,170 @@ public class IEEE754Utils {
 		
 		return result;
 	}
+
+	public static int getBias(FloatingSpec spec) {
+		return (1 << (spec.exponent() - 1)) - 1;
+	}
+
+	public static BigInteger getUnbiasedExponent(BigInteger value, FloatingSpec spec) {
+		return getExponent(value, spec).subtract(BigInteger.valueOf(getBias(spec)));
+	}
+
+	public static BigInteger getExponent(BigInteger value, FloatingSpec spec) {
+		return value.shiftRight(spec.mantissa()).and(mask(spec.exponent()));
+	}
+
+	public static BigInteger getMantissa(BigInteger value, FloatingSpec spec) {
+		return value.and(mask(spec.mantissa()));
+	}
+	
+	public static boolean isNegative(BigInteger value, FloatingSpec spec) {
+		return value.testBit(spec.exponent() + spec.mantissa());
+	}
+	
+	public static boolean isInfinity(BigInteger value, FloatingSpec spec) {
+		int exponent = getExponent(value, spec).intValue();
+		
+		if(exponent != mask(spec.exponent()).intValue())
+			return false;
+
+		return getMantissa(value, spec).compareTo(BigInteger.ZERO) == 0;
+	}
+	
+	public static boolean isPositiveInfinity(BigInteger value, FloatingSpec spec) {
+		return !isNegative(value, spec) && isInfinity(value, spec);
+	}
+	
+	public static boolean isNegativeInfinity(BigInteger value, FloatingSpec spec) {
+		return isNegative(value, spec) && isInfinity(value, spec);
+	}
+	
+	// returns positive infinity (like Double#POSITIVE_INFINITY)
+	public static BigInteger getPositiveInfinity(FloatingSpec spec) {
+		return BigInteger.ZERO
+			.shiftLeft(spec.exponent())
+			.or(mask(spec.exponent()))
+			.shiftLeft(spec.mantissa());
+	}
+
+	// returns positive infinity (like Double#NEGATIVE_INFINITY)
+	public static BigInteger getNegativeInfinity(FloatingSpec spec) {
+		return BigInteger.ONE
+			.shiftLeft(spec.exponent())
+			.or(mask(spec.exponent()))
+			.shiftLeft(spec.mantissa());
+	}
+	
+	public static boolean isNaN(BigInteger value, FloatingSpec spec) {
+		int exponent = getExponent(value, spec).intValue();
+		
+		if(exponent != mask(spec.exponent()).intValue())
+			return false;
+		
+		return getMantissa(value, spec).compareTo(BigInteger.ZERO) != 0;
+	}
+	
+	public static boolean isQuietNaN(BigInteger value, FloatingSpec spec) {
+		return isNaN(value, spec)
+			&& getMantissa(value, spec).testBit(spec.mantissa() - 1);
+	}
+	
+	public static boolean isSignalingNaN(BigInteger value, FloatingSpec spec) {
+		return isNaN(value, spec)
+			&& !getMantissa(value, spec).testBit(spec.mantissa() - 1);
+	}
+	
+	// returns qNaN (on most processors)
+	public static BigInteger getQuietNaN(FloatingSpec spec) {
+		return BigInteger.ZERO
+			.shiftLeft(spec.exponent())
+			.or(mask(spec.exponent()))
+			.shiftLeft(1)
+			.or(BigInteger.ONE)
+			.shiftLeft(spec.mantissa() - 1)
+			.or(BigInteger.ONE);
+	}
+
+	// returns sNaN (on most processors)
+	public static BigInteger getSignalingNaN(FloatingSpec spec) {
+		return BigInteger.ZERO
+			.shiftLeft(spec.exponent())
+			.or(mask(spec.exponent()))
+			.shiftLeft(spec.mantissa())
+			.or(BigInteger.ONE);
+	}
+
+	// returns NaN
+	public static BigInteger getNaN(FloatingSpec spec) {
+		return BigInteger.ZERO
+			.shiftLeft(spec.exponent())
+			.or(mask(spec.exponent()))
+			.shiftLeft(spec.mantissa())
+			.or(mask(spec.mantissa()));
+	}
 	
 	// returns the smallest postive value for the given specs
-	public static BigDecimal getMinValue(int expBits, int mantBits, boolean implicit) {
+	public static BigDecimal getMinValue(FloatingSpec spec) {
 		return floatToDecimal(
-			BigInteger.ONE,
-			expBits,
-			mantBits,
-			implicit
+			BigInteger.ONE
+				.shiftLeft(spec.mantissa()),
+			spec
 		);
 	}
 
 	// returns the largest value for the given specs
-	public static BigDecimal getMaxValue(int expBits, int mantBits, boolean implicit) {
+	public static BigDecimal getMaxValue(FloatingSpec spec) {
 		return floatToDecimal(
 			BigInteger.ZERO
-				.shiftLeft(expBits)
-				.or(mask(expBits - 1))
-				.shiftLeft(mantBits + 1)
-				.or(mask(mantBits)),
-			expBits,
-			mantBits,
-			implicit
+				.shiftLeft(spec.exponent())
+				.or(mask(spec.exponent() - 1))
+				.shiftLeft(spec.mantissa() + 1)
+				.or(mask(spec.mantissa())),
+			spec
 		);
 	}
 	
 	// returns the delta between 1 and the smallest number greater than 1
-	public static BigDecimal getEpsilon(int expBits, int mantBits, boolean implicit) {
-		sanitizeBits(expBits, mantBits);
+	public static BigDecimal getEpsilon(FloatingSpec spec) {
+		sanitizeBits(spec);
 		
 		BigInteger rawOne = BigInteger.ZERO
-			.or(mask(expBits - 1))
-			.shiftLeft(mantBits);
+			.or(mask(spec.exponent() - 1))
+			.shiftLeft(spec.mantissa());
 		
-		if(!implicit)
-			rawOne = rawOne.or(BigInteger.ONE.shiftLeft(mantBits - 1));
+		if(!spec.implicit())
+			rawOne = rawOne.or(BigInteger.ONE.shiftLeft(spec.mantissa() - 1));
 		
 		// smallest number greater than 1
 		BigDecimal one = floatToDecimal(
 			rawOne.or(BigInteger.ONE),
-			expBits,
-			mantBits,
-			implicit
+			spec
 		);
 		
 		return one.subtract(BigDecimal.ONE);
 	}
 	
 	// returns the smallest and largest exponent
-	public static Pair<Integer, Integer> getExponentRange(int expBits) {
-		sanitizeBits(expBits, 1);
+	public static Pair<Integer, Integer> getExponentRange(FloatingSpec spec) {
+		sanitizeBits(spec);
 		
-		int bias = ((1 << (expBits - 1)) - 1);
+		int bias = getBias(spec);
 		
 		return Pair.of(
 			2 - bias,
-			(1 << expBits) - 1 - bias
+			(1 << spec.exponent()) - 1 - bias
 		);
 	}
 	
 	// returns the smallest and largest exponent so that 10 to the power of the exponent is a normalized number
-	public static Pair<Integer, Integer> get10ExponentRange(int expBits, int mantBits) {
-		Pair<Integer, Integer> range = getExponentRange(expBits);
+	public static Pair<Integer, Integer> get10ExponentRange(FloatingSpec spec) {
+		Pair<Integer, Integer> range = getExponentRange(spec);
 		
 		// 2^(e_min - 1) 	[e_min < 0]
 		BigDecimal min = pow2negative(1 - range.getFirst());
 		
 		// (1 - 2^-p) * 2^e_max 	[e_max > 0]
-		BigDecimal max = BigDecimal.ONE.subtract(pow2negative(mantBits))
+		BigDecimal max = BigDecimal.ONE.subtract(pow2negative(spec.mantissa()))
 			.multiply(new BigDecimal(BigInteger.ONE.shiftLeft(range.getSecond()), MathContext.UNLIMITED));
 		
 		return Pair.of(
@@ -284,9 +380,20 @@ public class IEEE754Utils {
 	}
 	
 	// computes the number of decimal digits that can be converted back and forth without precision loss
-	public static int getDecimalDigits(int mantBits) {
+	public static int getDecimalDigits(FloatingSpec spec) {
 		// floor( (p - 1) * log10(b) )
-		return BigDecimal.valueOf(mantBits - 1).multiply(LOG10_2).round(FLOOR).intValue();
+		return BigDecimal.valueOf(spec.mantissa() - 1).multiply(LOG10_2).round(FLOOR).intValue();
+	}
+	
+	public static record FloatingSpec(int exponent, int mantissa, boolean implicit) {
+		
+		public static final FloatingSpec HALF =			new FloatingSpec(5,		10,		true);
+		public static final FloatingSpec SINGLE =		new FloatingSpec(8,		23,		true);
+		public static final FloatingSpec DOUBLE =		new FloatingSpec(11,	52,		true);
+		public static final FloatingSpec QUADRUPLE =	new FloatingSpec(15,	112,	true);
+		public static final FloatingSpec OCTUPLE =		new FloatingSpec(19,	236,	true);
+		public static final FloatingSpec EXTENDED =		new FloatingSpec(15,	64,		false); // x86 extended precision
+		
 	}
 	
 }

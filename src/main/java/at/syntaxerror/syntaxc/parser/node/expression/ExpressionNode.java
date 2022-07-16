@@ -20,54 +20,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.preprocessor.directive;
+package at.syntaxerror.syntaxc.parser.node.expression;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
-import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class ErrorDirective extends Directive {
+public abstract class ExpressionNode extends Node {
 
-	public ErrorDirective(Preprocessor preprocessor, Token self) {
-		super(preprocessor, self);
-	}
+	public abstract Type getType();
 
 	@Override
-	public void processSimple() {
-		Position pos = getSelf().getPosition();
-		
-		List<Token> tokens = new ArrayList<>();
-		
-		Token tok;
-		boolean nonWhitespace = false;
-		
-		while((tok = nextTokenRaw()) != null && !tok.is(TokenType.NEWLINE)) {
-			tokens.add(tok);
-			
-			if(!tok.is(TokenType.WHITESPACE))
-				nonWhitespace = true;
-		}
-		
-		error(
-			nonWhitespace
-				? pos.range(tokens.get(tokens.size() - 1))
-				: pos,
-			"%s",
-			tokens.stream()
-				.map(Token::getRaw)
-				.reduce(String::concat)
-				.map(String::strip)
-				.filter(s -> !s.isBlank())
-				.orElse("Error directive encountered")
-		);
+	public String getLeafName() {
+		return super.getLeafName().replaceFirst("Expression$", "");
 	}
 
 }

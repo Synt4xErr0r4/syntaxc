@@ -34,8 +34,11 @@ import at.syntaxerror.syntaxc.lexer.Lexer;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.parser.Parser;
+import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.parser.tree.TreeGenerator;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
-import at.syntaxerror.syntaxc.type.NumericType;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -60,6 +63,8 @@ public class SyntaxC {
 
 	public static boolean dontAssemble; // -S
 	public static boolean preprocessOnly; // -E
+	
+	public static OutputStream syntaxTree; // -fsyntax-tree
 
 	public static void compile(CharStream input, OutputStream output) {
 		Architecture architecture = ArchitectureRegistry.getArchitecture();
@@ -121,8 +126,7 @@ public class SyntaxC {
 					postprocessed.remove(idx);
 					postprocessed.add(
 						Token.ofString(
-							previous.getPosition()
-								.range(token.getPosition()),
+							previous.getPosition().range(token),
 							previous.getString() + token.getString(),
 							previous.isWide() || token.isWide()
 						)
@@ -133,21 +137,26 @@ public class SyntaxC {
 			}
 			
 			else if(token.is(TokenType.CHARACTER))
-				postprocessed.add(Token.ofConstant(token.getPosition(), token.getInteger(), NumericType.SIGNED_INT));
+				postprocessed.add(Token.ofConstant(token.getPosition(), token.getInteger(), NumericValueType.SIGNED_INT));
 			
 			else postprocessed.add(token);
-			
-			System.out.println(token + " => " + postprocessed.get(postprocessed.size() - 1));
 		}
 		
-		System.out.println(postprocessed);
+		/* Parsing */
+		
+		List<Node> parsed = new Parser(postprocessed).parse();
+		
+		System.out.println(parsed);
+		
+		if(syntaxTree != null)
+			TreeGenerator.generate(syntaxTree, parsed);
 	}
 	
 	private static void outputFailed(Exception e) {
 		Logger.error("Failed to write to output file: %s", e.getMessage());
 	}
 
-	private static Token postprocess(Token token) {
+	public static Token postprocess(Token token) {
 		Lexer lexer = new Lexer(CharStream.fromString(token.getRaw(), token.getPosition()));
 		
 		Token result = lexer.nextToken();

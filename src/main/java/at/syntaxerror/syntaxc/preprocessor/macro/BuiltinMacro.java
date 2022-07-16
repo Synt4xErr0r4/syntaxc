@@ -37,7 +37,7 @@ import at.syntaxerror.syntaxc.SyntaxC;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.type.NumericType;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 
 /**
  * @author Thomas Kasper
@@ -122,10 +122,10 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 	}
 	
 	public static void defineNumber(String name, Function<Token, Number> function) {
-		defineNumber(name, function, NumericType.SIGNED_INT);
+		defineNumber(name, function, NumericValueType.SIGNED_INT);
 	}
 	
-	public static void defineNumber(String name, Function<Token, Number> function, NumericType type) {
+	public static void defineNumber(String name, Function<Token, Number> function, NumericValueType type) {
 		defineToken(
 			name,
 			self -> makeNumberToken(self, function.apply(self), type),
@@ -134,10 +134,10 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 	}
 	
 	public static void defineNumber(String name, Number constant) {
-		defineNumber(name, constant, NumericType.SIGNED_INT);
+		defineNumber(name, constant, NumericValueType.SIGNED_INT);
 	}
 	
-	public static void defineNumber(String name, Number constant, NumericType type) {
+	public static void defineNumber(String name, Number constant, NumericValueType type) {
 		final Number value;
 		
 		if(constant instanceof BigInteger || constant instanceof BigDecimal)
@@ -155,7 +155,7 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 		);
 	}
 	
-	private static Token makeNumberToken(Token self, Number num, NumericType type) {
+	private static Token makeNumberToken(Token self, Number num, NumericValueType type) {
 		if(num instanceof BigInteger bigint)
 			return Token.ofConstant(
 				self.getPosition(),

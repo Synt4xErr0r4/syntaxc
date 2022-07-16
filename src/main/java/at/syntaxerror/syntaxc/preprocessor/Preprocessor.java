@@ -106,7 +106,7 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 		if(tok == null)
 			return marks.peek();
 		
-		else return marks.peek().range(tok.getPosition());
+		else return marks.peek().range(tok);
 	}
 	
 	@Override

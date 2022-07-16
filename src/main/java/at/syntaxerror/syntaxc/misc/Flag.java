@@ -44,7 +44,8 @@ public enum Flag implements NamedToggle {
 	FUNC			("func",			"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
 	BINARY_LITERALS	("binary-literals",	"Specifies whether binary literals are allowed"),
 	LONG_DOUBLE		("long-double",		"When disabled, §clong double §fis an alias for §cdouble"),
-	UNSIGNED_CHAR	("unsigned-char",	"When enabled, §cchar§fs will be unsigned", false)
+	UNSIGNED_CHAR	("unsigned-char",	"When enabled, §cchar§fs will be unsigned", false),
+	SYNTAX_TREE		("syntax-tree",		"Generates the syntax tree in DOT format", false)
 	;
 	
 	private static final Map<String, Flag> FLAGS;
