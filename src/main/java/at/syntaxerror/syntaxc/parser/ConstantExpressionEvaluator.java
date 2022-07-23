@@ -294,7 +294,7 @@ public class ConstantExpressionEvaluator implements Logable {
 		}
 		
 		if(expr instanceof BinaryExpressionNode binary) {
-			BigDecimal left = evalBigArithmetic(binary.getLeft());
+			Number left = evalArithmetic(binary.getLeft());
 
 			Punctuator op = binary.getOperation();
 			
