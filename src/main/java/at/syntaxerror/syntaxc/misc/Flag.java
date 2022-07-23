@@ -27,25 +27,22 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
-@AllArgsConstructor
 @Getter
 public enum Flag implements NamedToggle {
+	NO_STDLIB		("stdlib",			"Adds default library paths to the include path"),
 	ELIFDEF			("elifdef", 		"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
 	FUNC			("func",			"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
 	BINARY_LITERALS	("binary-literals",	"Specifies whether binary literals are allowed"),
 	LONG_DOUBLE		("long-double",		"When disabled, §clong double §fis an alias for §cdouble"),
 	UNSIGNED_CHAR	("unsigned-char",	"When enabled, §cchar§fs will be unsigned", false),
-	SYNTAX_TREE		("syntax-tree",		"Generates the syntax tree in DOT format", false)
+	SYNTAX_TREE		("syntax-tree",		"Generates the syntax tree in DOT, PNG or SVG format", false, "dot")
 	;
 	
 	private static final Map<String, Flag> FLAGS;
@@ -68,7 +65,34 @@ public enum Flag implements NamedToggle {
 	private final String name;
 	private final String description;
 
+	private final boolean acceptsValue;
+	
 	@Setter
 	private boolean enabled = true;
+	
+	@Setter
+	private String value;
+	
+	private Flag(String name, String description) {
+		this(name, description, true, null);
+	}
+
+	private Flag(String name, String description, String value) {
+		this(name, description, true, value);
+	}
+
+	private Flag(String name, String description, boolean enabled) {
+		this(name, description, enabled, null);
+	}
+
+	private Flag(String name, String description, boolean enabled, String value) {
+		this.name = name;
+		this.description = description;
+		
+		this.enabled = enabled;
+		this.value = value;
+		
+		acceptsValue = value != null;
+	}
 	
 }

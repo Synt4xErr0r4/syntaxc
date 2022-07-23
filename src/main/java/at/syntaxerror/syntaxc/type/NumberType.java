@@ -88,8 +88,13 @@ public class NumberType extends Type {
 	}
 	
 	@Override
+	protected Type clone() {
+		return new NumberType(getKind(), isUnsigned());
+	}
+	
+	@Override
 	public String toStringPrefix() {
-		return numericType.getCode();
+		return toStringQualifiers() + numericType.getCode();
 	}
 	
 }

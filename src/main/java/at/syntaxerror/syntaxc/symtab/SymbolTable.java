@@ -24,9 +24,7 @@ package at.syntaxerror.syntaxc.symtab;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import lombok.Getter;
 
@@ -35,12 +33,15 @@ import lombok.Getter;
  * 
  */
 public class SymbolTable {
-
-	private Map<String, SymbolObject> objects; // structs, unions, enums
-	private Map<String, SymbolVariable> variables; // local/global variables, typedefs, functions
+	
+	private Scope<SymbolTag> tags; // structs, unions, enums
+	private Scope<SymbolObject> objects; // local/global variables, typedefs, functions
 	
 	@Getter
 	private SymbolTable parent;
+	
+	@Getter
+	private StringTable stringTable;
 	
 	private List<SymbolTable> children;
 	
@@ -51,8 +52,18 @@ public class SymbolTable {
 	private SymbolTable(SymbolTable parent) {
 		this.parent = parent;
 
-		objects = new LinkedHashMap<>();
-		variables = new LinkedHashMap<>();
+		if(parent == null) {
+			tags = new Scope<>(null);
+			objects = new Scope<>(null);
+			
+			stringTable = new StringTable();
+		}
+		else {
+			tags = new Scope<>(parent.tags);
+			objects = new Scope<>(parent.objects);
+			
+			stringTable = parent.stringTable;
+		}
 		
 		children = new ArrayList<>();
 	}
@@ -69,28 +80,28 @@ public class SymbolTable {
 		return child;
 	}
 	
-	public void addObject(SymbolObject object) {
-		objects.put(object.getName(), object);
+	public boolean addObject(SymbolObject object) {
+		return objects.add(object);
 	}
 	
-	public void addVariable(SymbolVariable symbol) {
-		variables.put(symbol.getName(), symbol);
+	public boolean addTag(SymbolTag tag) {
+		return tags.add(tag);
 	}
 	
 	public SymbolObject findObject(String name) {
-		return objects.containsKey(name)
-			? objects.get(name)
-			: parent != null
-				? parent.findObject(name)
-				: null;
+		return objects.find(name);
 	}
 	
-	public SymbolVariable findVariable(String name) {
-		return variables.containsKey(name)
-			? variables.get(name)
-			: parent != null
-				? parent.findVariable(name)
-				: null;
+	public SymbolTag findTag(String name) {
+		return tags.find(name);
+	}
+	
+	public boolean hasObject(String name) {
+		return objects.has(name);
+	}
+	
+	public boolean hasTag(String name) {
+		return tags.has(name);
 	}
 	
 }

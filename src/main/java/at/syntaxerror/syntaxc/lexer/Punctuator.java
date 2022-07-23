@@ -54,7 +54,7 @@ public enum Punctuator {
 	BITWISE_AND		("&"), // ambiguous
 	ADDRESS_OF		("&"), // ambiguous
 	MULTIPLY		("*"), // ambiguous
-	DEREFERENCE		("*"), // ambiguous
+	INDIRECTION		("*"), // ambiguous
 	POINTER			("*"), // ambiguous
 	ADD				("+"), // ambiguous
 	PLUS			("+"), // ambiguous

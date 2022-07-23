@@ -55,19 +55,19 @@ public class Pair<A, B> {
 	public static <A, B> Pair<A, B> ofFirst(A first) {
 		return first == null
 			? empty()
-			: new Pair<A, B>(first, null);
+			: new Pair<>(first, null);
 	}
 
 	public static <A, B> Pair<A, B> ofSecond(B second) {
 		return second == null
 			? empty()
-			: new Pair<A, B>(null, second);
+			: new Pair<>(null, second);
 	}
 	
 	public static <A, B> Pair<A, B> of(A first, B second) {
 		return first == null && second == null
 			? empty()
-			: new Pair<A, B>(first, second);
+			: new Pair<>(first, second);
 	}
 	
 	private final A first;

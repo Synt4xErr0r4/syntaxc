@@ -20,63 +20,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.type;
+package at.syntaxerror.syntaxc.symtab;
 
-import lombok.Getter;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Getter
-public class ArrayType extends PointerLikeType {
+public class StringTable {
 
-	public static final int SIZE_UNKNOWN = -1;
+	private Map<String, StringInitializer> table = new HashMap<>();
 	
-	private int length;
+	private long id;
 	
-	protected ArrayType(Type base, int length) {
-		super(TypeKind.ARRAY, base);
-		
-		setLength(length);
-		
-		size = base.size * length;
+	public StringInitializer add(String value) {
+		synchronized(table) {
+			return table.computeIfAbsent(value, str -> new StringInitializer(id++, str));
+		}
 	}
 	
-	@Override
-	public boolean isIncomplete() {
-		return length == SIZE_UNKNOWN;
-	}
-	
-	public void setLength(int length) {
-		if(length < 0)
-			length = SIZE_UNKNOWN;
-		
-		this.length = length;
-	}
-	
-	@Override
-	protected Type clone() {
-		return new ArrayType(getBase(), length);
-	}
-	
-	@Override
-	public String toStringPrefix() {
-		return getBase().toStringPrefix() + " (";
-	}
-	
-	@Override
-	protected String toStringSuffix() {
-		return ")[" + length + "]" + getBase().toStringSuffix();
-	}
-	
-	@Override
-	public String toString() {
-		String prefix = toStringPrefix();
-		String suffix = toStringSuffix();
-		
-		return prefix.substring(0, prefix.length() - 2)
-			+ suffix.substring(1);
+	public Collection<StringInitializer> getEntries() {
+		return Collections.unmodifiableCollection(table.values());
 	}
 
 }

@@ -22,12 +22,17 @@
  */
 package at.syntaxerror.syntaxc.parser.node.expression;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.misc.StringUtils;
 import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.StructType;
+import at.syntaxerror.syntaxc.type.StructType.Member;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +49,25 @@ public class VariableExpressionNode extends ExpressionNode {
 
 	private final Position position;
 	private final SymbolObject variable;
+
+	@Override
+	public boolean isLvalue() {
+		if(variable.isVariable() && getType().isStructLike())
+			return checkNestedConst(getType().toStructLike());
+		
+		return !variable.isFunction();
+	}
+	
+	private boolean checkNestedConst(StructType type) {
+		for(Member mem : type.getMembers())
+			if(mem.getType().isConst())
+				return false;
+		
+			else if(mem.getType().isStructLike())
+				return checkNestedConst(mem.getType().toStructLike());
+		
+		return true;
+	}
 	
 	@Override
 	public Type getType() {
@@ -52,10 +76,31 @@ public class VariableExpressionNode extends ExpressionNode {
 	
 	@Override
 	public List<Pair<String, TreeNode>> getChildren() {
-		return List.of(
-			child("name", variable.getName()),
-			child("type", getType())
+		List<Pair<String, TreeNode>> children = new ArrayList<>();
+		
+		children.add(
+			child(
+				"name",
+				variable.getName()
+				 + (variable.isTemporaryVariable()
+					? " (tmp)"
+					: "")
+			)
 		);
+		
+		children.add(child("type", getType()));
+		
+		if(variable.isString())
+			children.add(
+				child(
+					"value",
+					'"' + StringUtils.quote(
+						((StringInitializer) variable.getVariableData().initializer()).value()
+					) + '"'
+				)
+			);
+			
+		return children;
 	}
 
 }

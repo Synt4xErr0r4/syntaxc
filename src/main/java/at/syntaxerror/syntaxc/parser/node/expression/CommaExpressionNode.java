@@ -20,63 +20,43 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.type;
+package at.syntaxerror.syntaxc.parser.node.expression;
 
+import java.util.List;
+
+import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
+@RequiredArgsConstructor
 @Getter
-public class ArrayType extends PointerLikeType {
+@ToString(exclude = "position")
+public class CommaExpressionNode extends ExpressionNode {
 
-	public static final int SIZE_UNKNOWN = -1;
+	private final Position position;
+	private final ExpressionNode left;
+	private final ExpressionNode right;
 	
-	private int length;
-	
-	protected ArrayType(Type base, int length) {
-		super(TypeKind.ARRAY, base);
-		
-		setLength(length);
-		
-		size = base.size * length;
+	@Override
+	public Type getType() {
+		return right.getType();
 	}
 	
 	@Override
-	public boolean isIncomplete() {
-		return length == SIZE_UNKNOWN;
-	}
-	
-	public void setLength(int length) {
-		if(length < 0)
-			length = SIZE_UNKNOWN;
-		
-		this.length = length;
-	}
-	
-	@Override
-	protected Type clone() {
-		return new ArrayType(getBase(), length);
-	}
-	
-	@Override
-	public String toStringPrefix() {
-		return getBase().toStringPrefix() + " (";
-	}
-	
-	@Override
-	protected String toStringSuffix() {
-		return ")[" + length + "]" + getBase().toStringSuffix();
-	}
-	
-	@Override
-	public String toString() {
-		String prefix = toStringPrefix();
-		String suffix = toStringSuffix();
-		
-		return prefix.substring(0, prefix.length() - 2)
-			+ suffix.substring(1);
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("left", left),
+			child("right", right),
+			child("type", getType())
+		);
 	}
 
 }

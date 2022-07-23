@@ -20,8 +20,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.symtab;
+package at.syntaxerror.syntaxc.parser.node.expression;
 
+import java.util.List;
+
+import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
@@ -35,29 +39,22 @@ import lombok.ToString;
 @RequiredArgsConstructor
 @Getter
 @ToString(exclude = "position")
-public class SymbolVariable {
+public class ConditionalExpressionNode extends ExpressionNode {
 
 	private final Position position;
-	private final String name;
-	private final SymbolKind kind;
-	private final SymbolObject object;
+	private final ExpressionNode condition;
+	private final ExpressionNode whenTrue;
+	private final ExpressionNode whenFalse;
+	private final Type type;
 	
-	private final boolean implicit; // implicit function declaration
-	
-	public Type getType() {
-		return object.getType();
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("cond", condition),
+			child("true", whenTrue),
+			child("false", whenFalse),
+			child("type", type)
+		);
 	}
-	
-	public boolean isVariable() {
-		return kind == SymbolKind.VARIABLE;
-	}
-	
-	public boolean isTypedef() {
-		return kind == SymbolKind.TYPEDEF;
-	}
-	
-	public boolean isEnumerator() {
-		return kind == SymbolKind.ENUMERATOR;
-	}
-	
+
 }

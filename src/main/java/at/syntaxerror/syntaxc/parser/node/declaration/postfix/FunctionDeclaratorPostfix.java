@@ -20,63 +20,48 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.type;
+package at.syntaxerror.syntaxc.parser.node.declaration.postfix;
 
+import java.util.List;
+
+import at.syntaxerror.syntaxc.parser.node.declaration.DeclaratorPostfix;
+import at.syntaxerror.syntaxc.tracking.Positioned;
+import at.syntaxerror.syntaxc.type.FunctionType;
+import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
+import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
+@RequiredArgsConstructor
 @Getter
-public class ArrayType extends PointerLikeType {
+@ToString
+public class FunctionDeclaratorPostfix implements DeclaratorPostfix {
 
-	public static final int SIZE_UNKNOWN = -1;
+	private final List<Parameter> parameters;
+	private final boolean variadic;
+	private final boolean kAndRStyle;
 	
-	private int length;
-	
-	protected ArrayType(Type base, int length) {
-		super(TypeKind.ARRAY, base);
+	@Override
+	public Type applyTo(Positioned pos, Type type) {
+		if(type.isFunction())
+			error(pos, "Function cannot return another function");
+
+		if(type.isArray())
+			error(pos, "Function cannot return an array");
 		
-		setLength(length);
+		FunctionType fun = new FunctionType(type);
 		
-		size = base.size * length;
-	}
-	
-	@Override
-	public boolean isIncomplete() {
-		return length == SIZE_UNKNOWN;
-	}
-	
-	public void setLength(int length) {
-		if(length < 0)
-			length = SIZE_UNKNOWN;
+		parameters.forEach(fun::addParameter);
 		
-		this.length = length;
-	}
-	
-	@Override
-	protected Type clone() {
-		return new ArrayType(getBase(), length);
-	}
-	
-	@Override
-	public String toStringPrefix() {
-		return getBase().toStringPrefix() + " (";
-	}
-	
-	@Override
-	protected String toStringSuffix() {
-		return ")[" + length + "]" + getBase().toStringSuffix();
-	}
-	
-	@Override
-	public String toString() {
-		String prefix = toStringPrefix();
-		String suffix = toStringSuffix();
+		if(variadic)
+			fun.setVariadic();
 		
-		return prefix.substring(0, prefix.length() - 2)
-			+ suffix.substring(1);
+		return fun;
 	}
 
 }

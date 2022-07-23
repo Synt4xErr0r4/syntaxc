@@ -33,6 +33,14 @@ public abstract class ExpressionNode extends Node {
 
 	public abstract Type getType();
 
+	public boolean hasConstQualifier() {
+		return getType().isConst();
+	}
+
+	public boolean isLvalue() {
+		return false;
+	}
+	
 	@Override
 	public String getLeafName() {
 		return super.getLeafName().replaceFirst("Expression$", "");

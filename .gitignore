@@ -34,3 +34,6 @@ hs_err_pid*
 
 # VSCode
 *.code-workspace
+
+
+*.sh

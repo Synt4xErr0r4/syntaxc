@@ -48,43 +48,48 @@ public enum Warning implements NamedToggle {
 	$0(CompilationStage.PREPROCESSING),
 	PREPROC_NONE,
 	
-	PRAGMA				("pragma",					"Warns when an unknown §d#pragma §fdirective was encountered"),
-	LINE_ZERO			("line-zero",				"Warns when a §d#line §fdirective sets the current line to zero"),
-	UNDEF				("undef",					"Warns when a §d#undef §fdirective undefines a non-existent macro"),
-	REDEF				("redef",					"Warns when a §d#define §fdirective redefines an existent macro"),
-	BUILTIN_UNDEF		("undef-builtin",			"Warns when a §d#undef §fdirective undefines a builtin macro"),
-	BUILTIN_REDEF		("redef-builtin",			"Warns when a §d#define §fdirective redefines a builtin macro"),
-	TRAILING			("trailing",				"Warns when there is trailing data after a preprocessing directive"),
-	EMPTY_DIRECTIVE		("empty-directive",			"Warns when an empty preprocessing directive was encountered"),
+	PRAGMA					("pragma",					"Warns when an unknown §d#pragma §fdirective was encountered"),
+	LINE_ZERO				("line-zero",				"Warns when a §d#line §fdirective sets the current line to zero"),
+	UNDEF					("undef",					"Warns when a §d#undef §fdirective undefines a non-existent macro"),
+	REDEF					("redef",					"Warns when a §d#define §fdirective redefines an existent macro"),
+	BUILTIN_UNDEF			("undef-builtin",			"Warns when a §d#undef §fdirective undefines a builtin macro"),
+	BUILTIN_REDEF			("redef-builtin",			"Warns when a §d#define §fdirective redefines a builtin macro"),
+	TRAILING				("trailing",				"Warns when there is trailing data after a preprocessing directive"),
+	EMPTY_DIRECTIVE			("empty-directive",			"Warns when an empty preprocessing directive was encountered"),
 
 	/**
 	 * ===== LEXICAL ANALYSIS =====
 	 */
 	$1(CompilationStage.LEXICAL),
 	LEX_NONE,
-	CHAR_HEX_OVERFLOW	("char-hex-overflow",		"Warns when a hexadecimal escape sequence (§c\\xABC...§f) overflows the maximum character width"),
-	CHAR_OCT_OVERFLOW	("char-oct-overflow",		"Warns when an octal escape sequence (\\e[94m\\012...§f) overflows the maximum character width"),
-	CHAR_OVERFLOW		("char-overflow",			"Warns when a character literal overflows the maximum width"),
-	CODEPOINT			("codepoint",				"Warns when a character codepoint is out of range"),
-	MULTICHAR			("multichar",				"Warns when a character literal contains multiple characters"),
-	TRIGRAPHS			("trigraphs",				"Warns when encountering and processing a trigraph (e.g. §c??=§f)"),
-	INT_OVERFLOW		("int-overflow",			"Warns when an integer overflows"),
-	FLOAT_OVERFLOW		("float-overflow",			"Warns when a floating number overflows"),
+	CHAR_HEX_OVERFLOW		("char-hex-overflow",		"Warns when a hexadecimal escape sequence (§c\\xABC...§f) overflows the maximum character width"),
+	CHAR_OCT_OVERFLOW		("char-oct-overflow",		"Warns when an octal escape sequence (§c\\012...§f) overflows the maximum character width"),
+	CHAR_OVERFLOW			("char-overflow",			"Warns when a character literal overflows the maximum width"),
+	CODEPOINT				("codepoint",				"Warns when a character codepoint is out of range"),
+	MULTICHAR				("multichar",				"Warns when a character literal contains multiple characters"),
+	TRIGRAPHS				("trigraphs",				"Warns when encountering and processing a trigraph (e.g. §c??=§f)"),
+	INT_OVERFLOW			("int-overflow",			"Warns when an integer overflows"),
+	FLOAT_OVERFLOW			("float-overflow",			"Warns when a floating number overflows"),
 
 	/**
 	 * ===== SYNTACTIC ANALYSIS =====
 	 */
 	$2(CompilationStage.SYNTACTIC),
 	SYN_NONE,
-	
+	DUPLICATE_QUALIFIER		("duplicate-qualifier",		"Warns when a type qualifier occurs multiple times"),
+	K_AND_R					("k&r",						"Warns when a function is declared using K&R syntax"),
 
 	/**
 	 * ===== SEMANTIC ANALYSIS =====
 	 */
 	$3(CompilationStage.SEMANTIC),
 	SEM_NONE,
-	OVERFLOW			("implicit-overflow",		"Warns when implicitly casting a constant expression alters its value"),
-	IMPLICIT_FUNCTION	("implicit-function",		"Warns when a function is not explicitly declared"),
+	OVERFLOW				("implicit-overflow",		"Warns when implicitly casting a constant expression alters its value"),
+	IMPLICIT_FUNCTION		("implicit-function",		"Warns when a function is not explicitly declared"),
+	IMPLICIT_INT			("implicit-int",			"Warns when a type is implicitly declard as »§cint§f«"),
+	DEREF_VOID				("deref-void-pointer",		"Warns when dereferencing a pointer to »§cvoid§f«"),
+	INCOMPATIBLE_POINTERS	("incompatible-pointers",	"Warns when comparing two pointers of different types"),
+	NEGATIVE_SHIFT			("negative-shift",			"Warns when the second operand for a shift operation (§c<<§f or §c>>§f) is negative"),
 	
 	/**
 	 * ===== OPTIMIZATION =====

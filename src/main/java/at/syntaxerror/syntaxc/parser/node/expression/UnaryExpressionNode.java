@@ -48,6 +48,12 @@ public class UnaryExpressionNode extends ExpressionNode {
 	private final Type type;
 	
 	@Override
+	public boolean isLvalue() {
+		return operation == Punctuator.INDIRECTION
+			&& !type.isFunction();
+	}
+	
+	@Override
 	public List<Pair<String, TreeNode>> getChildren() {
 		return List.of(
 			child("target", target),

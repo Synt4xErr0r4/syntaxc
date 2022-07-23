@@ -123,7 +123,7 @@ public class Logger {
 	    	String section = sectionData.section();
 	    	
 	    	if(!section.isBlank()) {
-	    	
+	    		
 		    	// true when the section starts/ends exactly on a line break/file start/end of file
 		    	boolean newlineStart = section.startsWith("\n");
 		    	boolean newlineEnd = section.endsWith("\n");

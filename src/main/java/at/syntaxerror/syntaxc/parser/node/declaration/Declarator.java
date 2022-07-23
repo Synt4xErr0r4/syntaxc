@@ -20,10 +20,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser.node.expression;
+package at.syntaxerror.syntaxc.parser.node.declaration;
 
-import at.syntaxerror.syntaxc.misc.StringUtils;
+import java.util.List;
+
+import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.node.Node;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -33,18 +37,37 @@ import lombok.ToString;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
 @Getter
+@RequiredArgsConstructor
 @ToString(exclude = "position")
-public class StringLiteralExpressionNode extends ExpressionNode {
+public class Declarator extends Node {
 
 	private final Position position;
-	private final String literal;
-	private final Type type;
-	
-	@Override
-	public String getLeafName() {
-		return '"' + StringUtils.quote(literal) + '"';
-	}
 
+	private final Pair<String, Declarator> nameOrNested;
+	private final List<Pointer> pointers;
+	private final List<DeclaratorPostfix> postfixes;
+	
+	public String getName() {
+		return nameOrNested.hasFirst()
+			? nameOrNested.getFirst()
+			: nameOrNested.getSecond().getName();
+	}
+	
+	public Type merge(Positioned pos, Type type) {
+		for(Pointer pointer : pointers) {
+			type = type.addressOf();
+			
+			if(pointer.isConst()) type = type.asConst();
+			if(pointer.isVolatile()) type = type.asVolatile();
+		}
+		
+		for(DeclaratorPostfix postfix : postfixes)
+			type = postfix.applyTo(pos, type);
+		
+		return nameOrNested.hasSecond()
+			? nameOrNested.getSecond().merge(pos, type)
+			: type;
+	}
+	
 }

@@ -26,12 +26,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
@@ -40,20 +40,38 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public class StructType extends Type {
 
-	public static StructType forStruct() {
-		return new StructType(TypeKind.STRUCT);
+	public static StructType forAnonymousStruct() {
+		return forStruct(getAnonymousName());
 	}
 
-	public static StructType forUnion() {
-		return new StructType(TypeKind.UNION);
+	public static StructType forAnonymousUnion() {
+		return forUnion(getAnonymousName());
 	}
 	
+	public static StructType forStruct(String name) {
+		return new StructType(TypeKind.STRUCT, name);
+	}
+
+	public static StructType forUnion(String name) {
+		return new StructType(TypeKind.UNION, name);
+	}
+	
+	private final String name;
+	
+	private boolean incomplete = true;
 	private boolean packed;
 	
 	private List<Member> members = new ArrayList<>();
 	
-	private StructType(TypeKind kind) {
+	private Member previous;
+	
+	private StructType(TypeKind kind, String name) {
 		super(kind);
+		this.name = name;
+	}
+	
+	public void setComplete() {
+		incomplete = false;
 	}
 	
 	public void setPacked() {
@@ -64,61 +82,101 @@ public class StructType extends Type {
 		return Collections.unmodifiableList(members);
 	}
 	
-	public void addMember(Token name, Type type, boolean bitfield, int bitOffset, int bitWidth) {
+	public void addMember(Positioned pos, String name, Type type, boolean bitfield, int bitWidth) {
+		setComplete();
+		
 		int align;
 		int offset;
+		int bitOffset = 0;
 		
-		if(members.isEmpty())
+		if(previous == null)
 			align = offset = 0;
 		
 		else {
-			Member previous = members.get(members.size() - 1);
-			
 			align = 0;
 			
-			offset = isUnion()
+			if(bitfield && previous.type.isBitfield()) {
+				if(previous.bitWidth == 0) {
+					bitOffset = 0;
+					offset = previous.offset + 1;
+				}
+				else {
+					bitOffset = previous.bitOffset + previous.bitWidth;
+					offset = previous.offset + (bitOffset >> 3);
+					bitOffset &= 7;
+				}
+			}
+			else offset = isUnion()
 				? 0
 				: previous.offset + previous.type.sizeof();
 		}
 		
-		members.add(new Member(align, offset, name, type, bitfield, bitOffset, bitWidth));
+		members.add(previous = new Member(
+			align,
+			offset,
+			pos.getPosition(),
+			name,
+			bitfield
+				? type.asBitfield()
+				: type,
+			bitOffset,
+			bitWidth
+		));
 	}
 	
-	public void addMember(Token name, Type type) {
-		addMember(name, type, false, 0, 0);
+	public void addAnonymousMember(Positioned pos, Type type, boolean bitfield, int bitWidth) {
+		addMember(pos, null, type, bitfield, bitWidth);
 	}
-
-	public void addMember(Token name, Type type, int bitOffset, int bitWidth) {
-		addMember(name, type, true, bitOffset, bitWidth);
+	
+	
+	public Member getMember(String name) {
+		for(Member member : members)
+			if(member.getName() == null) { // anonymous member
+				Type type = member.getType();
+				
+				if(type.isStructLike()) { // anonymous struct/union
+					member = type.toStructLike().getMember(name);
+					
+					if(member != null)
+						return member;
+				}
+				
+			}
+			else if(name.equals(member.getName()))
+				return member;
+		
+		return null;
+	}
+	
+	@Override
+	protected Type clone() {
+		StructType structType = new StructType(getKind(), name);
+		
+		structType.incomplete = incomplete;
+		structType.packed = packed;
+		structType.members = members;
+		structType.previous = previous;
+		
+		return structType;
 	}
 	
 	@Override
 	public String toStringPrefix() {
-		return isStruct()
-			? "struct { ... }"
-			: "union { ... }";
+		return toStringQualifiers() + (isStruct() ? "struct " : "union ") + name;
 	}
 	
 	@Getter
 	@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+	@ToString(exclude = "position")
 	public static class Member implements Positioned { 
 
 		private final int align;
 		private final int offset;
-		private final Token nameToken;
+		private final Position position;
+		private final String name;
 		private final Type type;
-		private final boolean bitfield;
 		private final int bitOffset;
 		private final int bitWidth;
-		
-		@Override
-		public Position getPosition() {
-			return nameToken.getPosition();
-		}
-		
-		public String getName() {
-			return nameToken.getString();
-		}
 		
 	}
 

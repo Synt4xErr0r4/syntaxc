@@ -110,11 +110,6 @@ public abstract class CharStream implements Logable, Closeable {
 		// traverse until start of line is found or 'offset' chars are passed
 		outer:
 		for(long pre = 0; pre < offset; ++pre) {
-			if(bytenum == 0) {
-				sb.append('\n');
-				break;
-			}
-			
 			seek(this.bytenum = bytenum);
 			
 			int c = nextByte();
@@ -141,10 +136,15 @@ public abstract class CharStream implements Logable, Closeable {
 				break;
 			}
 			
+			if(bytenum == 0) {
+				sb.append('\n');
+				break;
+			}
+			
 			--bytenum;
 			++length;
 		}
-		
+
 		seek(this.bytenum = bytenum);
 		
 		List<Long> lengths = new ArrayList<>();

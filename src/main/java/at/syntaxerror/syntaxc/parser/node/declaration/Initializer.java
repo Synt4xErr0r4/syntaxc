@@ -20,63 +20,23 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.type;
+package at.syntaxerror.syntaxc.parser.node.declaration;
 
+import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
 @Getter
-public class ArrayType extends PointerLikeType {
+@RequiredArgsConstructor
+@ToString(exclude = "position")
+public class Initializer extends Node {
 
-	public static final int SIZE_UNKNOWN = -1;
-	
-	private int length;
-	
-	protected ArrayType(Type base, int length) {
-		super(TypeKind.ARRAY, base);
-		
-		setLength(length);
-		
-		size = base.size * length;
-	}
-	
-	@Override
-	public boolean isIncomplete() {
-		return length == SIZE_UNKNOWN;
-	}
-	
-	public void setLength(int length) {
-		if(length < 0)
-			length = SIZE_UNKNOWN;
-		
-		this.length = length;
-	}
-	
-	@Override
-	protected Type clone() {
-		return new ArrayType(getBase(), length);
-	}
-	
-	@Override
-	public String toStringPrefix() {
-		return getBase().toStringPrefix() + " (";
-	}
-	
-	@Override
-	protected String toStringSuffix() {
-		return ")[" + length + "]" + getBase().toStringSuffix();
-	}
-	
-	@Override
-	public String toString() {
-		String prefix = toStringPrefix();
-		String suffix = toStringSuffix();
-		
-		return prefix.substring(0, prefix.length() - 2)
-			+ suffix.substring(1);
-	}
+	private final Position position;
 
 }

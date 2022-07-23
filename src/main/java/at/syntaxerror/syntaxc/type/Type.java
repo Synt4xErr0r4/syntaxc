@@ -25,6 +25,7 @@ package at.syntaxerror.syntaxc.type;
 import java.nio.charset.StandardCharsets;
 
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -40,10 +41,10 @@ public class Type {
 	public static final NumberType SHORT =		new NumberType(TypeKind.SHORT);
 	public static final NumberType INT =		new NumberType(TypeKind.INT);
 	public static final NumberType LONG =		new NumberType(TypeKind.LONG);
-	public static final NumberType UCHAR =		new NumberType(TypeKind.CHAR);
-	public static final NumberType USHORT =		new NumberType(TypeKind.SHORT);
-	public static final NumberType UINT =		new NumberType(TypeKind.INT);
-	public static final NumberType ULONG =		new NumberType(TypeKind.LONG);
+	public static final NumberType UCHAR =		new NumberType(TypeKind.CHAR, true);
+	public static final NumberType USHORT =		new NumberType(TypeKind.SHORT, true);
+	public static final NumberType UINT =		new NumberType(TypeKind.INT, true);
+	public static final NumberType ULONG =		new NumberType(TypeKind.LONG, true);
 	public static final NumberType FLOAT =		new NumberType(TypeKind.FLOAT);
 	public static final NumberType DOUBLE =		new NumberType(TypeKind.DOUBLE);
 	public static final NumberType LDOUBLE =	new NumberType(TypeKind.LDOUBLE);
@@ -52,10 +53,22 @@ public class Type {
 		return CHAR.arrayOf(string.getBytes(StandardCharsets.UTF_8).length + 1);
 	}
 	
+	private static long anonymousId = 0;
+	
+	protected static String getAnonymousName() {
+		return "<anonymous_" + anonymousId++ + ">";
+	}
+	
 	private final TypeKind kind;
 	
 	protected int size;
 	protected int align;
+	
+	@Getter
+	protected boolean bitfield;
+	
+	protected boolean constQualifier;
+	protected boolean volatileQualifier;
 	
 	public final TypeKind getKind() {
 		return kind;
@@ -69,7 +82,20 @@ public class Type {
 		return align;
 	}
 	
-	public final boolean isNumber() {
+	public boolean isConst() {
+		return constQualifier;
+	}
+	
+	public boolean isVolatile() {
+		return volatileQualifier;
+	}
+	
+	public final boolean isScalar() {
+		return isArithmetic()
+			|| isPointerLike();
+	}
+	
+	public final boolean isArithmetic() {
 		return kind == TypeKind.CHAR
 			|| kind == TypeKind.SHORT
 			|| kind == TypeKind.INT
@@ -127,59 +153,12 @@ public class Type {
 	public final boolean isFunction() {
 		return kind == TypeKind.FUNCTION;
 	}
+	
+	public final boolean isVoid() {
+		return kind == TypeKind.VOID;
+	}
 
 	public boolean isIncomplete() {
-		return false;
-	}
-	
-	public boolean isCompatible(Type other) {
-		if(this == other)
-			return true;
-		
-		if(kind != other.kind || isEnum() || isStructLike()) // enums, structs, and unions must pass the identify check above
-			return false;
-		
-		if(isInteger())
-			return toNumber().isUnsigned() == other.toNumber().isUnsigned();
-		
-		if(isFloating())
-			return true;
-		
-		if(isPointer())
-			return toPointer().getBase().isCompatible(other.toPointer().getBase());
-		
-		if(isFunction()) {
-			FunctionType thisFunction = toFunction();
-			FunctionType otherFunction = other.toFunction();
-			
-			if(!thisFunction.getReturnType().isCompatible(otherFunction.getReturnType()))
-				return false;
-			
-			var thisParams = thisFunction.getParameters();
-			var otherParams = otherFunction.getParameters();
-			
-			if(thisParams.size() != otherParams.size())
-				return false;
-			
-			for(int i = 0; i < thisParams.size(); ++i)
-				if(!thisParams.get(i).type().isCompatible(otherParams.get(i).type()))
-					return false;
-			
-			return true;
-		}
-		
-		if(isArray()) {
-			ArrayType thisArray = toArray();
-			ArrayType otherArray = other.toArray();
-			
-			if(!thisArray.getBase().isCompatible(otherArray.getBase()))
-				return false;
-			
-			return thisArray.getLength() < 0
-				&& otherArray.getLength() < 0
-				&& thisArray.getLength() == otherArray.getLength();
-		}
-		
 		return false;
 	}
 	
@@ -203,7 +182,7 @@ public class Type {
 		return (FunctionType) this;
 	}
 	
-	public StructType toStruct() {
+	public StructType toStructLike() {
 		return (StructType) this;
 	}
 	
@@ -221,13 +200,82 @@ public class Type {
 		return new ArrayType(this, n);
 	}
 
+	// 'type[]'
+	public ArrayType arrayOf() {
+		return arrayOf(ArrayType.SIZE_UNKNOWN);
+	}
+
 	// 'type[expression]'
 	public Type dereference() {
 		return toPointerLike().getBase();
 	}
 	
+	public Type asConst() {
+		if(isConst())
+			return this;
+		
+		Type cloned = clone();
+		cloned.constQualifier = true;
+		cloned.volatileQualifier = volatileQualifier;
+		
+		return cloned;
+	}
+	
+	public Type asVolatile() {
+		if(isVolatile())
+			return this;
+		
+		Type cloned = clone();
+		cloned.constQualifier = constQualifier;
+		cloned.volatileQualifier = true;
+		
+		return cloned;
+	}
+	
+	public Type inheritQualifiers(Type other) {
+		if(!other.constQualifier && !other.volatileQualifier)
+			return this;
+		
+		Type cloned = clone();
+		cloned.constQualifier = constQualifier || other.constQualifier;
+		cloned.volatileQualifier = volatileQualifier || other.volatileQualifier;
+		
+		return cloned;
+	}
+
+	public Type unqualified() {
+		if(!constQualifier && !volatileQualifier)
+			return this;
+
+		return clone();
+	}
+	
+	public Type asBitfield() {
+		if(bitfield)
+			return this;
+		
+		Type cloned = clone();
+		cloned.bitfield = true;
+		
+		return cloned;
+	}
+	
+	@Override
+	protected Type clone() {
+		return new Type(kind);
+	}
+	
+	protected String toStringQualifiers() {
+		String quals = "";
+		
+		if(isConst()) quals += "const ";
+		if(isVolatile()) quals += "volatile ";
+		
+		return quals;
+	}
+	
 	protected String toStringPrefix() {
-		return "void";
+		return toStringQualifiers() + "void";
 	}
 	
 	protected String toStringSuffix() {

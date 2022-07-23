@@ -31,6 +31,7 @@ import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
+import lombok.Getter;
 
 /**
  * @author Thomas Kasper
@@ -38,22 +39,41 @@ import at.syntaxerror.syntaxc.tracking.Positioned;
  */
 public class EnumType extends Type {
 
+	public static EnumType forAnonymousEnum() {
+		return forEnum(getAnonymousName());
+	}
+
+	public static EnumType forEnum(String name) {
+		return new EnumType(name);
+	}
+
 	private static final NumericValueType[] ENUM_TYPES = {
 		NumericValueType.SIGNED_INT,
 		NumericValueType.UNSIGNED_INT,
 		NumericValueType.SIGNED_LONG,
 		NumericValueType.UNSIGNED_LONG
 	};
+
+	@Getter
+	private final String name;
 	
 	// index into the ENUM_TYPES array
 	private int numericType = 0;
 	
-	private Enumerator last;
+	private Enumerator previous;
 	
 	private LinkedHashMap<String, Enumerator> enumerators = new LinkedHashMap<>();
+
+	@Getter
+	private boolean incomplete = true;
 	
-	public EnumType() {
+	private EnumType(String name) {
 		super(TypeKind.ENUM);
+		this.name = name;
+	}
+	
+	public void setComplete() {
+		incomplete = false;
 	}
 	
 	public NumericValueType getNumericType() {
@@ -65,16 +85,16 @@ public class EnumType extends Type {
 	}
 	
 	public Type asNumberType() {
-		return getNumericType().asType();
+		return getNumericType().asType().inheritQualifiers(this);
 	}
 	
 	public void addEnumerator(Token name) {
-		if(last != null)
+		if(previous != null)
 			addEnumerator(name, BigInteger.ZERO, true);
 		
 		else addEnumerator(
 			name,
-			last.value() .add(BigInteger.ONE),
+			previous.value().add(BigInteger.ONE),
 			false
 		);
 	}
@@ -84,6 +104,8 @@ public class EnumType extends Type {
 	}
 	
 	private void addEnumerator(Token name, BigInteger value, boolean resize) {
+		setComplete();
+		
 		if(!getNumericType().inRange(value)) {
 			if(!resize)
 				Logger.error(name, "Overflow in enumeration");
@@ -93,7 +115,9 @@ public class EnumType extends Type {
 					break;
 		}
 		
-		enumerators.put(name.getString(), last = new Enumerator(name, value));
+		previous = new Enumerator(name, value);
+		
+		enumerators.put(previous.getName(), previous);
 	}
 	
 	public BigInteger getValue(String name) {
@@ -103,8 +127,20 @@ public class EnumType extends Type {
 	}
 	
 	@Override
+	protected Type clone() {
+		EnumType cloned = new EnumType(name);
+		
+		cloned.numericType = numericType;
+		cloned.previous = previous;
+		cloned.enumerators = enumerators;
+		cloned.incomplete = incomplete;
+		
+		return cloned;
+	}
+	
+	@Override
 	public String toStringPrefix() {
-		return asNumberType().toString();
+		return toStringQualifiers() + "enum " + name;
 	}
 	
 	public static record Enumerator(Token name, BigInteger value) implements Positioned {

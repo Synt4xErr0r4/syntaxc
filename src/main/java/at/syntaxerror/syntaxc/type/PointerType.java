@@ -37,8 +37,22 @@ public class PointerType extends PointerLikeType {
 	}
 	
 	@Override
+	protected Type clone() {
+		return new PointerType(getBase());
+	}
+
+	@Override
+	protected String toStringQualifiers() {
+		String quals = super.toStringQualifiers();
+		
+		return quals.isEmpty()
+			? ""
+			: " " + quals.strip();
+	}
+	
+	@Override
 	public String toStringPrefix() {
-		return getBase().toStringPrefix() + "*" + getBase().toStringSuffix();
+		return getBase().toStringPrefix() + "*" + toStringQualifiers() + getBase().toStringSuffix();
 	}
 
 }

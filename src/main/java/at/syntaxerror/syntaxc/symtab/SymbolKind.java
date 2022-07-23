@@ -28,7 +28,11 @@ package at.syntaxerror.syntaxc.symtab;
  */
 public enum SymbolKind {
 
-	VARIABLE,
+	VARIABLE_LOCAL,
+	VARIABLE_TEMPORARY, // special local variable
+	VARIABLE_GLOBAL,
+	STRING, // special global variable
+	FUNCTION, // special global variable
 	TYPEDEF,
 	ENUMERATOR
 	

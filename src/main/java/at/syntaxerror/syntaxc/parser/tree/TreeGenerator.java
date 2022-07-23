@@ -28,6 +28,7 @@ import java.io.OutputStream;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.misc.Flag;
 import guru.nidi.graphviz.attribute.Label;
 import guru.nidi.graphviz.attribute.Rank;
 import guru.nidi.graphviz.attribute.Rank.RankDir;
@@ -61,8 +62,16 @@ public class TreeGenerator {
 			node = visit(node, null, child);
 		
 		try {
+			@SuppressWarnings("preview")
+			Format fmt = switch(Flag.SYNTAX_TREE.getValue().toLowerCase()) {
+			case "png" -> Format.PNG;
+			case "svg" -> Format.SVG;
+			case null -> Format.DOT;
+			default -> Format.DOT;
+			};
+			
 			Graphviz.fromGraph(graph.with(node))
-				.render(Format.DOT)
+				.render(fmt)
 				.toOutputStream(out);
 		} catch (Exception e) {
 			Logger.warn("Failed to generate syntax tree: %s", e.getMessage());
@@ -82,7 +91,8 @@ public class TreeGenerator {
 		else self = self.with(Label.of(node.getLeafName()));
 		
 		for(var child : node.getChildren())
-			self = visit(self, child.getFirst(), child.getSecond());
+			if(child != null)
+				self = visit(self, child.getFirst(), child.getSecond());
 		
 		return parent.link(to(self));
 	}

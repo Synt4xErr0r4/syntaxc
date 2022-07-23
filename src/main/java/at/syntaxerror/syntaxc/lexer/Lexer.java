@@ -158,6 +158,8 @@ public class Lexer extends CommonLexer {
 			if(period) // decimal point cannot occur multiple times
 				error("Multiple decimal points in decimal literal");
 			
+			sb.append('.');
+			
 			period = true;
 			floating = true;
 
@@ -243,10 +245,8 @@ public class Lexer extends CommonLexer {
 		else if(c == 'l' || c == 'L') {
 			skip();
 			
-			if(floating) {
-				if(Flag.LONG_DOUBLE.isEnabled())
-					type = NumericValueType.LDOUBLE;
-			}
+			if(floating)
+				type = NumericValueType.LDOUBLE;
 			
 			else {
 				integer = true;
@@ -342,7 +342,7 @@ public class Lexer extends CommonLexer {
 				value = type.mask(value);
 			}
 		}
-		
+
 		return Token.ofConstant(getPosition(), value, type);
 	}
 	

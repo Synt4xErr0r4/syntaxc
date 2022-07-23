@@ -71,9 +71,10 @@ public class SyntaxCMain {
 			args = new String[] {
 				"/opt/syntaxc/test/test.c",
 				"-o", "-",
-				"--no-stdlib",
+				"-fno-stdlib",
 				"-fno-long-double",
-				"-fsyntax-tree"
+				"-fsyntax-tree=svg",
+				"-S"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -81,28 +82,32 @@ public class SyntaxCMain {
 			.withHeader("§9§lSyntax§1C§r §8- §fAn ANSI-C compiler written in Java")
 			.withFooter("§7(c) 2022, Thomas Kasper §8<§5thomas@syntaxerror.at§8>")
 			
-			.with('v', "version")				.description("Show the version and other information").build()
+			.with('v', "version")					.description("Show the version and other information").build()
 			
-			.with('h', "help")					.description("Show this help").build()
-			.with('d', "doc").argument("option").description("Show documentation for an option").build()
+			.with('h', "help")						.description("Show this help").build()
+			.with('d', "doc").argument("option")	.description("Show documentation for an option").build()
 
-			.with('S')							.description("Output assembly").build()
-			.with('E')							.description("Output preprocessed file").build()
+			.with('S')								.description("Compile, but don't assemble").build()
+			.with('c')								.description("Compile and assemble, but don't link").build()
+			.with('E')								.description("Output preprocessed file").build()
 			
-			.with('D').compact("defn[=value]")	.description("Define a macro", SyntaxCMain::docDefine).build()
-			.with('U').compact("name")			.description("Undefine a predefined macro").build()
+			.with('D').compact("defn[=value]")		.description("Define a macro", SyntaxCMain::docDefine).build()
+			.with('U').compact("name")				.description("Undefine a predefined macro").build()
 			
-			.with('I').compact("path")			.description("Add a directory to the include path", SyntaxCMain::docInclude).build()
-			.with('m').compact("option[=value]").description("Pass an option to the assembler", SyntaxCMain::docAssembler).build()
-			.with('W').compact("[no-]warning")	.description("Enable or disable a specific compiler warning", SyntaxCMain::docWarning).build()
-			.with('f').compact("[no-]flag")		.description("Enable or disable a specific compiler flag", SyntaxCMain::docFlag).build()
-			
-			.with("no-stdlib")					.description("Removes all default paths from the include path").build()
+			.with('I').compact("path")				.description("Add a directory to the include path", SyntaxCMain::docInclude).build()
+			.with('m').compact("option[=value]")	.description("Configure the target architecture", SyntaxCMain::docAssembler).build()
+			.with('W').compact("[no-]warning")		.description("Enable or disable a specific compiler warning", SyntaxCMain::docWarning).build()
+			.with('f').compact("[no-]flag[=value]")	.description("Enable or disable a specific compiler flag", SyntaxCMain::docFlag).build()
 			
 			.with('o').argument("file").description("Specify the output file").build()
 			.with().argument("file").description("Specify the input file").required().build();
 		
 		OptionResult result = parser.parse(args);
+		
+		/*		=====================
+		 * 			DOCUMENTATION
+		 * 		=====================
+		 */
 		
 		if(result.has("help"))
 			parser.showHelp();
@@ -121,13 +126,29 @@ public class SyntaxCMain {
 			parser.showDocumentation(option);
 		}
 		
-		SyntaxC.dontAssemble = result.has('S');
-		SyntaxC.preprocessOnly = result.has('E');
+		/*		========================
+		 * 			COMPILATION MODE
+		 * 		========================
+		 */
+		
+		SyntaxC.onlyCompile = result.has('S');
+		SyntaxC.onlyAssemble = result.has('c');
+		SyntaxC.onlyPreprocess = result.has('E');
+		
+		if(SyntaxC.onlyCompile && SyntaxC.onlyAssemble)
+			parser.showUsage("Options -S and -c are mutually exclusive");
+		else if(SyntaxC.onlyAssemble && SyntaxC.onlyPreprocess)
+			parser.showUsage("Options -c and -E are mutually exclusive");
+		else if(SyntaxC.onlyPreprocess && SyntaxC.onlyCompile)
+			parser.showUsage("Options -E and -S are mutually exclusive");
 		
 		if(result.has("no-stdlib"))
 			IncludePathRegistry.clear();
 		
-		result.get('I').forEach(IncludePathRegistry::add);
+		/*		====================
+		 * 			ARCHITECTURE
+		 * 		====================
+		 */
 		
 		result.get('m').forEach(arg -> {
 			var option = split(arg, '=');
@@ -188,6 +209,11 @@ public class SyntaxCMain {
 			}
 		});
 		
+		/*		================
+		 * 			WARNINGS
+		 * 		================
+		 */
+		
 		result.get('W').forEach(warningName -> {
 			boolean state = true;
 			
@@ -212,8 +238,18 @@ public class SyntaxCMain {
 			
 			group.setEnabled(state);
 		});
+		
+		/*		=============
+		 * 			FLAGS
+		 * 		=============
+		 */
 
-		result.get('f').forEach(flagName -> {
+		result.get('f').forEach(arg -> {
+			var flagData = split(arg, '=');
+			
+			String flagName = flagData.getFirst();
+			String flagValue = flagData.getSecond();
+			
 			boolean state = true;
 			
 			if(flagName.startsWith("no-")) {
@@ -224,12 +260,24 @@ public class SyntaxCMain {
 			Flag flag = Flag.of(flagName);
 
 			if(flag == null) {
-				Logger.warn("Unrecognized warning: %s", flagName);
+				Logger.warn("Unrecognized flag: %s", flagName);
 				return;
 			}
 			
+			if(flagValue != null && !flag.isAcceptsValue()) {
+				Logger.warn("Flag »%s« does not accept a value", flagName);
+				return;
+			}
+			else if(flagValue != null)
+				flag.setValue(flagValue);
+			
 			flag.setEnabled(state);
 		});
+		
+		/*		=========================
+		 * 			MACRO DEFINITIONS
+		 * 		=========================
+		 */
 		
 		result.get('D').forEach(arg -> {
 			var definition = split(arg, '=');
@@ -268,6 +316,16 @@ public class SyntaxCMain {
 			
 			else BuiltinMacro.getBuiltinMacros().remove(name);
 		});
+		
+		/*		====================
+		 * 			INCLUDE PATH
+		 * 		====================
+		 */
+		
+		if(Flag.NO_STDLIB.isEnabled())
+			IncludePathRegistry.clear();
+		
+		result.get('I').forEach(IncludePathRegistry::add);
 		
 		if(result.has("version")) {
 			ArchitectureRegistry.getArchitecture().onInit();
@@ -322,9 +380,9 @@ public class SyntaxCMain {
 			out = result.get('o').get(0);
 		}
 		else out = base 
-			+ (SyntaxC.preprocessOnly
+			+ (SyntaxC.onlyPreprocess
 				? ".preprocessed.c"
-				: SyntaxC.dontAssemble
+				: SyntaxC.onlyCompile
 					? ".s"
 					: ".o");
 
@@ -335,8 +393,17 @@ public class SyntaxCMain {
 		
 		else output = createStream(parser, out);
 		
-		if(Flag.SYNTAX_TREE.isEnabled())
-			SyntaxC.syntaxTree = createStream(parser, base + ".syntaxtree.dot");
+		if(Flag.SYNTAX_TREE.isEnabled()) {
+			@SuppressWarnings("preview")
+			String ext = switch(Flag.SYNTAX_TREE.getValue().toLowerCase()) {
+			case "svg" -> "svg";
+			case "png" -> "png";
+			case null -> "dot";
+			default -> "dot";
+			};
+			
+			SyntaxC.syntaxTree = createStream(parser, base + ".syntaxtree." + ext);
+		}
 		
 		SyntaxC.compile(input, output);
 		

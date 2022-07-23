@@ -25,8 +25,9 @@ package at.syntaxerror.syntaxc.type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
-import at.syntaxerror.syntaxc.lexer.Token;
+import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.Getter;
@@ -38,10 +39,10 @@ import lombok.Getter;
 @Getter
 public class FunctionType extends Type {
 
-	public static final FunctionType IMPLICIT = new FunctionType(INT.addressOf().addressOf().addressOf().addressOf().addressOf()) {
+	public static final FunctionType IMPLICIT = new FunctionType(INT) {
 		
 		@Override
-		public void addParameter(Token name, Type type) { }
+		public void addParameter(Parameter param) { }
 		
 		@Override
 		public void setPrototype() { }
@@ -56,6 +57,7 @@ public class FunctionType extends Type {
 	private List<Parameter> parameters;
 	private boolean variadic;  // functions with ellipsis in parameter list, e.g. void my_func(int i, ...) 
 	private boolean prototype; // false for functions without parameter list, e.g. void my_func()
+	private boolean kAndR;	   // functions declared using K&R syntax
 	
 	public FunctionType(Type returnType) {
 		super(TypeKind.FUNCTION);
@@ -68,8 +70,9 @@ public class FunctionType extends Type {
 		return Collections.unmodifiableList(parameters);
 	}
 	
-	public void addParameter(Token name, Type type) {
-		parameters.add(new Parameter(name, type));
+	public void addParameter(Parameter param) {
+		setPrototype();
+		parameters.add(param);
 	}
 	
 	public void setVariadic() {
@@ -78,6 +81,21 @@ public class FunctionType extends Type {
 	
 	public void setPrototype() {
 		prototype = true;
+	}
+	
+	public void setKAndR() {
+		kAndR = true;
+	}
+	
+	@Override
+	protected Type clone() {
+		FunctionType cloned = new FunctionType(returnType);
+		
+		cloned.parameters = parameters;
+		cloned.variadic = variadic;
+		cloned.prototype = prototype;
+		
+		return cloned;
 	}
 	
 	@Override
@@ -92,20 +110,32 @@ public class FunctionType extends Type {
 		return ")(" + String.join(
 			", ",
 			parameters.stream()
-				.map(param -> param.type() + " " + param.name().getString())
+				.map(param -> param.type() + " " + param.name())
 				.toList()
 		) + (variadic ? ", ..." : "") + ")";
 	}
 	
-	public static record Parameter(Token name, Type type) implements Positioned {
+	@Override
+	public String toString() {
+		/* remove '()' in the middle of the string ('(' at the end of the prefix, ')' at the begin of the suffix);
+		 * this is where pointers would go if this was a function pointer:
+		 * 
+		 * float (*)(int a, int b, int c); <-- function pointer
+		 * float (int a, int b, int c); <-- function
+		 */
+		
+		String prefix = toStringPrefix();
+		String suffix = toStringSuffix();
+		
+		return prefix.substring(0, prefix.length() - 2)
+			+ suffix.substring(1);
+	}
+	
+	public static record Parameter(Positioned pos, String name, Type type, Set<Keyword> storageSpecs) implements Positioned {
 		
 		@Override
 		public Position getPosition() {
-			return name.getPosition();
-		}
-		
-		public String getName() {
-			return name.getString();
+			return pos.getPosition();
 		}
 		
 	}

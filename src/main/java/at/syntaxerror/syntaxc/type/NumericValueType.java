@@ -55,7 +55,7 @@ public enum NumericValueType {
 	public static NumericValueType CHAR = SIGNED_CHAR;		// char			(equivalent to 'signed char' by default)
 	public static NumericValueType POINTER = UNSIGNED_LONG;	// e.g. void *	(equivalent to 'unsigned long' by default)
 	public static NumericValueType WCHAR = SIGNED_INT;		// wchar_t		(equivalent to 'signed int' by default)
-	public static NumericValueType PTRDIFF = SIGNED_INT;		// ptrdiff_t	(equivalent to 'signed int' by default)
+	public static NumericValueType PTRDIFF = SIGNED_LONG;	// ptrdiff_t	(equivalent to 'signed long' by default)
 	public static NumericValueType SIZE = UNSIGNED_INT;		// size_t		(equivalent to 'unsigned int' by default)
 	
 	static {

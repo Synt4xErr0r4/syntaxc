@@ -61,8 +61,9 @@ public class SyntaxC {
 	
 	public static boolean terminate;
 
-	public static boolean dontAssemble; // -S
-	public static boolean preprocessOnly; // -E
+	public static boolean onlyAssemble; // -c
+	public static boolean onlyCompile; // -S
+	public static boolean onlyPreprocess; // -E
 	
 	public static OutputStream syntaxTree; // -fsyntax-tree
 
@@ -81,7 +82,7 @@ public class SyntaxC {
 		
 		int len = tokens.size();
 		
-		if(preprocessOnly) {
+		if(onlyPreprocess) {
 
 			try {
 				for(int i = 0; i < len; ++i) {

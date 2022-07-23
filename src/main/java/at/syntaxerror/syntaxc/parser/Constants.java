@@ -20,63 +20,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.type;
+package at.syntaxerror.syntaxc.parser;
 
-import lombok.Getter;
+import java.math.BigInteger;
+
+import at.syntaxerror.syntaxc.parser.node.expression.NumberLiteralExpressionNode;
+import at.syntaxerror.syntaxc.tracking.Positioned;
+import at.syntaxerror.syntaxc.type.Type;
+import lombok.experimental.UtilityClass;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Getter
-public class ArrayType extends PointerLikeType {
+@UtilityClass
+public class Constants {
 
-	public static final int SIZE_UNKNOWN = -1;
-	
-	private int length;
-	
-	protected ArrayType(Type base, int length) {
-		super(TypeKind.ARRAY, base);
-		
-		setLength(length);
-		
-		size = base.size * length;
+	public static NumberLiteralExpressionNode zero(Positioned pos) {
+		return one(pos, Type.INT);
 	}
-	
-	@Override
-	public boolean isIncomplete() {
-		return length == SIZE_UNKNOWN;
+
+	public static NumberLiteralExpressionNode zero(Positioned pos, Type type) {
+		return new NumberLiteralExpressionNode(
+			pos.getPosition(),
+			BigInteger.ZERO,
+			type
+		);
 	}
-	
-	public void setLength(int length) {
-		if(length < 0)
-			length = SIZE_UNKNOWN;
-		
-		this.length = length;
+
+	public static NumberLiteralExpressionNode one(Positioned pos) {
+		return one(pos, Type.INT);
 	}
-	
-	@Override
-	protected Type clone() {
-		return new ArrayType(getBase(), length);
-	}
-	
-	@Override
-	public String toStringPrefix() {
-		return getBase().toStringPrefix() + " (";
-	}
-	
-	@Override
-	protected String toStringSuffix() {
-		return ")[" + length + "]" + getBase().toStringSuffix();
-	}
-	
-	@Override
-	public String toString() {
-		String prefix = toStringPrefix();
-		String suffix = toStringSuffix();
-		
-		return prefix.substring(0, prefix.length() - 2)
-			+ suffix.substring(1);
+
+	public static NumberLiteralExpressionNode one(Positioned pos, Type type) {
+		return new NumberLiteralExpressionNode(
+			pos.getPosition(),
+			BigInteger.ONE,
+			type
+		);
 	}
 
 }

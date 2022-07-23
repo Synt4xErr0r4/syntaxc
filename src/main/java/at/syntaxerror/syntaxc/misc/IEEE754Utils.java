@@ -387,12 +387,12 @@ public class IEEE754Utils {
 	
 	public static record FloatingSpec(int exponent, int mantissa, boolean implicit) {
 		
-		public static final FloatingSpec HALF =			new FloatingSpec(5,		10,		true);
-		public static final FloatingSpec SINGLE =		new FloatingSpec(8,		23,		true);
-		public static final FloatingSpec DOUBLE =		new FloatingSpec(11,	52,		true);
-		public static final FloatingSpec QUADRUPLE =	new FloatingSpec(15,	112,	true);
-		public static final FloatingSpec OCTUPLE =		new FloatingSpec(19,	236,	true);
-		public static final FloatingSpec EXTENDED =		new FloatingSpec(15,	64,		false); // x86 extended precision
+		public static final FloatingSpec HALF =			new FloatingSpec(5,		10,		true); // 16-bit
+		public static final FloatingSpec SINGLE =		new FloatingSpec(8,		23,		true); // float, 32-bit
+		public static final FloatingSpec DOUBLE =		new FloatingSpec(11,	52,		true); // double, 64-bit
+		public static final FloatingSpec QUADRUPLE =	new FloatingSpec(15,	112,	true); // 128-bit
+		public static final FloatingSpec OCTUPLE =		new FloatingSpec(19,	236,	true); // 256-bit
+		public static final FloatingSpec EXTENDED =		new FloatingSpec(15,	64,		false); // x86 extended precision, 80-bit
 		
 	}
 	

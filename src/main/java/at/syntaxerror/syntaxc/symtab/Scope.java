@@ -20,7 +20,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.type;
+package at.syntaxerror.syntaxc.symtab;
+
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import lombok.Getter;
 
@@ -28,55 +32,45 @@ import lombok.Getter;
  * @author Thomas Kasper
  * 
  */
-@Getter
-public class ArrayType extends PointerLikeType {
+public class Scope<T extends Symbol> {
 
-	public static final int SIZE_UNKNOWN = -1;
+	@Getter
+	private final Scope<T> parent;
+	private final Map<String, T> symbols;
 	
-	private int length;
+	public Scope(Scope<T> parent) {
+		this.parent = parent;
+		symbols = new LinkedHashMap<>();
+	}
 	
-	protected ArrayType(Type base, int length) {
-		super(TypeKind.ARRAY, base);
+	public Map<String, T> getSymbols() {
+		return Collections.unmodifiableMap(symbols);
+	}
+	
+	public T find(String name) {
+		if(!symbols.containsKey(name)) {
+			if(parent != null)
+				return parent.find(name);
+			
+			return null;
+		}
 		
-		setLength(length);
+		return symbols.get(name);
+	}
+	
+	public boolean has(String name) {
+		return symbols.containsKey(name)
+			|| (parent != null && parent.has(name));
+	}
+	
+	public boolean add(T symbol) {
+		String name = symbol.getName();
 		
-		size = base.size * length;
-	}
-	
-	@Override
-	public boolean isIncomplete() {
-		return length == SIZE_UNKNOWN;
-	}
-	
-	public void setLength(int length) {
-		if(length < 0)
-			length = SIZE_UNKNOWN;
+		if(symbols.containsKey(name))
+			return false;
 		
-		this.length = length;
-	}
-	
-	@Override
-	protected Type clone() {
-		return new ArrayType(getBase(), length);
-	}
-	
-	@Override
-	public String toStringPrefix() {
-		return getBase().toStringPrefix() + " (";
-	}
-	
-	@Override
-	protected String toStringSuffix() {
-		return ")[" + length + "]" + getBase().toStringSuffix();
-	}
-	
-	@Override
-	public String toString() {
-		String prefix = toStringPrefix();
-		String suffix = toStringSuffix();
-		
-		return prefix.substring(0, prefix.length() - 2)
-			+ suffix.substring(1);
+		symbols.put(name, symbol);
+		return true;
 	}
 
 }
