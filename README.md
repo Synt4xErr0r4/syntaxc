@@ -1,6 +1,6 @@
 # SyntaxC
 
-An ANSI-C compiler written in Java 18
+An ANSI-C (C89, C90) compiler written in Java 18
 
 ## Usage
 
@@ -40,7 +40,7 @@ All extensions can be disabled by using the appropriate command line argument:
 
 ## Sources (incomplete)
 
-- [ANSI/ISO 9899-1990; ANSI X3.159-1989](https://www.iso.org/standard/17782.html) (C Standard) - officially withdrawn, but still available here:
+- [ANSI/ISO 9899-1990; ANSI X3.159-1989](https://www.iso.org/standard/17782.html) (C89/C90 Standard) - officially withdrawn, but still available here:
   - [https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf](https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf)
   - [https://web.archive.org/web/20190210174230/http://read.pudn.com/downloads133/doc/565041/ANSI_ISO%2B9899-1990%2B%5B1%5D.pdf](https://web.archive.org/web/20190210174230/http://read.pudn.com/downloads133/doc/565041/ANSI_ISO%2B9899-1990%2B%5B1%5D.pdf)
   - [https://web.archive.org/web/20200909074736/https://www.pdf-archive.com/2014/10/02/ansi-iso-9899-1990-1/ansi-iso-9899-1990-1.pdf](https://web.archive.org/web/20200909074736/https://www.pdf-archive.com/2014/10/02/ansi-iso-9899-1990-1/ansi-iso-9899-1990-1.pdf)
