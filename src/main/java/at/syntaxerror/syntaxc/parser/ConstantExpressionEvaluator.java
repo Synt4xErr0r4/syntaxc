@@ -106,7 +106,7 @@ public class ConstantExpressionEvaluator implements Logable {
 	
 	private BigInteger performOperation(Positioned pos, Punctuator punct, BigInteger left, BigInteger right) {
 		if(BITWISE_OPERATIONS.containsKey(punct)) {
-			if(punct == Punctuator.LSHIFT || punct == Punctuator.RSHIFT && right.compareTo(BigInteger.ZERO) < 0) {
+			if((punct == Punctuator.LSHIFT || punct == Punctuator.RSHIFT) && right.compareTo(BigInteger.ZERO) < 0) {
 				warn(pos, Warning.NEGATIVE_SHIFT, "Shift count is negative");
 				return BigInteger.ZERO;
 			}
