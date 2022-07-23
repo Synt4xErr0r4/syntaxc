@@ -35,7 +35,7 @@ The following extensions are supported:
 All extensions can be disabled by using the appropriate command line argument:
 
 - `-fno-elifdef`: disables `#elifdef` and `#elifndef`
-- `-fno-func`: disabled `__func__`
+- `-fno-func`: disables `__func__`
 - `-fno-binary-literals`: disables binary literals
 
 ## Sources (incomplete)
