@@ -22,6 +22,8 @@
  */
 package at.syntaxerror.syntaxc.parser.node.expression;
 
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -90,7 +92,7 @@ public class VariableExpressionNode extends ExpressionNode {
 		
 		children.add(child("type", getType()));
 		
-		if(variable.isString())
+		if(variable.isString() && variable.getVariableData().initializer() != null)
 			children.add(
 				child(
 					"value",

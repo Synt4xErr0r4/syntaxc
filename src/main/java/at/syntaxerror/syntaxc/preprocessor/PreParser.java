@@ -56,6 +56,11 @@ public class PreParser extends AbstractParser implements Logable {
 	}
 	
 	@Override
+	public void reread() {
+		
+	}
+	
+	@Override
 	public void markTokenState() {
 		preprocessor.getInput().mark();
 	}

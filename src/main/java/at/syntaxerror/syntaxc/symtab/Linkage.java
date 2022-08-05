@@ -20,12 +20,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.symtab.global;
+package at.syntaxerror.syntaxc.symtab;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public record ByteArrayInitializer(byte[] data) implements GlobalVariableInitializer {
+public enum Linkage {
+
+	/** declared with {@code extern}, or without a storage-class specifier */
+	EXTERNAL,
+	
+	/** declared with {@code static} */
+	INTERNAL,
 	
 }

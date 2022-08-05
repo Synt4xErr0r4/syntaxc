@@ -213,13 +213,13 @@ public class Architecture {
 
 		List<Pair<NumericValueType, String>> floatings = List.of(
 			Pair.of(NumericValueType.FLOAT,		"__FLT_"),
-			Pair.of(NumericValueType.DOUBLE,		"__DBL_"),
+			Pair.of(NumericValueType.DOUBLE,	"__DBL_"),
 			Pair.of(NumericValueType.LDOUBLE,	"__LDBL_")
 		);
 		
 		for(var floating : floatings) {
-			NumericValueType type = floating.getFirst();
-			String name = floating.getSecond();
+			NumericValueType type = floating.getLeft();
+			String name = floating.getRight();
 			
 			FloatingSpec spec = type.getFloatingSpec();
 			
@@ -228,10 +228,10 @@ public class Architecture {
 			
 			defineNumber(name + "MANT_DIG__",	spec.mantissa() + (spec.implicit() ? 1 : 0));
 			defineNumber(name + "DIG__",		IEEE754Utils.getDecimalDigits(spec));
-			defineNumber(name + "MIN_EXP__",	exp.getFirst());
-			defineNumber(name + "MIN_10_EXP__",	exp10.getFirst());
-			defineNumber(name + "MAX_EXP__",	exp.getSecond());
-			defineNumber(name + "MAX_10_EXP__",	exp10.getSecond());
+			defineNumber(name + "MIN_EXP__",	exp.getLeft());
+			defineNumber(name + "MIN_10_EXP__",	exp10.getLeft());
+			defineNumber(name + "MAX_EXP__",	exp.getRight());
+			defineNumber(name + "MAX_10_EXP__",	exp10.getRight());
 			defineNumber(name + "MAX__",		IEEE754Utils.getMaxValue(spec), type);
 			defineNumber(name + "EPSILON__",	IEEE754Utils.getEpsilon(spec), type);
 			defineNumber(name + "MIN__",		IEEE754Utils.getMinValue(spec), type);
@@ -243,19 +243,19 @@ public class Architecture {
 		defineNumber("__MB_LEN_MAX__",	16); // https://www.man7.org/linux/man-pages/man3/MB_LEN_MAX.3.html
 
 		List<Pair<NumericValueType, String>> integers = List.of(
-			Pair.of(NumericValueType.SIGNED_CHAR,	"__SCHAR_"),
-			Pair.of(NumericValueType.UNSIGNED_CHAR,	"__UCHAR_"),
-			Pair.of(NumericValueType.SIGNED_SHORT,	"__SHRT_"),
+			Pair.of(NumericValueType.SIGNED_CHAR,		"__SCHAR_"),
+			Pair.of(NumericValueType.UNSIGNED_CHAR,		"__UCHAR_"),
+			Pair.of(NumericValueType.SIGNED_SHORT,		"__SHRT_"),
 			Pair.of(NumericValueType.UNSIGNED_SHORT,	"__USHRT_"),
 			Pair.of(NumericValueType.SIGNED_INT,		"__INT_"),
-			Pair.of(NumericValueType.UNSIGNED_INT,	"__UINT_"),
-			Pair.of(NumericValueType.SIGNED_LONG,	"__LONG_"),
-			Pair.of(NumericValueType.UNSIGNED_LONG,	"__ULONG_")
+			Pair.of(NumericValueType.UNSIGNED_INT,		"__UINT_"),
+			Pair.of(NumericValueType.SIGNED_LONG,		"__LONG_"),
+			Pair.of(NumericValueType.UNSIGNED_LONG,		"__ULONG_")
 		);
 		
 		for(var integer : integers) {
-			NumericValueType type = integer.getFirst();
-			String name = integer.getSecond();
+			NumericValueType type = integer.getLeft();
+			String name = integer.getRight();
 			
 			if(type.isSigned())
 				defineNumber(name + "MIN__", type.getMin(), type);
@@ -292,14 +292,14 @@ public class Architecture {
 		defineType("__SEEK_CUR",		"");
 		defineType("__SEEK_END",		"");
 		defineType("__SEEK_SET",		"");
-		defineType("__TMP_MAX",		"");
-		defineType("__stderr",		"");
-		defineType("__stdin",		"");
-		defineType("__stdout",		"");
+		defineType("__TMP_MAX",			"");
+		defineType("__stderr",			"");
+		defineType("__stdin",			"");
+		defineType("__stdout",			"");
 	}
 	
 	protected void initSetjmp() {
-		defineType("__JMP_BUF_TYPE__",	"");
+		defineType("__JMP_BUF_TYPE__",	"struct __jmp_buf_tag");
 	}
 	
 	protected void initSignal() {

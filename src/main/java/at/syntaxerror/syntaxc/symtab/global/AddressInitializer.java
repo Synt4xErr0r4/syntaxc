@@ -23,8 +23,13 @@
 package at.syntaxerror.syntaxc.symtab.global;
 
 import java.math.BigInteger;
+import java.util.List;
 
+import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
+
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 
 /**
  * @author Thomas Kasper
@@ -32,4 +37,12 @@ import at.syntaxerror.syntaxc.symtab.SymbolObject;
  */
 public record AddressInitializer(SymbolObject object, BigInteger offset) implements GlobalVariableInitializer {
 
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child(object.getName(), object.getType()),
+			child("offset", offset.toString())
+		);
+	}
+	
 }

@@ -37,7 +37,7 @@ import lombok.experimental.UtilityClass;
 public class Constants {
 
 	public static NumberLiteralExpressionNode zero(Positioned pos) {
-		return one(pos, Type.INT);
+		return zero(pos, Type.INT);
 	}
 
 	public static NumberLiteralExpressionNode zero(Positioned pos, Type type) {

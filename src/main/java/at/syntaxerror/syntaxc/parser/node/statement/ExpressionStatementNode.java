@@ -20,13 +20,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser.node.declaration;
+package at.syntaxerror.syntaxc.parser.node.statement;
+
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.node.Node;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -36,28 +38,23 @@ import lombok.ToString;
  * @author Thomas Kasper
  * 
  */
-@Getter
 @RequiredArgsConstructor
-@ToString(exclude = "position")
-public class Initializer extends Node {
-
-	private final Position position;
-	private final Pair<ExpressionNode, List<Initializer>> value;
-
-	public boolean isSimple() {
-		return value.hasLeft();
+@Getter
+@ToString
+public class ExpressionStatementNode extends StatementNode {
+	
+	private final ExpressionNode expression;
+	
+	@Override
+	public Position getPosition() {
+		return expression.getPosition();
 	}
 	
-	public boolean isList() {
-		return value.hasRight();
-	}
-	
-	public ExpressionNode getExpression() {
-		return value.getLeft();
-	}
-	
-	public List<Initializer> getList() {
-		return value.getRight();
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("expression", expression)
+		);
 	}
 	
 }

@@ -27,6 +27,7 @@ import java.math.BigInteger;
 import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
 import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.AccessLevel;
@@ -41,24 +42,34 @@ import lombok.ToString;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 @ToString(exclude = "position")
-public class SymbolObject implements Symbol {
+public class SymbolObject implements Symbol, Positioned {
 
 	private static long temporaryId = 0;
 	private static long stringId = 0;
 	
-	public static SymbolObject implicit(Position pos, String name) {
+	public static SymbolObject returns(Positioned pos, Type type) {
 		return new SymbolObject(
-			pos,
-			name,
-			SymbolKind.FUNCTION,
-			FunctionType.IMPLICIT,
-			new SymbolFunctionData(true, true)
+			pos.getPosition(),
+			".RV",
+			SymbolKind.VARIABLE_RETURN,
+			type,
+			null
 		);
 	}
 	
-	public static SymbolObject temporary(Position pos, Type type) {
+	public static SymbolObject implicit(Positioned pos, String name) {
 		return new SymbolObject(
-			pos,
+			pos.getPosition(),
+			name,
+			SymbolKind.FUNCTION,
+			FunctionType.IMPLICIT,
+			new SymbolFunctionData(Linkage.INTERNAL, true)
+		);
+	}
+	
+	public static SymbolObject temporary(Positioned pos, Type type) {
+		return new SymbolObject(
+			pos.getPosition(),
 			Long.toString(temporaryId++),
 			SymbolKind.VARIABLE_TEMPORARY,
 			type,
@@ -66,9 +77,9 @@ public class SymbolObject implements Symbol {
 		);
 	}
 	
-	public static SymbolObject local(Position pos, String name, Type type) {
+	public static SymbolObject local(Positioned pos, String name, Type type) {
 		return new SymbolObject(
-			pos,
+			pos.getPosition(),
 			name,
 			SymbolKind.VARIABLE_LOCAL,
 			type,
@@ -76,48 +87,65 @@ public class SymbolObject implements Symbol {
 		);
 	}
 	
-	public static SymbolObject string(Position pos, StringInitializer initializer) {
+	public static SymbolObject string(Positioned pos, StringInitializer initializer) {
 		return new SymbolObject(
-			pos,
+			pos.getPosition(),
 			Long.toString(stringId++),
 			SymbolKind.STRING,
-			Type.getStringType(initializer.value()),
+			Type.getStringType(initializer.value(), initializer.wide()),
 			new SymbolVariableData(
-				true,
+				Linkage.INTERNAL,
 				initializer
 			)
 		);
 	}
 	
-	public static SymbolObject function(Position pos, String name, Type type, boolean isStatic) {
+	public static SymbolObject function(Positioned pos, String name, Type type, Linkage linkage) {
 		return new SymbolObject(
-			pos,
+			pos.getPosition(),
 			name,
 			SymbolKind.FUNCTION,
 			type,
 			new SymbolFunctionData(
-				false,
+				linkage,
 				false
 			)
 		);
 	}
 	
-	public static SymbolObject global(Position pos, String name, Type type, boolean isStatic, GlobalVariableInitializer initializer) {
+	public static SymbolObject prototype(Positioned pos, String name, Type type, Linkage linkage) {
 		return new SymbolObject(
-			pos,
+			pos.getPosition(),
+			name,
+			SymbolKind.PROTOTYPE,
+			type,
+			new SymbolFunctionData(
+				linkage,
+				false
+			)
+		);
+	}
+	
+	public static SymbolObject global(Positioned pos, String name, Type type, Linkage linkage, GlobalVariableInitializer initializer) {
+		return new SymbolObject(
+			pos.getPosition(),
 			name,
 			SymbolKind.VARIABLE_GLOBAL,
 			type,
 			new SymbolVariableData(
-				isStatic,
+				linkage,
 				initializer
 			)
 		);
 	}
 	
-	public static SymbolObject typedef(Position pos, String name, Type type) {
+	public static SymbolObject extern(Positioned pos, String name, Type type) {
+		return global(pos, name, type, Linkage.EXTERNAL, null);
+	}
+	
+	public static SymbolObject typedef(Positioned pos, String name, Type type) {
 		return new SymbolObject(
-			pos,
+			pos.getPosition(),
 			name,
 			SymbolKind.TYPEDEF,
 			type,
@@ -125,9 +153,9 @@ public class SymbolObject implements Symbol {
 		);
 	}
 	
-	public static SymbolObject enumerator(Position pos, String name, Type type, BigInteger value) {
+	public static SymbolObject enumerator(Positioned pos, String name, Type type, BigInteger value) {
 		return new SymbolObject(
-			pos,
+			pos.getPosition(),
 			name,
 			SymbolKind.ENUMERATOR,
 			type,
@@ -141,6 +169,12 @@ public class SymbolObject implements Symbol {
 	private final Type type;
 
 	private final SymbolData data;
+	
+	private boolean unused = true;
+	
+	public void setUnused(boolean unused) {
+		this.unused = unused;
+	}
 	
 	public SymbolFunctionData getFunctionData() {
 		return (SymbolFunctionData) data;
@@ -180,7 +214,12 @@ public class SymbolObject implements Symbol {
 	}
 	
 	public boolean isFunction() {
-		return kind == SymbolKind.FUNCTION;
+		return kind == SymbolKind.FUNCTION
+			|| kind == SymbolKind.PROTOTYPE;
+	}
+	
+	public boolean isPrototype() {
+		return kind == SymbolKind.PROTOTYPE;
 	}
 	
 	public boolean isTypedef() {
@@ -196,12 +235,12 @@ public class SymbolObject implements Symbol {
 	}
 	
 	// additional data for functions
-	public static record SymbolFunctionData(boolean isStatic, boolean isImplicit) implements SymbolData {
+	public static record SymbolFunctionData(Linkage linkage, boolean isImplicit) implements SymbolData {
 		
 	}
 
 	// additional data for global variables
-	public static record SymbolVariableData(boolean isStatic, GlobalVariableInitializer initializer) implements SymbolData {
+	public static record SymbolVariableData(Linkage linkage, GlobalVariableInitializer initializer) implements SymbolData {
 		
 	}
 	

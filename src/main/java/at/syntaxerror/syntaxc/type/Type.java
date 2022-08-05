@@ -49,8 +49,15 @@ public class Type {
 	public static final NumberType DOUBLE =		new NumberType(TypeKind.DOUBLE);
 	public static final NumberType LDOUBLE =	new NumberType(TypeKind.LDOUBLE);
 	
-	public static Type getStringType(String string) {
-		return CHAR.arrayOf(string.getBytes(StandardCharsets.UTF_8).length + 1);
+	public static Type getStringType(String string, boolean wide) {
+		return (wide
+				? NumericValueType.WCHAR
+				: NumericValueType.CHAR
+			).asType()
+			.arrayOf(
+				string.getBytes(StandardCharsets.UTF_8)
+					.length + 1
+			);
 	}
 	
 	private static long anonymousId = 0;
@@ -156,6 +163,21 @@ public class Type {
 	
 	public final boolean isVoid() {
 		return kind == TypeKind.VOID;
+	}
+	
+	public final boolean isString() {
+		if(!isArray())
+			return false;
+		
+		Type base = toArray().getBase();
+		
+		if(!base.isInteger())
+			return false;
+		
+		NumericValueType type = base.toNumber().getNumericType();
+		
+		return type == NumericValueType.CHAR
+			|| type == NumericValueType.WCHAR;
 	}
 
 	public boolean isIncomplete() {

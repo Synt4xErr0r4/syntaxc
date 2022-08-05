@@ -22,8 +22,6 @@
  */
 package at.syntaxerror.syntaxc.type;
 
-import java.util.function.BiPredicate;
-
 import lombok.experimental.UtilityClass;
 
 /**
@@ -127,27 +125,30 @@ public class TypeUtils {
 		return Type.INT;
 	}
 	
-	public static boolean isCompatible(Type a, Type b) {
-		if(a.isInteger())
-			return a.toNumber().isUnsigned() == a.toNumber().isUnsigned();
-		
-		return a.isFloating()
-			|| checkEquality(a, b, TypeUtils::isCompatible);
-	}
+	public static Type toComposite(Type a, Type b) {
+		if(a == b)
+			return a;
 
-	public static boolean isEqual(Type a, Type b) {
-		return checkEquality(a, b, TypeUtils::isEqual);
+		// enums, structs, and unions must pass the identify check above
+		if(a.getKind() != b.getKind() || a.isEnum() || a.isStructLike())
+			return null;
+		
+		return null;
 	}
 	
-	private static boolean checkEquality(Type a, Type b, BiPredicate<Type, Type> predicate) {
+	public static boolean isEqual(Type a, Type b) {
 		if(a == b)
 			return true;
 		
-		if(a.getKind() != b.getKind() || a.isEnum() || a.isStructLike()) // enums, structs, and unions must pass the identify check above
+		// enums, structs, and unions must pass the identify check above
+		if(a.getKind() != b.getKind() || a.isEnum() || a.isStructLike())
 			return false;
 		
+		if(a.isInteger())
+			return a.toNumber().isUnsigned() == b.toNumber().isUnsigned();
+		
 		if(a.isPointer())
-			return predicate.test(
+			return isEqual(
 				a.dereference(),
 				b.dereference()
 			);
@@ -156,7 +157,7 @@ public class TypeUtils {
 			FunctionType aFunction = a.toFunction();
 			FunctionType bFunction = b.toFunction();
 			
-			if(!predicate.test(
+			if(!isEqual(
 				aFunction.getReturnType(),
 				bFunction.getReturnType())
 			) return false;
@@ -172,7 +173,7 @@ public class TypeUtils {
 			
 			if(!aFunction.isKAndR() && !bFunction.isKAndR())
 				for(int i = 0; i < aParams.size(); ++i)
-					if(!predicate.test(
+					if(!isEqual(
 						aParams.get(i).type(),
 						bParams.get(i).type()
 					)) return false;
@@ -184,7 +185,7 @@ public class TypeUtils {
 			ArrayType aArray = a.toArray();
 			ArrayType bArray = b.toArray();
 			
-			if(!predicate.test(
+			if(!isEqual(
 				aArray.getBase(),
 				bArray.getBase()
 			)) return false;

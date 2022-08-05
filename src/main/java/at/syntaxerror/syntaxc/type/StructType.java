@@ -41,11 +41,11 @@ import lombok.ToString;
 public class StructType extends Type {
 
 	public static StructType forAnonymousStruct() {
-		return forStruct(getAnonymousName());
+		return forStruct(null);
 	}
 
 	public static StructType forAnonymousUnion() {
-		return forUnion(getAnonymousName());
+		return forUnion(null);
 	}
 	
 	public static StructType forStruct(String name) {
@@ -57,6 +57,7 @@ public class StructType extends Type {
 	}
 	
 	private final String name;
+	private final boolean anonymous;
 	
 	private boolean incomplete = true;
 	private boolean packed;
@@ -67,7 +68,10 @@ public class StructType extends Type {
 	
 	private StructType(TypeKind kind, String name) {
 		super(kind);
-		this.name = name;
+		
+		anonymous = name == null;
+		
+		this.name = anonymous ? getAnonymousName() : name;
 	}
 	
 	public void setComplete() {
@@ -177,6 +181,10 @@ public class StructType extends Type {
 		private final Type type;
 		private final int bitOffset;
 		private final int bitWidth;
+		
+		public boolean isBitfield() {
+			return type.isBitfield();
+		}
 		
 	}
 

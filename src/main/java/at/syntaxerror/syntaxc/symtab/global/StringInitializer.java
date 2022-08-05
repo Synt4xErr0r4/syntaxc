@@ -22,10 +22,26 @@
  */
 package at.syntaxerror.syntaxc.symtab.global;
 
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+
+import java.util.List;
+
+import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+
 /**
  * @author Thomas Kasper
  * 
  */
-public record StringInitializer(long id, String value) implements GlobalVariableInitializer {
+public record StringInitializer(long id, String value, boolean wide) implements GlobalVariableInitializer {
+	
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("value", value()),
+			child("wide", wide()),
+			child("id", Long.toString(id()))
+		);
+	}
 	
 }

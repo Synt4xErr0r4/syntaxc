@@ -20,13 +20,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser.node.declaration;
+package at.syntaxerror.syntaxc.parser.node;
 
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.node.Node;
-import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -36,28 +37,26 @@ import lombok.ToString;
  * @author Thomas Kasper
  * 
  */
-@Getter
 @RequiredArgsConstructor
-@ToString(exclude = "position")
-public class Initializer extends Node {
+@Getter
+@ToString
+public class FunctionNode extends Node {
 
-	private final Position position;
-	private final Pair<ExpressionNode, List<Initializer>> value;
-
-	public boolean isSimple() {
-		return value.hasLeft();
+	private final SymbolObject object;
+	private final Node body;
+	
+	@Override
+	public Position getPosition() {
+		return object.getPosition();
 	}
 	
-	public boolean isList() {
-		return value.hasRight();
-	}
-	
-	public ExpressionNode getExpression() {
-		return value.getLeft();
-	}
-	
-	public List<Initializer> getList() {
-		return value.getRight();
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("name", object.getName()),
+			child("type", object.getType()),
+			child("body", body)
+		);
 	}
 	
 }

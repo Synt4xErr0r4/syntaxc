@@ -45,7 +45,7 @@ import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
-import at.syntaxerror.syntaxc.symtab.global.AddressInitializer;
+import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.FunctionType;
@@ -66,11 +66,21 @@ public class ExpressionParser extends AbstractParser {
 	
 	private final AbstractParser parser;
 	
-	private final ConstantExpressionEvaluator evaluator = new ConstantExpressionEvaluator();
+	@Override
+	protected void sync() {
+		parser.current = current;
+		parser.previous = previous;
+		parser.sync();
+	}
 	
 	@Override
 	public SymbolTable getSymbolTable() {
 		return parser.getSymbolTable();
+	}
+	
+	@Override
+	public void reread() {
+		parser.reread();
 	}
 	
 	@Override
@@ -93,6 +103,16 @@ public class ExpressionParser extends AbstractParser {
 		return parser.readNextToken();
 	}
 	
+	@Override
+	public boolean isTypeName() {
+		return parser.isTypeName();
+	}
+	
+	@Override
+	public Type nextTypeName() {
+		return parser.nextTypeName();
+	}
+	
 	/* 
 	 * § 6.3.1 Primary expression
 	 * 
@@ -107,6 +127,8 @@ public class ExpressionParser extends AbstractParser {
 			SymbolObject sym = getSymbolTable().findObject(ident.getString());
 			
 			if(sym != null) {
+				sym.setUnused(false);
+				
 				if(sym.isEnumerator()) // enum constant
 					return newNumber(
 						getPosition(),
@@ -136,7 +158,7 @@ public class ExpressionParser extends AbstractParser {
 			
 			SymbolObject var = SymbolObject.string(
 				current.getPosition(),
-				getSymbolTable().getStringTable().add(value)
+				getSymbolTable().getStringTable().add(value, current.isWide())
 			);
 			
 			getSymbolTable().addObject(var);
@@ -264,7 +286,6 @@ public class ExpressionParser extends AbstractParser {
 				List<Parameter> parameters = fnType.getParameters();
 				List<ExpressionNode> arguments = new ArrayList<>();
 
-				boolean prototype = fnType.isPrototype();
 				boolean variadic = fnType.isVariadic();
 				boolean kAndR = fnType.isKAndR();
 				
@@ -279,13 +300,13 @@ public class ExpressionParser extends AbstractParser {
 					
 					ExpressionNode arg = nextAssignment();
 					
-					if(prototype && !variadic && arguments.size() >= n)
+					if(!kAndR && !variadic && arguments.size() >= n)
 						error(arg, "Too many arguments for function call");
 					
 					Type argType = arg.getType();
 					
 					if(!kAndR) {
-						if(!prototype || (variadic && arguments.size() >= n)) { // default argument promotion
+						if(variadic && arguments.size() >= n) { // default argument promotion
 							
 							if(argType.isArithmetic()) {
 								NumericValueType num = argType.toNumber().getNumericType();
@@ -342,7 +363,7 @@ public class ExpressionParser extends AbstractParser {
 					arguments.add(arg);
 				}
 				
-				if(prototype && arguments.size() < n)
+				if(!kAndR && arguments.size() < n)
 					error(expr, "Too few arguments for function call");
 				
 				/* dereference function pointer:
@@ -604,13 +625,13 @@ public class ExpressionParser extends AbstractParser {
 			
 			if(optional("(")) {
 				next();
-				
+
 				if(isTypeName()) {
 					unmark();
 					
 					type = nextTypeName();
 					
-					require(")");
+					expect(")");
 				}
 
 				else reset();
@@ -651,6 +672,8 @@ public class ExpressionParser extends AbstractParser {
 		mark();
 		
 		if(equal("(")) {
+			Position pos = getPosition();
+			
 			next();
 			
 			if(isTypeName()) {
@@ -658,9 +681,8 @@ public class ExpressionParser extends AbstractParser {
 				
 				Type type = nextTypeName();
 				
-				Position pos = require(")").getPosition();
-
-				next();
+				consume(")");
+				
 				ExpressionNode target = nextCast();
 				
 				if(!type.isScalar() && !type.isVoid())
@@ -671,7 +693,7 @@ public class ExpressionParser extends AbstractParser {
 				
 				return newCast(
 					pos,
-					nextCast(),
+					target,
 					type
 				);
 			}
@@ -682,14 +704,6 @@ public class ExpressionParser extends AbstractParser {
 		return nextUnary();
 	}
 	
-	private Type nextTypeName() {
-		return null; // TODO provided by declaration parser
-	}
-
-	private boolean isTypeName() {
-		return false; // TODO provided by declaration parser
-	}
-
 	/*
 	 * § 6.3.5 Multiplicative operators
 	 * 
@@ -967,7 +981,7 @@ public class ExpressionParser extends AbstractParser {
 				error(op, "Cannot assign value to storage qualified as »const«");
 			
 			if(op.is("="))
-				return checkAssignment(op, exprLeft, exprRight);
+				return checkAssignment(op, exprLeft, exprRight, false);
 			
 			op = Token.ofPunctuator(op.getPosition(), ASSIGN_TO_BINARY.get(op.getPunctuator()));
 			
@@ -1052,20 +1066,20 @@ public class ExpressionParser extends AbstractParser {
 	}
 	
 	public BigInteger nextIntegerConstantExpression() {
-		return evaluator.evalInteger(nextConstantExpression());
+		return ConstantExpressionEvaluator.evalInteger(nextConstantExpression());
 	}
 
 	public Number nextArithmeticConstantExpression() {
-		return evaluator.evalArithmetic(nextConstantExpression());
+		return ConstantExpressionEvaluator.evalArithmetic(nextConstantExpression());
 	}
 
-	public AddressInitializer nextAddressConstantExpression() {
-		return evaluator.evalAddress(nextConstantExpression());
+	public GlobalVariableInitializer nextAddressConstantExpression() {
+		return ConstantExpressionEvaluator.evalAddress(nextConstantExpression());
 	}
 	
 	public boolean isNullPointer(ExpressionNode expr) {
-		return evaluator.isConstant(expr)
-			&& evaluator.evalInteger(expr).compareTo(BigInteger.ZERO) == 0;
+		return ConstantExpressionEvaluator.isConstant(expr)
+			&& ConstantExpressionEvaluator.evalInteger(expr).compareTo(BigInteger.ZERO) == 0;
 	}
 	
 	public BinaryExpressionNode checkBitwise(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, String name) {
@@ -1303,11 +1317,14 @@ public class ExpressionParser extends AbstractParser {
 		);
 	}
 	
-	public BinaryExpressionNode checkAssignment(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
+	public BinaryExpressionNode checkAssignment(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, boolean isReturn) {
 		Type left = exprLeft.getType();
 		Type right = exprRight.getType();
 		
 		do {
+			if(left.isArray())
+				error(op, "Cannot assign to array type");
+			
 			if(left.isArithmetic() && right.isArithmetic())
 				break;
 			
@@ -1317,10 +1334,18 @@ public class ExpressionParser extends AbstractParser {
 				Type rbase = right.dereference();
 				
 				if(!lbase.isConst() && rbase.isConst())
-					error(op, "Assignment removes »const« qualifier from target type");
+					error(
+						op,
+						"%s discards »const« qualifier from target type",
+						isReturn ? "»return«" : "Assignment"
+					);
 				
 				if(!lbase.isVolatile() && rbase.isVolatile())
-					error(op, "Assignment removes »volatile« qualifier from target type");
+					error(
+						op,
+						"%s discards »volatile« qualifier from target type",
+						isReturn ? "»return«" : "Assignment"
+					);
 				
 				if(TypeUtils.isVoidPointer(left) || TypeUtils.isVoidPointer(right) || isNullPointer(exprRight))
 					break;
@@ -1332,7 +1357,8 @@ public class ExpressionParser extends AbstractParser {
 			
 			error(
 				op,
-				"Incompatible types for assignment (got »%s« and »%s«)",
+				"Incompatible types for %s (got »%s« and »%s«)",
+				isReturn ? "»return«" : "assignment",
 				left,
 				right
 			);
@@ -1379,11 +1405,11 @@ public class ExpressionParser extends AbstractParser {
 		return exprLeft;
 	}
 	
-	private NumberLiteralExpressionNode newNumber(Positioned pos, Number value, Type type) {
+	private static NumberLiteralExpressionNode newNumber(Positioned pos, Number value, Type type) {
 		return new NumberLiteralExpressionNode(pos.getPosition(), value, type);
 	}
 	
-	private ExpressionNode newPromote(ExpressionNode expr) {
+	private static ExpressionNode newPromote(ExpressionNode expr) {
 		Type type = expr.getType();
 		Type promoted = TypeUtils.promoteInteger(type);
 		
@@ -1393,7 +1419,7 @@ public class ExpressionParser extends AbstractParser {
 		return newCast(expr, expr, promoted);
 	}
 	
-	private ExpressionNode newLazyCast(Positioned pos, ExpressionNode expr, Type type) {
+	private static ExpressionNode newLazyCast(Positioned pos, ExpressionNode expr, Type type) {
 		Type current = expr.getType();
 		
 		if(TypeUtils.isEqual(current, type))
@@ -1402,23 +1428,23 @@ public class ExpressionParser extends AbstractParser {
 		return newCast(pos, expr, type);
 	}
 	
-	private CastExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
+	private static CastExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
 		return new CastExpressionNode(pos.getPosition(), expr, type);
 	}
 	
-	private UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op) {
+	private static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op) {
 		return newUnary(pos, expr, op, expr.getType());
 	}
 
-	private UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op, Type type) {
+	private static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op, Type type) {
 		return new UnaryExpressionNode(pos.getPosition(), expr, op, type);
 	}
 
-	private BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
+	private static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
 		return newArithmetic(pos, left, right, op, null);
 	}
 
-	private BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
+	private static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
 		Type lType = left.getType();
 		Type rType = right.getType();
 		
@@ -1430,15 +1456,15 @@ public class ExpressionParser extends AbstractParser {
 		return newBinary(pos, left, right, op, Objects.requireNonNullElse(type, usual));
 	}
 
-	private BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
+	private static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
 		return newBinary(pos, left, right, op, left.getType());
 	}
 
-	private BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
+	private static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
 		return new BinaryExpressionNode(pos.getPosition(), left, right, op, type);
 	}
 
-	private CommaExpressionNode newComma(Positioned pos, ExpressionNode left, ExpressionNode right) {
+	private static CommaExpressionNode newComma(Positioned pos, ExpressionNode left, ExpressionNode right) {
 		return new CommaExpressionNode(pos.getPosition(), left, right);
 	}
 	
@@ -1496,11 +1522,11 @@ public class ExpressionParser extends AbstractParser {
 		);
 	}
 	
-	private BinaryExpressionNode subtractPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset) {
+	private static BinaryExpressionNode subtractPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset) {
 		return addOrSubtractPointer(pos, pointer, offset, Punctuator.SUBTRACT, false);
 	}
 	
-	private BinaryExpressionNode addPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset) {
+	private static BinaryExpressionNode addPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset) {
 		boolean swap = false;
 
 		// convert into canonical form 'pointer + offset'
@@ -1520,7 +1546,7 @@ public class ExpressionParser extends AbstractParser {
 	 * 
 	 * when 'swap' is true, ptr and off are swapped (changes order of evaluation)
 	 */
-	private BinaryExpressionNode addOrSubtractPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset, Punctuator op, boolean swap) {
+	private static BinaryExpressionNode addOrSubtractPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset, Punctuator op, boolean swap) {
 		Type offsetType = NumericValueType.SIZE.asType();
 		
 		// offset * sizeof(pointer)
@@ -1529,7 +1555,12 @@ public class ExpressionParser extends AbstractParser {
 			offset,
 			newNumber(
 				pos,
-				BigInteger.valueOf(pointer.getType().sizeof()),
+				BigInteger.valueOf(
+					pointer.getType()
+						.toPointerLike()
+						.getBase()
+						.sizeof()
+				),
 				offsetType
 			),
 			Punctuator.MULTIPLY,

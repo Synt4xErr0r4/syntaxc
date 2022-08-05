@@ -52,7 +52,12 @@ public class PointerType extends PointerLikeType {
 	
 	@Override
 	public String toStringPrefix() {
-		return getBase().toStringPrefix() + "*" + toStringQualifiers() + getBase().toStringSuffix();
+		return getBase().toStringPrefix() + "*" + toStringQualifiers();
+	}
+	
+	@Override
+	protected String toStringSuffix() {
+		return getBase().toStringSuffix();
 	}
 
 }

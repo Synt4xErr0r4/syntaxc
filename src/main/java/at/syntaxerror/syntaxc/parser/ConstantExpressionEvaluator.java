@@ -30,7 +30,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
-import at.syntaxerror.syntaxc.logger.Logable;
+import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
@@ -38,20 +38,26 @@ import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CommaExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.MemberAccessExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.NumberLiteralExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.global.AddressInitializer;
-import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
+import at.syntaxerror.syntaxc.symtab.global.IntegerInitializer;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.NumberType;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
+import lombok.experimental.UtilityClass;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class ConstantExpressionEvaluator implements Logable {
+@UtilityClass
+public class ConstantExpressionEvaluator {
 
 	private static final Map<Punctuator, Pair<MathFunction<BigInteger>, MathFunction<BigDecimal>>> ARITHMETIC_OPERATIONS = Map.of(
 		Punctuator.ADD,				Pair.of(BigInteger::add,		BigDecimal::add),
@@ -104,10 +110,10 @@ public class ConstantExpressionEvaluator implements Logable {
 			: (BigDecimal) value;
 	}
 	
-	private BigInteger performOperation(Positioned pos, Punctuator punct, BigInteger left, BigInteger right) {
+	private static BigInteger performOperation(Positioned pos, Punctuator punct, BigInteger left, BigInteger right) {
 		if(BITWISE_OPERATIONS.containsKey(punct)) {
 			if((punct == Punctuator.LSHIFT || punct == Punctuator.RSHIFT) && right.compareTo(BigInteger.ZERO) < 0) {
-				warn(pos, Warning.NEGATIVE_SHIFT, "Shift count is negative");
+				Logger.warn(pos, Warning.NEGATIVE_SHIFT, "Shift count is negative");
 				return BigInteger.ZERO;
 			}
 			
@@ -118,16 +124,16 @@ public class ConstantExpressionEvaluator implements Logable {
 			if(isZero(right))
 				error(pos, "Division by zero");
 			
-			return DIVISION_OPERATIONS.get(punct).getFirst().calculate(left, right);
+			return DIVISION_OPERATIONS.get(punct).getLeft().calculate(left, right);
 		}
 		
 		if(ARITHMETIC_OPERATIONS.containsKey(punct))
-			return ARITHMETIC_OPERATIONS.get(punct).getFirst().calculate(left, right);
+			return ARITHMETIC_OPERATIONS.get(punct).getLeft().calculate(left, right);
 		
 		return null;
 	}
 
-	private Number performOperation(Positioned pos, Punctuator punct, Number left, Number right) {
+	private static Number performOperation(Positioned pos, Punctuator punct, Number left, Number right) {
 		if(left instanceof BigInteger l && right instanceof BigInteger r)
 			return performOperation(pos, punct, l, r);
 
@@ -141,32 +147,22 @@ public class ConstantExpressionEvaluator implements Logable {
 			if(isZero(r))
 				error(pos, "Division by zero");
 			
-			return DIVISION_OPERATIONS.get(punct).getSecond().calculate(l, r);
+			return DIVISION_OPERATIONS.get(punct).getRight().calculate(l, r);
 		}
 		
 		if(ARITHMETIC_OPERATIONS.containsKey(punct))
-			return ARITHMETIC_OPERATIONS.get(punct).getSecond().calculate(l, r);
+			return ARITHMETIC_OPERATIONS.get(punct).getRight().calculate(l, r);
 		
 		return null;
 	}
 
-	private Number performLogical(Positioned pos, Punctuator punct, Number left, Supplier<Number> right, Type rightType) {
+	private static Number performLogical(Positioned pos, Punctuator punct, Number left, Supplier<Number> right, Type rightType) {
 		LogicalFunction fun = LOGICAL_OPERATIONS.get(punct);
 		
 		if(left instanceof BigInteger l && rightType.isInteger())
 			return fun.calculate(l, () -> (BigInteger) right.get());
 		
 		return fun.calculate(toBigDecimal(left), () -> toBigDecimal(right.get()));
-	}
-	
-	@Override
-	public Position getPosition() {
-		return null;
-	}
-	
-	@Override
-	public Warning getDefaultWarning() {
-		return Warning.SEM_NONE;
 	}
 	
 	private static boolean isZero(BigInteger value) {
@@ -179,7 +175,7 @@ public class ConstantExpressionEvaluator implements Logable {
 			: isZero((BigInteger) value);
 	}
 	
-	private Number checkBounds(Number value, Type type) {
+	private static Number checkBounds(Number value, Type type) {
 		NumericValueType numType = type.toNumber().getNumericType();
 		
 		if(numType.isFloating()) {
@@ -197,7 +193,7 @@ public class ConstantExpressionEvaluator implements Logable {
 		return numType.mask((BigInteger) value);
 	}
 	
-	public BigInteger evalInteger(ExpressionNode expr) {
+	public static BigInteger evalInteger(ExpressionNode expr) {
 		if(expr instanceof NumberLiteralExpressionNode num) {
 			if(num.getType().isFloating())
 				error(num, "Illegal floating point number in constant expression");
@@ -256,8 +252,8 @@ public class ConstantExpressionEvaluator implements Logable {
 			return (BigInteger) checkBounds(bigint, cast.getType());
 		}
 		
-		if(expr instanceof CommaExpressionNode cast)
-			return evalInteger(cast.getRight());
+		if(expr instanceof CommaExpressionNode comma && isConstant(comma.getLeft()))
+			return evalInteger(comma.getRight());
 		
 		if(expr instanceof ConditionalExpressionNode cond)
 			return evalInteger(cond.getCondition()).compareTo(BigInteger.ZERO) != 0
@@ -281,11 +277,11 @@ public class ConstantExpressionEvaluator implements Logable {
 		return null;
 	}
 	
-	private BigDecimal evalBigArithmetic(ExpressionNode expr) {
+	private static BigDecimal evalBigArithmetic(ExpressionNode expr) {
 		return toBigDecimal(evalArithmetic(expr));
 	}
 
-	public Number evalArithmetic(ExpressionNode expr) {
+	public static Number evalArithmetic(ExpressionNode expr) {
 		if(expr instanceof NumberLiteralExpressionNode num) {
 			if(num.getType().isFloating())
 				return num.getLiteral();
@@ -337,8 +333,8 @@ public class ConstantExpressionEvaluator implements Logable {
 			return checkBounds(value, cast.getType());
 		}
 		
-		if(expr instanceof CommaExpressionNode cast)
-			return evalArithmetic(cast.getRight());
+		if(expr instanceof CommaExpressionNode comma && isConstant(comma.getLeft()))
+			return evalArithmetic(comma.getRight());
 		
 		if(expr instanceof ConditionalExpressionNode cond)
 			return !isZero(evalArithmetic(cond.getCondition()))
@@ -352,7 +348,7 @@ public class ConstantExpressionEvaluator implements Logable {
 			
 			if(unary.getOperation() == Punctuator.BITWISE_NOT) {
 				if(!(target instanceof BigInteger bigint))
-					error("Illegal operand for »~«");
+					error(expr, "Illegal operand for »~«");
 					
 				else val = bigint.not();
 			}
@@ -371,11 +367,183 @@ public class ConstantExpressionEvaluator implements Logable {
 		return null;
 	}
 	
-	public AddressInitializer evalAddress(ExpressionNode expr) {
-		return new AddressInitializer(null, BigInteger.ZERO); // TODO
+	private static final BigInteger TRUE = BigInteger.ONE;
+	
+	public static GlobalVariableInitializer evalAddress(ExpressionNode expr) {
+		AddressState state = evalAddressExpr(expr);
+		
+		if(state.symbol() == null)
+			return new IntegerInitializer(state.offset(), expr.getType().sizeof());
+		
+		if(!state.isAddress())
+			error(expr, "Expression is not constant");
+		
+		return new AddressInitializer(state.symbol(), state.offset());
 	}
 	
-	public boolean isConstant(ExpressionNode expr) {
+	private static AddressState evalAddressExpr(ExpressionNode expr) {
+		if(expr instanceof VariableExpressionNode var)
+			return AddressState.ofAddress(var.getVariable(), BigInteger.ZERO);
+		
+		if(expr instanceof NumberLiteralExpressionNode)
+			return AddressState.ofValue(evalInteger(expr));
+		
+		if(expr instanceof BinaryExpressionNode binary) {
+			if(isConstant(binary.getLeft()) && isConstant(binary.getRight()))
+				return AddressState.ofValue(evalInteger(binary));
+			
+			var left = evalAddressExpr(binary.getLeft());
+			
+			Punctuator op = binary.getOperation();
+			
+			if(op == Punctuator.LOGICAL_OR || op == Punctuator.LOGICAL_AND)
+				return AddressState.ofValue(
+					(BigInteger) performLogical(
+						binary,
+						op,
+						left.booleanValue(),
+						() -> evalAddressExpr(binary.getRight()).booleanValue(),
+						binary.getRight().getType()
+					)
+				);
+
+			var right = evalAddressExpr(binary.getRight());
+			
+			if(!left.isAddress() && !right.isAddress()) {
+
+				/* occurs as part of pointer subtraction (&x - &x)
+				 * returns zero since left should always be zero at this point
+				 */
+				if(op == Punctuator.DIVIDE)
+					return AddressState.ofValue(BigInteger.ZERO);
+
+				error(expr, "Expression is not constant");
+			}
+			
+			if(left.isAddress() && right.isAddress() && op == Punctuator.SUBTRACT) {
+				if(left.symbol() == right.symbol())
+					return AddressState.ofValue(BigInteger.ZERO); // (&x - &x) always returns 0
+
+				error(expr, "Expression is not constant");
+			}
+			
+			if(op == Punctuator.SUBTRACT) {
+				
+				/* possible combinations:
+				 * 
+				 * ptr - off
+				 * (ptr + off) - off
+				 * (ptr - off) - off
+				 */
+				
+				if(right.isAddress()) // right side must not be a pointer
+					error(expr, "Expression is not constant");
+				
+				return AddressState.ofAddress(
+					left,
+					right.offset()
+						.negate()
+				);
+			}
+			
+			if(op == Punctuator.ADD) {
+				
+				/* possible combinations:
+				 * ptr + off
+				 * off + ptr
+				 * (ptr + off) + off
+				 * off + (ptr + off)
+				 */
+
+				if(left.isAddress() && right.isAddress()) // only one side must be a pointer
+					error(expr, "Expression is not constant");
+
+				// convert into canonical form 'pointer + offset'
+				if(right.isAddress()) {
+					AddressState temp = left;
+					left = right;
+					right = temp;
+				}
+				
+				return AddressState.ofAddress(
+					left,
+					right.offset()
+				);
+			}
+		}
+		
+		if(expr instanceof CastExpressionNode cast) {
+			if(!cast.getType().isInteger() && !cast.getType().isPointer())
+				error(cast, "Cannot cast to non-integer and non-pointer type in constant expression");
+			
+			ExpressionNode target = cast.getTarget();
+			
+			Type type = target.getType();
+			
+			if(!type.isScalar())
+				error(target, "Expected number or pointer for cast in constant expression");
+
+			if(cast.getType().isPointer())
+				return evalAddressExpr(target);
+			
+			NumberType num = type.toNumber();
+			
+			BigInteger bigint = null;
+			
+			if(num.getNumericType().isFloating()) {
+				if(target instanceof NumberLiteralExpressionNode lit)
+					bigint = ((BigDecimal) lit.getLiteral()).toBigInteger();
+				
+				else error(target, "Floating point number must be immediate operand of cast in constant expression");
+			}
+			else bigint = evalInteger(target);
+			
+			return AddressState.ofValue(bigint);
+		}
+		
+		if(expr instanceof CommaExpressionNode comma && isConstant(comma.getLeft()))
+			return evalAddressExpr(comma.getRight());
+		
+		if(expr instanceof ConditionalExpressionNode cond)
+			return evalAddressExpr(cond.getCondition())
+					.booleanValue()
+					.compareTo(BigInteger.ZERO) != 0
+				? evalAddressExpr(cond.getWhenTrue())
+				: evalAddressExpr(cond.getWhenFalse());
+		
+		if(expr instanceof UnaryExpressionNode unary) {
+			if(isConstant(unary.getTarget()))
+				return AddressState.ofValue(evalInteger(unary.getTarget()));
+
+			AddressState target = evalAddressExpr(unary.getTarget());
+			
+			if(unary.getOperation() == Punctuator.ADDRESS_OF)
+				return AddressState.ofAddress(target.symbol(), target.offset());
+
+			if(unary.getOperation() == Punctuator.INDIRECTION)
+				return AddressState.ofAccess(target.symbol(), target.offset());
+		}
+		
+		if(expr instanceof MemberAccessExpressionNode access) {
+			AddressState target = evalAddressExpr(access.getTarget());
+			
+			return AddressState.ofAccess(
+				target,
+				BigInteger.valueOf(
+					access.getTarget()
+						.getType()
+						.toStructLike()
+						.getMember(access.getMember())
+						.getOffset()
+				)
+			);
+		}
+		
+		error(expr, "Expression is not constant");
+		return null;
+	}
+	
+	public static boolean isConstant(ExpressionNode expr) {
 		if(expr instanceof NumberLiteralExpressionNode)
 			return true;
 		
@@ -390,7 +558,8 @@ public class ConstantExpressionEvaluator implements Logable {
 				&& isConstant(unary.getTarget());
 		
 		if(expr instanceof CommaExpressionNode comma)
-			return isConstant(comma.getRight());
+			return isConstant(comma.getLeft())
+				&& isConstant(comma.getRight());
 		
 		if(expr instanceof CastExpressionNode cast)
 			return isConstant(cast.getTarget());
@@ -405,6 +574,10 @@ public class ConstantExpressionEvaluator implements Logable {
 		}
 		
 		return false;
+	}
+	
+	private static void error(Positioned pos, String message, Object...args) {new Throwable().printStackTrace();
+		Logger.error(pos, Warning.SEM_NONE, message, args);
 	}
 	
 	@FunctionalInterface
@@ -429,4 +602,32 @@ public class ConstantExpressionEvaluator implements Logable {
 		
 	}
 
+	public static record AddressState(SymbolObject symbol, BigInteger offset, boolean isAddress) {
+		
+		public static AddressState ofValue(BigInteger value) {
+			return new AddressState(null, value, false);
+		}
+
+		public static AddressState ofAddress(SymbolObject symbol, BigInteger offset) {
+			return new AddressState(symbol, offset, true);
+		}
+		
+		public static AddressState ofAddress(AddressState state, BigInteger offset) {
+			return ofAddress(state.symbol(), state.offset().add(offset));
+		}
+		
+		public static AddressState ofAccess(SymbolObject symbol, BigInteger offset) {
+			return new AddressState(symbol, offset, false);
+		}
+		
+		public static AddressState ofAccess(AddressState state, BigInteger offset) {
+			return ofAccess(state.symbol(), state.offset().add(offset));
+		}
+		
+		public BigInteger booleanValue() {
+			return symbol != null ? TRUE : offset;
+		}
+		
+	}
+	
 }

@@ -91,8 +91,8 @@ public class TreeGenerator {
 		else self = self.with(Label.of(node.getLeafName()));
 		
 		for(var child : node.getChildren())
-			if(child != null)
-				self = visit(self, child.getFirst(), child.getSecond());
+			if(child != null && child.getRight() != null)
+				self = visit(self, child.getLeft(), child.getRight());
 		
 		return parent.link(to(self));
 	}

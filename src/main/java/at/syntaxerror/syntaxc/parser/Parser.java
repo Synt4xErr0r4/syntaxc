@@ -28,30 +28,27 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.optimizer.ExpressionOptimizer;
+import at.syntaxerror.syntaxc.parser.node.FunctionNode;
+import at.syntaxerror.syntaxc.parser.node.GlobalVariableNode;
 import at.syntaxerror.syntaxc.parser.node.Node;
 import at.syntaxerror.syntaxc.parser.node.declaration.Declarator;
-import at.syntaxerror.syntaxc.parser.node.declaration.DeclaratorPostfix;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
-import at.syntaxerror.syntaxc.parser.node.declaration.Pointer;
-import at.syntaxerror.syntaxc.parser.node.declaration.postfix.ArrayDeclaratorPostfix;
-import at.syntaxerror.syntaxc.parser.node.declaration.postfix.FunctionDeclaratorPostfix;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
+import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
-import at.syntaxerror.syntaxc.symtab.SymbolTag;
-import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
-import at.syntaxerror.syntaxc.type.ArrayType;
+import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
-import at.syntaxerror.syntaxc.type.NumericValueType;
-import at.syntaxerror.syntaxc.type.StructType;
 import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.TypeUtils;
 
 /**
  * @author Thomas Kasper
@@ -69,6 +66,8 @@ public class Parser extends AbstractParser {
 	private Stack<SymbolTable> symbolTables;
 	
 	private ExpressionParser expressionParser;
+	private DeclarationParser declarationParser;
+	private StatementParser statementParser;
 	
 	public Parser(List<Token> tokens) {
 		this.tokens = tokens;
@@ -81,6 +80,26 @@ public class Parser extends AbstractParser {
 		symbolTables.push(globalSymbolTable);
 		
 		expressionParser = new ExpressionParser(this);
+		declarationParser = new DeclarationParser(this);
+		statementParser = new StatementParser(this, declarationParser, expressionParser);
+	}
+	
+	@Override
+	protected void sync() {
+		expressionParser.current = declarationParser.current = current;
+		expressionParser.previous = declarationParser.previous = previous;
+
+		declarationParser.current = declarationParser.current = current;
+		declarationParser.previous = declarationParser.previous = previous;
+		
+		statementParser.current = statementParser.current = current;
+		statementParser.previous = statementParser.previous = previous;
+	}
+
+	@Override
+	public void reread() {
+		if(index >= 0)
+			--index;
 	}
 	
 	@Override
@@ -118,493 +137,322 @@ public class Parser extends AbstractParser {
 	private void leaveScope() {
 		symbolTables.pop();
 	}
+
+	@Override
+	public boolean isTypeName() {
+		return declarationParser.isTypeName();
+	}
 	
-	private ExpressionNode nextExpression() {
+	@Override
+	public Type nextTypeName() {
+		return declarationParser.nextTypeName();
+	}
+	
+	public ExpressionNode nextAssignmentExpression() {
 		try {
-			expressionParser.next();
-			return expressionParser.nextExpression();
+			return expressionParser.nextAssignment();
 		} finally {
 			next();
 		}
 	}
 	
-	private BigInteger nextIntegerConstantExpression() {
+	public ExpressionNode nextExpression() {
 		try {
-			expressionParser.next();
+			return ExpressionOptimizer.optimize(expressionParser.nextExpression());
+		} finally {
+			next();
+		}
+	}
+	
+	public BigInteger nextIntegerConstantExpression() {
+		try {
 			return expressionParser.nextIntegerConstantExpression();
 		} finally {
 			next();
 		}
 	}
 	
-	private Number nextArithmeticConstantExpression() {
+	public Number nextArithmeticConstantExpression() {
 		try {
-			expressionParser.next();
 			return expressionParser.nextArithmeticConstantExpression();
 		} finally {
 			next();
 		}
 	}
 	
-	private void nextDeclaration() {
-		var declSpec = nextDeclarationSpecifiers(true);
+	private List<Node> nextExternalDeclaration() {
+		if(equal(";")) // skip single semicola
+			return List.of();
 		
-		System.out.println(declSpec);
-	}
-	
-	private static final int VOID =			(1 << 0);
-	private static final int CHAR =			(1 << 1);
-	private static final int SHORT =		(1 << 2);
-	private static final int INT =			(1 << 3);
-	private static final int LONG =			(1 << 4);
-	private static final int FLOAT =		(1 << 5);
-	private static final int DOUBLE =		(1 << 6);
-	private static final int SIGNED =		(1 << 7);
-	private static final int UNSIGNED =		(1 << 8);
-	private static final int INHERIT =		(1 << 9);
-	private static final int DUPLICATE =	(1 << 10); // set when one of the specifiers above occurs multiple times
-	
-	private Pair<Set<Keyword>, Type> nextDeclarationSpecifiers(boolean withStorage) {
-		Position pos = current.getPosition();
+		List<Node> nodes = new ArrayList<>();
 		
-		Set<Keyword> storage = new HashSet<>();
+		var declSpecs = declarationParser.nextDeclarationSpecifiers();
 		
-		boolean hasConst = false;
-		boolean hasVolatile = false;
+		Keyword storageSpec = declSpecs
+			.getLeft()
+			.map(Token::getKeyword)
+			.orElse(null);
 		
-		int specifiers = 0;
-		
-		Type type = null;
-		
-		while(true) {
-			Token tok = current;
-			
-			// storage class specifiers
-			if(withStorage && skip("typedef", "extern", "static", "auto", "register")) {
-				storage.add(tok.getKeyword());
-				continue;
-			}
+		if(storageSpec == Keyword.AUTO)
+			error("»auto« is not allowed at this location");
 
-			// type qualifiers
-			
-			if(skip("const")) {
-				if(hasConst)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »const«");
-				
-				hasConst = true;
-				continue;
-			}
-			
-			if(skip("volatile")) {
-				if(hasVolatile)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »volatile«");
-				
-				hasVolatile = true;
-				continue;
-			}
-			
-			// type specifiers
-			int spec = 0;
-			
-				 if(skip("void"))		spec = VOID;
-			else if(skip("char"))		spec = CHAR;
-			else if(skip("short"))		spec = SHORT;
-			else if(skip("int"))		spec = INT;
-			else if(skip("long"))		spec = LONG;
-			else if(skip("float"))		spec = FLOAT;
-			else if(skip("double"))		spec = DOUBLE;
-			else if(skip("signed"))		spec = SIGNED;
-			else if(skip("unsigned"))	spec = UNSIGNED;
-			
-			else if(equal("struct", "union")) {
-				spec = INHERIT;
-				type = nextStructSpecifier();
-			}
+		if(storageSpec == Keyword.REGISTER)
+			error("»register« is not allowed at this location");
 
-			else if(equal("enum")) {
-				spec = INHERIT;
-			}
-			
-			else if(equal(TokenType.IDENTIFIER)) {
-				SymbolObject obj = getSymbolTable().findObject(tok.getString());
-				
-				if(obj != null && obj.isTypedef()) {
-					next();
-
-					spec = INHERIT;
-					type = obj.getType();
-				}
-			}
-			
-			if(spec == 0)
-				break;
-			
-			if((specifiers & spec) != 0) // specifier was already set
-				specifiers |= DUPLICATE;
-			else specifiers |= spec;
+		boolean external = storageSpec == Keyword.EXTERN;
+		boolean internal = storageSpec == Keyword.STATIC;
+		boolean typedef = storageSpec == Keyword.TYPEDEF;
+		
+		if(external && internal)
+			error("»static« and »extern« are mutually exclusive");
+		
+		if(typedef && (external || internal))
+			error("»typedef« may not occur together with other storage-class specifiers");
+		
+		if(equal(";")) {
+			warnUseless(declSpecs.getRight());
+			return List.of();
 		}
 		
-		if(!storage.isEmpty() || specifiers != 0 || hasConst || hasVolatile)
-			pos = pos.range(previous);
+		Linkage linkage = internal ? Linkage.INTERNAL : Linkage.EXTERNAL;
 		
-		switch(specifiers) {
-		case VOID:
-			type = Type.VOID;
-			break;
-			
-		case CHAR:
-			type = NumericValueType.CHAR.asType();
-			break;
-			
-		case SIGNED | CHAR:
-			type = Type.CHAR;
-			break;
-			
-		case UNSIGNED | CHAR:
-			type = Type.UCHAR;
-			break;
-			
-		case SHORT:
-		case SHORT | INT:
-		case SIGNED | SHORT:
-		case SIGNED | SHORT | INT:
-			type = Type.SHORT;
-			break;
-			
-		case UNSIGNED | SHORT:
-		case UNSIGNED | SHORT | INT:
-			type = Type.USHORT;
-			break;
-			
-		case 0:
-		case SIGNED:
-			warn(pos, Warning.IMPLICIT_INT, "Type is implicitly »signed int«");
-		case INT:
-		case SIGNED | INT:
-			type = Type.INT;
-			break;
-
-		case UNSIGNED:
-			warn(pos, Warning.IMPLICIT_INT, "Type is implicitly »unsigned int«");
-		case UNSIGNED | INT:
-			type = Type.UINT;
-			break;
-			
-		case LONG:
-		case LONG | INT:
-		case SIGNED | LONG:
-		case SIGNED | LONG | INT:
-			type = Type.LONG;
-			break;
-
-		case UNSIGNED | LONG:
-		case UNSIGNED | LONG | INT:
-			type = Type.ULONG;
-			break;
-			
-		case FLOAT:
-			type = Type.FLOAT;
-			break;
-			
-		case DOUBLE:
-			type = Type.DOUBLE;
-			break;
-			
-		case LONG | DOUBLE:
-			type = Type.LDOUBLE;
-			break;
-			
-		case INHERIT: // inherit from struct/union/enum/typedef name
-			break;
+		Declarator decl = declarationParser.nextDeclarator();
 		
-		default:
-			error("Illegal type specifier combination");
-			break;
-		}
-
-		if(hasConst) type = type.asConst();
-		if(hasVolatile) type = type.asVolatile();
-
-		return Pair.of(storage, type);
-	}
+		Type baseType = declSpecs.getRight();
+		Type type = decl.merge(baseType);
+		
+		if(!typedef && decl.isFunctionDeclarator() && !equal("=", ";")) {
+			
+			enterScope();
+			
+			FunctionType funType = type.toFunction();
+			
+			if(funType.isKAndR()) {
+			
+				Set<String> parameterNames = funType
+					.getParameters()
+					.stream()
+					.map(Parameter::name)
+					.collect(Collectors.toUnmodifiableSet());
 	
-	private StructType nextStructSpecifier() {
-		boolean union = current.is("union");
-
-		String name = union ? "union" : "struct";
-		Position pos = current.getPosition();
-		
-		next();
-		
-		String tag = null;
-		StructType type = null;
-		boolean inherited = false;
-		
-		if(equal(TokenType.IDENTIFIER)) {
-			tag = current.getString();
-			pos = current.getPosition();
-			
-			next();
-
-			SymbolTag structTag = getSymbolTable().findTag(tag);
-			
-			if(structTag != null && structTag.getType().isStructLike()) {
-				type = structTag.getType().toStructLike();
+				Set<String> parameterNamesFound = new HashSet<>();
 				
-				if(union != type.isUnion())
-					error(pos, "Declared »%s« as another type", tag);
-				
-				inherited = true;
-			}
-		}
-		
-		if(type == null)
-			type = tag == null
-				? union
-					? StructType.forAnonymousUnion()
-					: StructType.forAnonymousStruct()
-				: union
-					? StructType.forUnion(tag)
-					: StructType.forStruct(tag);
-		
-		if(tag != null)
-			getSymbolTable().addTag(SymbolTag.of(pos, tag, type));
-		
-		if(skip("{")) {
-		
-			if(inherited && !type.isIncomplete())
-				error(pos, "Redeclaration of »%s«", tag);
-		
-			type.setComplete();
-			
-			while(!skip("}")) {
-				
-				Type memberType = nextDeclarationSpecifiers(false).getSecond();
-				
-				while(true) {
+				while(!skip("{")) {
+					if(!isTypeName() && !equal("typedef", "extern", "static", "auto", "register"))
+						error("Expected function body");
 					
-					Declarator declarator = null;
-					int bitWidth = 0;
-					boolean bitfield = false;
+					declSpecs = declarationParser.nextDeclarationSpecifiers();
 					
-					Positioned memberPos = null;
+					if(!declSpecs.getLeft().isEmpty())
+						error(declSpecs.getLeft().get(), "Illegal storage-class specifier for function parameter");
 					
-					if(!equal(":"))
-						memberPos = declarator = nextDeclarator();
-
-					if(equal(":")) {
-						memberPos = current;
-						
-						do {
-							if(memberType.isInteger()) {
-								
-								NumericValueType valType = memberType.toNumber().getNumericType();
-								
-								if(valType == NumericValueType.SIGNED_INT || valType == NumericValueType.UNSIGNED_INT)
-									break;
-								
-							}
-							
-							error(memberPos, "Expected »int« or »unsigned int« for bit-field");
-						}
-						while(false);
-						
-						BigInteger value = nextIntegerConstantExpression();
-						
-						if(value.compareTo(BigInteger.ZERO) < 0)
-							error(memberPos, "Illegal negative width for bit-field");
-						
-						if(value.compareTo(BigInteger.valueOf(NumericValueType.UNSIGNED_INT.getSize() * 8)) > 0)
-							error(memberPos, "Width for bit-field is too big for its type");
-						
-						bitfield = true;
-						bitWidth = value.intValue();
+					if(equal(";")) {
+						warnUseless(declSpecs.getRight());
+						next();
+						continue;
 					}
-
-					if(declarator == null)
-						type.addAnonymousMember(memberPos, memberType, bitfield, bitWidth);
-					else type.addMember(memberPos, declarator.getName(), memberType, bitfield, bitWidth);
 					
-					if(!skip(",", ";"))
-						expected(",", ";");
-					
-					if(previous.is(";"))
-						break;
-				}
-				
-			}
-			
-			System.out.println(type.getMembers());
-			
-		}
-		else if(type == null)
-			error(pos, "Expected declaration list for %s", name);
-		
-		return type;
-	}
-	
-	private Pair<Declarator, Initializer> nextInitDeclarator() {
-		Declarator decl = nextDeclarator();
-		
-		if(skip("="))
-			return Pair.of(decl, nextInitializer());
-		
-		return Pair.ofFirst(decl);
-	}
-	
-	private Declarator nextDeclarator() {
-		List<Pointer> pointers = nextPointers();
-		
-		Pair<String, Declarator> nameOrNested = null;
-		Position pos = null;
-		
-		if(skip(TokenType.IDENTIFIER)) {
-			pos = previous.getPosition();
-			nameOrNested = Pair.ofFirst(previous.getString());
-		}
-		
-		else if(skip("(")) {
-			Declarator nested = nextDeclarator();
-			
-			pos = nested.getPosition();
-			nameOrNested = Pair.ofSecond(nested);
-		}
-		
-		else error("Expected name for declarator");
-		
-		List<DeclaratorPostfix> postfixes = new ArrayList<>();
-		
-		while(true) {
-			if(optional("[")) {
-
-				int length;
-				
-				if(optional("]"))
-					length = ArrayType.SIZE_UNKNOWN;
-				
-				else {
-				
-					BigInteger value = nextIntegerConstantExpression();
-					
-					if(value.compareTo(BigInteger.ZERO) < 0)
-						error(pos, "Illegal negative length for array");
-					
-					/* implementation limit
-					 * 
-					 * a char array of that size (2^31-1) would take up 2GiB
-					 * of space, so this should never cause any problems
-					 */
-					if(value.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0)
-						error(pos, "Length for array is too large");
-					
-					length = value.intValue();
-					
-				}
-				
-				postfixes.add(new ArrayDeclaratorPostfix(length));
-				continue;
-			}
-			
-			if(optional("(")) {
-				List<Parameter> parameters = new ArrayList<>();
-				
-				boolean kAndR = false;
-				boolean variadic = false;
-				
-				next();
-				
-				if(equal(TokenType.IDENTIFIER)) {
-					warn(previous, Warning.K_AND_R, "Declared function using K&R syntax");
-					
-					kAndR = true;
+					baseType = declSpecs.getRight();
 					
 					while(true) {
-						parameters.add(new Parameter(getPosition(), current.getString(), null, Set.of()));
+						decl = declarationParser.nextDeclarator();
 						
-						if(require(",", ")").is(")"))
+						String name = decl.getName();
+						
+						if(!parameterNames.contains(name))
+							error(decl, "Declaration for non-existent parameter »%s«", name);
+						
+						if(parameterNamesFound.contains(name))
+							error(decl, "Duplicate declaration for parameter »%s«", name);
+						
+						if(equal("="))
+							error("Illegal initializer for function parameter »%s«", name);
+						
+						Type paramType = decl.merge(baseType);
+						
+						SymbolObject obj = SymbolObject.local(decl, name, paramType);
+						obj.setUnused(false);
+						
+						getSymbolTable().addObject(obj);
+						
+						parameterNamesFound.add(name);
+						
+						consume(",", ";");
+						
+						if(previous.is(";"))
 							break;
 					}
-					
 				}
 				
-				else {
-					
-					while(!skip(")")) {
-						var declSpecs = nextDeclarationSpecifiers(true);
+				for(String name : parameterNames)
+					if(!parameterNamesFound.contains(name)) {
+
+						SymbolObject obj = SymbolObject.local(decl, name, Type.INT);
+						obj.setUnused(false);
 						
-						
+						getSymbolTable().addObject(obj);
 						
 					}
-					
+			
+			}
+			
+			else consume("{");
+
+			String name = decl.getName();
+			
+			StatementNode body = statementParser.nextFunctionBody(funType.getReturnType(), name);
+			
+			leaveScope();
+			
+			SymbolTable symtab = getSymbolTable();
+			
+			if(symtab.hasObjectInScope(name)) {
+				SymbolObject obj = symtab.findObjectInScope(name);
+
+				if(!TypeUtils.isEqual(type, obj.getType())) {
+					error(decl, Warning.CONTINUE, "Incompatible types for »%s«", name);
+					note(obj, "Previously declared here");
+					terminate();
 				}
 				
-				postfixes.add(new FunctionDeclaratorPostfix(parameters, variadic, kAndR));
-				continue;
-			}
-
-			break;
-		}
-		
-		return new Declarator(pos, nameOrNested, pointers, postfixes);
-	}
-	
-	private List<Pointer> nextPointers() {
-		List<Pointer> pointers = new ArrayList<>();
-		
-		while(skip("*")) {
-			var quals = nextQualifiers();
-			pointers.add(0, new Pointer(quals.getFirst(), quals.getSecond()));
-		}
-		
-		return pointers;
-	}
-	
-	private Pair<Boolean, Boolean> nextQualifiers() {
-		boolean hasConst = false;
-		boolean hasVolatile = false;
-		
-		while(true) {
-			Token tok = current;
-			
-			if(skip("const")) {
-				if(hasConst)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »const«");
+				if(!obj.isPrototype()) {
+					error(decl, Warning.CONTINUE, "Redefinition of »%s«", name);
+					note(obj, "Previously defined here");
+					terminate();
+				}
 				
-				hasConst = true;
-				continue;
+				if(internal && obj.getFunctionData().linkage() == Linkage.EXTERNAL) {
+					error(decl, Warning.CONTINUE, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
+					note(obj, "Previously declared here");
+					terminate();
+				}
 			}
 			
-			if(skip("volatile")) {
-				if(hasVolatile)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »volatile«");
+			SymbolObject obj = SymbolObject.function(
+				decl,
+				name,
+				funType,
+				linkage
+			);
+			
+			symtab.addObject(obj);
+			
+			nodes.add(new FunctionNode(obj, body));
+		}
+		else while(true) {
+			Initializer init = null;
+			
+			if(skip("=")) {
+				if(type.isFunction())
+					error(decl, "Cannot initialize function like a variable");
 				
-				hasVolatile = true;
-				continue;
+				init = declarationParser.nextInitializer();
 			}
 			
-			break;
+			SymbolObject obj = registerDeclaration(
+				decl,
+				type,
+				decl.getName(),
+				init,
+				new DeclarationState(linkage, typedef, external, internal)
+			);
+			
+			if(obj != null)
+				nodes.add(new GlobalVariableNode(obj));
+			
+			if(expect(",", ";").is(";"))
+				break;
+			
+			next();
+			
+			decl = declarationParser.nextDeclarator();
+			type = decl.merge(baseType);
 		}
 		
-		return Pair.of(hasConst, hasVolatile);
+		return nodes;
 	}
 	
-	private Initializer nextInitializer() {
-		return null;
+	private void warnUseless(Type type) {
+		if(!type.isEnum() && (!type.isStructLike() || type.toStructLike().isAnonymous()))
+			warn(Warning.USELESS, "Useless declaration does not declare anything");
+	}
+	
+	public SymbolObject registerDeclaration(Positioned pos, Type type, String name, Initializer initializer, DeclarationState state) {
+		boolean hasInit = initializer != null;
+		
+		if(hasInit && (state.typedef() || state.external()))
+			error("»%s« does not accept an initializer", state.typedef() ? "typedef" : "extern");
+		
+		SymbolTable symtab = getSymbolTable();
+		
+		if(symtab.hasObjectInScope(name)) {
+			SymbolObject obj = symtab.findObjectInScope(name);
+			
+			if(obj.isTypedef() != state.typedef()) {
+				error(pos, Warning.CONTINUE, "Redefinition of »%s« as another type", name);
+				note(obj, "Previously declared here");
+				terminate();
+			}
+			
+			if(!TypeUtils.isEqual(type, obj.getType())) {
+				error(pos, Warning.CONTINUE, "Incompatible types for »%s«", name);
+				note(obj, "Previously declared here");
+				terminate();
+			}
+			
+			if(obj.getVariableData().initializer() != null && hasInit) {
+				error(pos, Warning.CONTINUE, "Redefinition of »%s«", name);
+				note(obj, "Previously declared here");
+				terminate();
+			}
+			
+			if(state.linkage() == Linkage.EXTERNAL)
+				return null;
+			
+			if(state.internal() && obj.getVariableData().linkage() == Linkage.EXTERNAL) {
+				error(pos, Warning.CONTINUE, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
+				note(obj, "Previously declared here");
+				terminate();
+			}
+		}
+		
+		SymbolObject obj;
+		
+		if(state.typedef())
+			obj = SymbolObject.typedef(pos, name, type);
+		
+		else if(state.external())
+			obj = SymbolObject.extern(pos, name, type);
+		
+		else obj = SymbolObject.global(
+			pos,
+			name,
+			type,
+			state.linkage(),
+			hasInit
+				? InitializerSerializer.serialize(type, initializer)
+				: null
+		);
+		
+		symtab.addObject(obj);
+		
+		return obj;
 	}
 	
 	public List<Node> parse() {
 		List<Node> nodes = new ArrayList<>();
 		enterScope();
 		
-		getSymbolTable()
-			.addObject(SymbolObject.local(null, "a", Type.CHAR.arrayOf(2).arrayOf(3)));
-
-		next();
-		nextDeclaration();
+		while(next() != null)
+			nodes.addAll(nextExternalDeclaration());
 		
 		leaveScope();
 		
 		return nodes;
+	}
+	
+	public static record DeclarationState(Linkage linkage, boolean typedef, boolean external, boolean internal) {
+		
 	}
 
 }

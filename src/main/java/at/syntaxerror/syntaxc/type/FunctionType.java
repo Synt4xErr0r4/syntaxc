@@ -25,7 +25,7 @@ package at.syntaxerror.syntaxc.type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 
 import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -45,18 +45,21 @@ public class FunctionType extends Type {
 		public void addParameter(Parameter param) { }
 		
 		@Override
-		public void setPrototype() { }
-		
-		@Override
 		public void setVariadic() { }
 		
+		@Override
+		public void setKAndR() { }
+		
 	};
+	
+	static {
+		IMPLICIT.kAndR = true;
+	}
 	
 	private Type returnType;
 	
 	private List<Parameter> parameters;
-	private boolean variadic;  // functions with ellipsis in parameter list, e.g. void my_func(int i, ...) 
-	private boolean prototype; // false for functions without parameter list, e.g. void my_func()
+	private boolean variadic;  // functions with ellipsis in parameter list, e.g. void my_func(int i, ...)
 	private boolean kAndR;	   // functions declared using K&R syntax
 	
 	public FunctionType(Type returnType) {
@@ -71,16 +74,11 @@ public class FunctionType extends Type {
 	}
 	
 	public void addParameter(Parameter param) {
-		setPrototype();
 		parameters.add(param);
 	}
 	
 	public void setVariadic() {
 		variadic = true;
-	}
-	
-	public void setPrototype() {
-		prototype = true;
 	}
 	
 	public void setKAndR() {
@@ -93,7 +91,6 @@ public class FunctionType extends Type {
 		
 		cloned.parameters = parameters;
 		cloned.variadic = variadic;
-		cloned.prototype = prototype;
 		
 		return cloned;
 	}
@@ -105,14 +102,16 @@ public class FunctionType extends Type {
 	
 	@Override
 	protected String toStringSuffix() {
-		if(!prototype) return ")()";
-
-		return ")(" + String.join(
-			", ",
-			parameters.stream()
-				.map(param -> param.type() + " " + param.name())
-				.toList()
-		) + (variadic ? ", ..." : "") + ")";
+		return ")("
+			+ (!kAndR && parameters.isEmpty() // non-K&R function without parameters: e.g. int func(void)
+				? "void"
+				: String.join(
+					", ",
+					parameters.stream()
+						.map(Parameter::toParameterString)
+						.toList()
+				)
+			) + (variadic ? ", ..." : "") + ")";
 	}
 	
 	@Override
@@ -131,11 +130,21 @@ public class FunctionType extends Type {
 			+ suffix.substring(1);
 	}
 	
-	public static record Parameter(Positioned pos, String name, Type type, Set<Keyword> storageSpecs) implements Positioned {
+	public static record Parameter(Positioned pos, String name, Type type, Optional<Keyword> storageSpecs) implements Positioned {
 		
 		@Override
 		public Position getPosition() {
 			return pos.getPosition();
+		}
+		
+		public String toParameterString() {
+			return name == null && type == null
+				? "<error_type>"
+				: name != null && type != null
+					? type + " " + name
+					: name != null
+						? name
+						: type.toString();
 		}
 		
 	}

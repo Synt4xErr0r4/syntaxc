@@ -55,7 +55,7 @@ public class OptionParser {
 	protected void add(Option option) {
 		var id = option.identifiers();
 		
-		if(id.hasNone()) {
+		if(id.hasNeither()) {
 			if(fallback != null)
 				throw new IllegalArgumentException("Duplicate fallback options");
 			
@@ -63,18 +63,18 @@ public class OptionParser {
 		}
 		
 		else {
-			if(id.hasSecond()) {
-				if(optionsName.containsKey(id.getSecond()))
-					throw new IllegalArgumentException("Duplicate option " + id.getSecond());
+			if(id.hasRight()) {
+				if(optionsName.containsKey(id.getRight()))
+					throw new IllegalArgumentException("Duplicate option " + id.getRight());
 				
-				optionsName.put(id.getSecond(), option);
+				optionsName.put(id.getRight(), option);
 			}
 			
-			if(id.hasFirst()) {
-				if(optionsMnemonic.containsKey(id.getFirst()))
-					throw new IllegalArgumentException("Duplicate option " + id.getFirst());
+			if(id.hasLeft()) {
+				if(optionsMnemonic.containsKey(id.getLeft()))
+					throw new IllegalArgumentException("Duplicate option " + id.getLeft());
 				
-				optionsMnemonic.put(id.getFirst(), option);
+				optionsMnemonic.put(id.getLeft(), option);
 			}
 		}
 		
@@ -226,15 +226,15 @@ public class OptionParser {
 				System.out.print(' ');
 			else System.out.print(" §8[");
 
-			if(id.hasFirst()) {
-				System.out.printf("§7-§a%c", id.getFirst());
+			if(id.hasLeft()) {
+				System.out.printf("§7-§a%c", id.getLeft());
 				
 				if(!option.argCompact() && argName != null)
 					System.out.print(' ');
 			}
 			
-			else if(id.hasSecond()) {
-				System.out.printf("§7--§a%s", id.getSecond());
+			else if(id.hasRight()) {
+				System.out.printf("§7--§a%s", id.getRight());
 
 				if(argName != null)
 					System.out.print(' ');
@@ -296,42 +296,42 @@ public class OptionParser {
 		
 		if(argName != null && option.argCompact()) {
 			if(id.hasBoth()) {
-				prefix = "  §7-§e%c§7<§b%s§7>".formatted(id.getFirst(), argName);
+				prefix = "  §7-§e%c§7<§b%s§7>".formatted(id.getLeft(), argName);
 				
 				if(print) {
 					System.out.print(prefix);
 					
-					printDescription(6 + argName.length(), "Equivalent to --%s <%s>".formatted(id.getSecond(), argName));
+					printDescription(6 + argName.length(), "Equivalent to --%s <%s>".formatted(id.getRight(), argName));
 					
 					prefix = "";
 				}
 				else prefix += "§8, ";
 				
-				prefix += " §7--§e%s §7<§b%s§7>".formatted(id.getSecond(), argName);
-				width = 6 + id.getSecond().length() + argName.length();
+				prefix += " §7--§e%s §7<§b%s§7>".formatted(id.getRight(), argName);
+				width = 6 + id.getRight().length() + argName.length();
 			}
 			
 			/*   -X<abc> */
-			else if(id.hasFirst()) {
-				prefix = "  §7-§e%c§7<§b%s§7>".formatted(id.getFirst(), argName);
+			else if(id.hasLeft()) {
+				prefix = "  §7-§e%c§7<§b%s§7>".formatted(id.getLeft(), argName);
 				width = 6 + argName.length();
 			}
 		}
 		
 		if(prefix == null) {
 			if(id.hasBoth()) {
-				prefix = "  §7-§e%c§8, §7--§e%s".formatted(id.getFirst(), id.getSecond());
-				width = 8 + id.getSecond().length();
+				prefix = "  §7-§e%c§8, §7--§e%s".formatted(id.getLeft(), id.getRight());
+				width = 8 + id.getRight().length();
 			}
 			
-			else if(id.hasFirst()) {
-				prefix = "  §7-§e%c§8".formatted(id.getFirst());
+			else if(id.hasLeft()) {
+				prefix = "  §7-§e%c§8".formatted(id.getLeft());
 				width = 4;
 			}
 			
-			else if(id.hasSecond()) {
-				prefix = " §7--§e%s§8".formatted(id.getSecond());
-				width = 3 + id.getSecond().length();
+			else if(id.hasRight()) {
+				prefix = " §7--§e%s§8".formatted(id.getRight());
+				width = 3 + id.getRight().length();
 			}
 			
 			else {
@@ -361,8 +361,8 @@ public class OptionParser {
 		for(Option option : options) {
 			Pair<String, Integer> prefix = getPrefix(option, true);
 			
-			System.out.print(prefix.getFirst());
-			printDescription(prefix.getSecond(), option.description());
+			System.out.print(prefix.getLeft());
+			printDescription(prefix.getRight(), option.description());
 		}
 		
 		System.out.println();
@@ -380,16 +380,16 @@ public class OptionParser {
 			
 			var id = option.identifiers();
 			
-			if(id.hasSecond())
-				System.out.println("--" + id.getSecond());
+			if(id.hasRight())
+				System.out.println("--" + id.getRight());
 			
-			else if(id.hasFirst())
-				System.out.println("-" + id.getFirst());
+			else if(id.hasLeft())
+				System.out.println("-" + id.getLeft());
 			
 			else System.out.println("unnamed option");
 		}
 		else {
-			System.out.printf("§9Documentation for %s\n\n", getPrefix(option, false).getFirst().stripLeading());
+			System.out.printf("§9Documentation for %s\n\n", getPrefix(option, false).getLeft().stripLeading());
 			
 			option.documentation().run();
 		}

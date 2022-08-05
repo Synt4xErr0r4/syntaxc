@@ -23,8 +23,15 @@
 package at.syntaxerror.syntaxc.parser.tree;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import at.syntaxerror.syntaxc.lexer.Keyword;
+import at.syntaxerror.syntaxc.lexer.Punctuator;
+import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.misc.StringUtils;
+import at.syntaxerror.syntaxc.type.NumericValueType;
+import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
@@ -38,6 +45,105 @@ public interface TreeNode {
 	
 	default List<Pair<String, TreeNode>> getChildren() {
 		return List.of();
+	}
+	
+	public static Pair<String, TreeNode> child(String name, TreeNode node) {
+		return Pair.of(name, node);
+	}
+
+	public static Pair<String, TreeNode> child(String name, List<? extends TreeNode> list) {
+		AtomicInteger index = new AtomicInteger();
+		
+		return child(
+			name + "[" + list.size() + "]",
+			new TreeListNode(
+				list.stream()
+					.map(node -> child("#" + index.getAndIncrement(), node))
+					.toList()
+			)
+		);
+	}
+
+	public static Pair<String, TreeNode> child(String name, Type type) {
+		return child(name, type.toString());
+	}
+	
+	public static Pair<String, TreeNode> child(String name, String string) {
+		return child(name, new TreeStringNode(string));
+	}
+
+	public static Pair<String, TreeNode> child(String name, boolean bool) {
+		return child(name, new TreeStringNode(Boolean.toString(bool)));
+	}
+
+	public static Pair<String, TreeNode> child(String name, Number num, NumericValueType type) {
+		return child(name, new TreeStringNode(type + " " + num));
+	}
+
+	public static Pair<String, TreeNode> child(String name, Token token) {
+		String strval;
+		
+		switch(token.getType()) {
+		case IDENTIFIER:
+			strval = '»' + token.getString() + '«';
+			break;
+			
+		case STRING:
+			strval = '"' + StringUtils.quote(token.getString()) + '"';
+			break;
+			
+		case PUNCTUATOR:
+			return child(name, token.getPunctuator());
+			
+		case KEYWORD:
+			return child(name, token.getKeyword());
+		
+		case CONSTANT:
+			return child(
+				name,
+				token.getNumericType().isFloating()
+					? token.getDecimal()
+					: token.getInteger(),
+				token.getNumericType()
+			);
+		
+		default:
+			strval = "?";
+			break;
+		}
+		
+		return child(name, strval);
+	}
+
+	public static Pair<String, TreeNode> child(String name, Punctuator punct) {
+		return child(name, '»' + punct.getName() + '«');
+	}
+
+	public static Pair<String, TreeNode> child(String name, Keyword keyword) {
+		return child(name, keyword.getName());
+	}
+
+	public static record TreeListNode(List<Pair<String, TreeNode>> list) implements TreeNode {
+		
+		@Override
+		public String getLeafName() {
+			return "";
+		}
+		
+		@Override
+		public List<Pair<String, TreeNode>> getChildren() {
+			return list;
+		}
+		
+	}
+	
+	public static record TreeStringNode(String name) implements TreeNode {
+		
+		@Override
+		public String getLeafName() {
+			return name;
+		}
+		
 	}
 	
 }

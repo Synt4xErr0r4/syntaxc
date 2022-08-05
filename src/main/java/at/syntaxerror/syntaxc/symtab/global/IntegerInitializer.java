@@ -20,44 +20,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser.node.declaration;
+package at.syntaxerror.syntaxc.symtab.global;
 
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+
+import java.math.BigInteger;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.node.Node;
-import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.tracking.Position;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Getter
-@RequiredArgsConstructor
-@ToString(exclude = "position")
-public class Initializer extends Node {
+public record IntegerInitializer(BigInteger value, int size) implements GlobalVariableInitializer {
 
-	private final Position position;
-	private final Pair<ExpressionNode, List<Initializer>> value;
-
-	public boolean isSimple() {
-		return value.hasLeft();
-	}
-	
-	public boolean isList() {
-		return value.hasRight();
-	}
-	
-	public ExpressionNode getExpression() {
-		return value.getLeft();
-	}
-	
-	public List<Initializer> getList() {
-		return value.getRight();
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("value", value().toString()),
+			child("size", Integer.toString(size()))
+		);
 	}
 	
 }

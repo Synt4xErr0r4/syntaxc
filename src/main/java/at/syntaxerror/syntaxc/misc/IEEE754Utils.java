@@ -367,11 +367,11 @@ public class IEEE754Utils {
 		Pair<Integer, Integer> range = getExponentRange(spec);
 		
 		// 2^(e_min - 1) 	[e_min < 0]
-		BigDecimal min = pow2negative(1 - range.getFirst());
+		BigDecimal min = pow2negative(1 - range.getLeft());
 		
 		// (1 - 2^-p) * 2^e_max 	[e_max > 0]
 		BigDecimal max = BigDecimal.ONE.subtract(pow2negative(spec.mantissa()))
-			.multiply(new BigDecimal(BigInteger.ONE.shiftLeft(range.getSecond()), MathContext.UNLIMITED));
+			.multiply(new BigDecimal(BigInteger.ONE.shiftLeft(range.getRight()), MathContext.UNLIMITED));
 		
 		return Pair.of(
 			BigDecimalMath.log10(min, MathContext.DECIMAL128).round(CEIL).intValue(), // log10 and round down

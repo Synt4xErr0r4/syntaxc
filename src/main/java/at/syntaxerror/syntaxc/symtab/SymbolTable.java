@@ -27,11 +27,13 @@ import java.util.Collections;
 import java.util.List;
 
 import lombok.Getter;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
+@ToString(of = { "tags", "objects" })
 public class SymbolTable {
 	
 	private Scope<SymbolTag> tags; // structs, unions, enums
@@ -92,12 +94,20 @@ public class SymbolTable {
 		return objects.find(name);
 	}
 	
+	public SymbolObject findObjectInScope(String name) {
+		return objects.findInScope(name);
+	}
+	
 	public SymbolTag findTag(String name) {
 		return tags.find(name);
 	}
 	
 	public boolean hasObject(String name) {
 		return objects.has(name);
+	}
+	
+	public boolean hasObjectInScope(String name) {
+		return objects.hasInScope(name);
 	}
 	
 	public boolean hasTag(String name) {

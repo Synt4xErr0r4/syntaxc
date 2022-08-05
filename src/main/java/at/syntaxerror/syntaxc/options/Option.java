@@ -33,7 +33,7 @@ public record Option(char mnemonic, String name, boolean required, String argNam
 	
 	public Pair<Character, String> identifiers() {
 		return mnemonic == 0
-			? Pair.ofSecond(name)
+			? Pair.ofRight(name)
 			: Pair.of(mnemonic, name);
 	}
 	

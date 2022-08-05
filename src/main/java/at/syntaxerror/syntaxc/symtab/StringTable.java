@@ -39,9 +39,9 @@ public class StringTable {
 	
 	private long id;
 	
-	public StringInitializer add(String value) {
+	public StringInitializer add(String value, boolean wide) {
 		synchronized(table) {
-			return table.computeIfAbsent(value, str -> new StringInitializer(id++, str));
+			return table.computeIfAbsent(value, str -> new StringInitializer(id++, str, wide));
 		}
 	}
 	

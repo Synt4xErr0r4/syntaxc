@@ -20,13 +20,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser.node.declaration;
+package at.syntaxerror.syntaxc.parser.node.statement;
+
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 
 import java.util.List;
+import java.util.Set;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.node.Node;
-import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -36,28 +38,29 @@ import lombok.ToString;
  * @author Thomas Kasper
  * 
  */
-@Getter
 @RequiredArgsConstructor
+@Getter
 @ToString(exclude = "position")
-public class Initializer extends Node {
-
+public class GotoStatementNode extends StatementNode {
+	
 	private final Position position;
-	private final Pair<ExpressionNode, List<Initializer>> value;
+	private final String label;
+	
+	@Override
+	protected boolean checkInterrupt() {
+		return true;
+	}
+	
+	@Override
+	protected Set<String> checkLabels() {
+		return Set.of(label);
+	}
 
-	public boolean isSimple() {
-		return value.hasLeft();
-	}
-	
-	public boolean isList() {
-		return value.hasRight();
-	}
-	
-	public ExpressionNode getExpression() {
-		return value.getLeft();
-	}
-	
-	public List<Initializer> getList() {
-		return value.getRight();
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child("label", label)
+		);
 	}
 	
 }

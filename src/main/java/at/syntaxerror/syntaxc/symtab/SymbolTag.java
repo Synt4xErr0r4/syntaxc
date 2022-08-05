@@ -23,6 +23,7 @@
 package at.syntaxerror.syntaxc.symtab;
 
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -36,7 +37,7 @@ import lombok.ToString;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 @ToString(exclude = "position")
-public class SymbolTag implements Symbol {
+public class SymbolTag implements Symbol, Positioned {
 
 	public static SymbolTag of(Position position, String name, Type type) {
 		return new SymbolTag(position, name, type);

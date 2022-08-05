@@ -47,6 +47,7 @@ import at.syntaxerror.syntaxc.misc.AnsiPipe;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.IncludePathRegistry;
 import at.syntaxerror.syntaxc.misc.NamedToggle;
+import at.syntaxerror.syntaxc.misc.Optimization;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.misc.Warning.WarningGroup;
@@ -74,7 +75,9 @@ public class SyntaxCMain {
 				"-fno-stdlib",
 				"-fno-long-double",
 				"-fsyntax-tree=svg",
-				"-S"
+				"-S",
+				"-Oinline-const",
+				"-Ono-eval-expressions"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -98,6 +101,7 @@ public class SyntaxCMain {
 			.with('m').compact("option[=value]")	.description("Configure the target architecture", SyntaxCMain::docAssembler).build()
 			.with('W').compact("[no-]warning")		.description("Enable or disable a specific compiler warning", SyntaxCMain::docWarning).build()
 			.with('f').compact("[no-]flag[=value]")	.description("Enable or disable a specific compiler flag", SyntaxCMain::docFlag).build()
+			.with('O').compact("[no-]opt[=value]")	.description("Enable or disable a specific compiler optimization", SyntaxCMain::docOpt).build()
 			
 			.with('o').argument("file").description("Specify the output file").build()
 			.with().argument("file").description("Specify the input file").required().build();
@@ -153,8 +157,8 @@ public class SyntaxCMain {
 		result.get('m').forEach(arg -> {
 			var option = split(arg, '=');
 			
-			String name = option.getFirst();
-			String value = option.getSecond();
+			String name = option.getLeft();
+			String value = option.getRight();
 			
 			if(value == null)
 				value = "";
@@ -247,8 +251,8 @@ public class SyntaxCMain {
 		result.get('f').forEach(arg -> {
 			var flagData = split(arg, '=');
 			
-			String flagName = flagData.getFirst();
-			String flagValue = flagData.getSecond();
+			String flagName = flagData.getLeft();
+			String flagValue = flagData.getRight();
 			
 			boolean state = true;
 			
@@ -274,6 +278,41 @@ public class SyntaxCMain {
 			flag.setEnabled(state);
 		});
 		
+		/*		=====================
+		 * 			OPTIMIZATIONS
+		 * 		=====================
+		 */
+
+		result.get('O').forEach(arg -> {
+			var optData = split(arg, '=');
+			
+			String optName = optData.getLeft();
+			String optValue = optData.getRight();
+			
+			boolean state = true;
+			
+			if(optName.startsWith("no-")) {
+				optName = optName.substring(3);
+				state = false;
+			}
+			
+			Optimization opt = Optimization.of(optName);
+
+			if(opt == null) {
+				Logger.warn("Unrecognized optimization: %s", optName);
+				return;
+			}
+			
+			if(optValue != null && !opt.isAcceptsValue()) {
+				Logger.warn("Optimization »%s« does not accept a value", optName);
+				return;
+			}
+			else if(optValue != null)
+				opt.setValue(optValue);
+			
+			opt.setEnabled(state);
+		});
+		
 		/*		=========================
 		 * 			MACRO DEFINITIONS
 		 * 		=========================
@@ -282,8 +321,8 @@ public class SyntaxCMain {
 		result.get('D').forEach(arg -> {
 			var definition = split(arg, '=');
 			
-			String name = definition.getFirst();
-			String value = definition.getSecond();
+			String name = definition.getLeft();
+			String value = definition.getRight();
 			
 			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
 				Logger.warn(Warning.REDEF, "Redefinition of predefined macro »%s«", name);
@@ -567,6 +606,22 @@ public class SyntaxCMain {
 		);
 		
 		printList(Flag.getFlags());
+	}
+	
+	private static void docOpt() {
+		System.out.println(
+			"""
+			The parameter specifies the optimization to be disabled/enabled.
+			
+			Prefixing the name with 'no-' disables the optimization:
+			a. §c-Oopt-name-here §aenables §fthe optimization named '§copt-name-here§f'
+			b. §c-Ono-opt-name-here §9disables §fthe optimization named '§copt-name-here§f'
+			
+			List of optimization:
+			"""
+		);
+		
+		printList(Optimization.getOptimizations());
 	}
 	
 }

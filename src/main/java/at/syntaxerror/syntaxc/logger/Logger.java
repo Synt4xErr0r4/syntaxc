@@ -129,7 +129,7 @@ public class Logger {
 		    	boolean newlineEnd = section.endsWith("\n");
 		    	
 		    	section = section.substring(1, section.length() - 1);
-		    	
+
 		    	int nLines = sectionData.lengths().size();
 		    	
 		    	long line = position.line();

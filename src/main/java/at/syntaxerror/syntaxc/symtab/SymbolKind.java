@@ -30,9 +30,11 @@ public enum SymbolKind {
 
 	VARIABLE_LOCAL,
 	VARIABLE_TEMPORARY, // special local variable
+	VARIABLE_RETURN, // special local variable
 	VARIABLE_GLOBAL,
 	STRING, // special global variable
 	FUNCTION, // special global variable
+	PROTOTYPE, // special function
 	TYPEDEF,
 	ENUMERATOR
 	

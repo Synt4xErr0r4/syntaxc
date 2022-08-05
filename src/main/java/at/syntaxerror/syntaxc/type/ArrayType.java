@@ -67,7 +67,9 @@ public class ArrayType extends PointerLikeType {
 	
 	@Override
 	protected String toStringSuffix() {
-		return ")[" + length + "]" + getBase().toStringSuffix();
+		return ")["
+			+ (length == SIZE_UNKNOWN ? "" : Integer.toString(length))
+			+ "]" + getBase().toStringSuffix();
 	}
 	
 	@Override

@@ -58,8 +58,8 @@ public class FunctionDeclaratorPostfix implements DeclaratorPostfix {
 		
 		parameters.forEach(fun::addParameter);
 		
-		if(variadic)
-			fun.setVariadic();
+		if(variadic) fun.setVariadic();
+		if(kAndRStyle) fun.setKAndR();
 		
 		return fun;
 	}

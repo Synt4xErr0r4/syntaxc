@@ -84,12 +84,12 @@ public class EnumType extends Type {
 		return Collections.unmodifiableMap(enumerators);
 	}
 	
-	public Type asNumberType() {
-		return getNumericType().asType().inheritQualifiers(this);
+	public NumberType asNumberType() {
+		return (NumberType) getNumericType().asType().inheritQualifiers(this);
 	}
 	
 	public void addEnumerator(Token name) {
-		if(previous != null)
+		if(previous == null)
 			addEnumerator(name, BigInteger.ZERO, true);
 		
 		else addEnumerator(

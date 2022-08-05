@@ -78,6 +78,7 @@ public enum Warning implements NamedToggle {
 	SYN_NONE,
 	DUPLICATE_QUALIFIER		("duplicate-qualifier",		"Warns when a type qualifier occurs multiple times"),
 	K_AND_R					("k&r",						"Warns when a function is declared using K&R syntax"),
+	REGISTER				("register",				"Warns when encountering the unsupported »§cregister§f« storage-class specifier"),
 
 	/**
 	 * ===== SEMANTIC ANALYSIS =====
@@ -90,6 +91,15 @@ public enum Warning implements NamedToggle {
 	DEREF_VOID				("deref-void-pointer",		"Warns when dereferencing a pointer to »§cvoid§f«"),
 	INCOMPATIBLE_POINTERS	("incompatible-pointers",	"Warns when comparing two pointers of different types"),
 	NEGATIVE_SHIFT			("negative-shift",			"Warns when the second operand for a shift operation (§c<<§f or §c>>§f) is negative"),
+	USELESS					("useless-declaration",		"Warns when a declaration does not have a declarator or struct/union name"),
+	MISSING_BRACES			("missing-braces",			"Warns when braces are missing around an initializer"),
+	SCALAR_BRACES			("scalar-braces",			"Warns when braces are present around an scalar initializer"),
+	INITIALIZER				("initializer",				"Warns when an initializer contains too many values"),
+	INITIALIZER_OVERFLOW	("initializer-overflow",	"Warns when an initializer value (integer or floating number) overflows"),
+	RETURN_VOID				("return-void",				"Warns when a §creturn §fstatement returns nothing inside a non-void function"),
+	RETURN_VALUE			("return-value",			"Warns when a §creturn §fstatement returns a value inside a void function"),
+	RETURN_TYPE				("return-type",				"Warns when a §creturn §fstatement returns an incompatible type"),
+	DEAD_CODE				("dead-code",				"Warns when a section of code is unreachable"),
 	
 	/**
 	 * ===== OPTIMIZATION =====
@@ -133,6 +143,7 @@ public enum Warning implements NamedToggle {
 		
 		group("all", "Enables all warnings", WARNINGS.values().toArray(Warning[]::new));
 		group("overflow", "Enables all *-overflow warnings", CHAR_HEX_OVERFLOW, CHAR_OCT_OVERFLOW, CHAR_OVERFLOW, INT_OVERFLOW, FLOAT_OVERFLOW);
+		group("kandr", "Alias for -Wk&r", K_AND_R);
 		
 		// default values
 		

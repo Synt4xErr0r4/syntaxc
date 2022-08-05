@@ -31,8 +31,10 @@ import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
@@ -44,6 +46,11 @@ public abstract class AbstractParser implements Logable {
 	protected Token current;
 	
 	private Stack<Pair<Token, Token>> marked = new Stack<>();
+	
+	@Override
+	public Warning getDefaultWarning() {
+		return Warning.SYN_NONE;
+	}
 	
 	@Override
 	public Position getPosition() {
@@ -60,6 +67,16 @@ public abstract class AbstractParser implements Logable {
 	public abstract void resetTokenState();
 	public abstract void unmarkTokenState();
 
+	public abstract void reread();
+	
+	public boolean isTypeName() {
+		return false;
+	}
+	
+	public Type nextTypeName() {
+		return Type.VOID;
+	}
+
 	public final void mark() {
 		markTokenState();
 		marked.push(Pair.of(previous, current));
@@ -70,8 +87,9 @@ public abstract class AbstractParser implements Logable {
 		
 		var tokens = marked.pop();
 		
-		previous = tokens.getFirst();
-		current = tokens.getSecond();
+		previous = tokens.getLeft();
+		current = tokens.getRight();
+		sync();
 	}
 	
 	public final void unmark() {
@@ -81,9 +99,15 @@ public abstract class AbstractParser implements Logable {
 	
 	public abstract Token readNextToken();
 	
+	protected void sync() { }
+	
 	public Token next() {
-		previous = current;
-		return current = readNextToken();
+		try {
+			previous = current;
+			return current = readNextToken();
+		} finally {
+			sync();
+		}
 	}
 	
 	public boolean equal(Object...any) {
@@ -114,25 +138,33 @@ public abstract class AbstractParser implements Logable {
 	
 	public Token require(Object...any) {
 		next();
-
+		return expect(any);
+	}
+	
+	public Token expect(Object...any) {
 		if(!equal(any))
-			expected(any);
+			expectedError(any);
 		
 		return current;
 	}
 	
-	public boolean peek(Object...any) {
-		mark();
-		next();
-
-		boolean found = equal(any);
-		
-		reset();
-		
-		return found;
+	public Token consume(Object...any) {
+		expect(any);
+		return next();
 	}
 	
-	public void expected(Object...any) {
+	public boolean peek(Object...any) {
+		try {
+			mark();
+			next();
+
+			return equal(any);
+		} finally {
+			reset();
+		}
+	}
+	
+	private void expectedError(Object...any) {
 		error("Expected %s", toExpectationList(any));
 	}
 	

@@ -20,13 +20,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser.node.declaration;
+package at.syntaxerror.syntaxc.parser.node.statement;
 
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.node.Node;
-import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -36,28 +40,57 @@ import lombok.ToString;
  * @author Thomas Kasper
  * 
  */
-@Getter
 @RequiredArgsConstructor
+@Getter
 @ToString(exclude = "position")
-public class Initializer extends Node {
-
+public class CompoundStatementNode extends StatementNode {
+	
 	private final Position position;
-	private final Pair<ExpressionNode, List<Initializer>> value;
-
-	public boolean isSimple() {
-		return value.hasLeft();
+	private final List<SymbolObject> declarations;
+	private final List<StatementNode> statements;
+	
+	@Override
+	protected Set<String> checkGotos() {
+		return statements.stream()
+			.map(StatementNode::getGotos)
+			.reduce(new HashSet<>(), COMBINE);
 	}
 	
-	public boolean isList() {
-		return value.hasRight();
+	@Override
+	protected Set<String> checkLabels() {
+		return statements.stream()
+			.map(StatementNode::getLabels)
+			.reduce(new HashSet<>(), COMBINE);
 	}
 	
-	public ExpressionNode getExpression() {
-		return value.getLeft();
+	@Override
+	public boolean checkInterrupt() {
+		return statements.stream()
+			.anyMatch(StatementNode::doesInterrupt);
 	}
 	
-	public List<Initializer> getList() {
-		return value.getRight();
+	@Override
+	public List<Pair<String, TreeNode>> getChildren() {
+		return List.of(
+			child(
+				"declarations",
+				declarations.stream()
+					.map(sym -> new TreeListNode(
+						List.of(
+							child(
+								"name",
+								sym.getName()
+								 + (sym.isTemporaryVariable()
+									? " (tmp)"
+									: "")
+							),
+							child("type", sym.getType())
+						)
+					))
+					.toList()
+			),
+			child("statements", statements)
+		);
 	}
 	
 }

@@ -146,10 +146,10 @@ public class SubstitutionHelper implements PreprocessorView, Logable {
 			else if(token.is(TokenType.IDENTIFIER)) {
 				var result = substitute(token, input, restrict);
 				
-				if(result.getFirst())
+				if(result.getLeft())
 					found = true;
 				
-				rescanned.addAll(result.getSecond());
+				rescanned.addAll(result.getRight());
 			}
 			
 			else rescanned.add(token);

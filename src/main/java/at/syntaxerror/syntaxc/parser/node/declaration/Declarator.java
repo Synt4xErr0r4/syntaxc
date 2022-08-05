@@ -26,6 +26,7 @@ import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.parser.node.declaration.postfix.FunctionDeclaratorPostfix;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.Type;
@@ -48,10 +49,25 @@ public class Declarator extends Node {
 	private final List<Pointer> pointers;
 	private final List<DeclaratorPostfix> postfixes;
 	
+	public boolean isAbstract() {
+		return nameOrNested.hasNeither();
+	}
+	
 	public String getName() {
-		return nameOrNested.hasFirst()
-			? nameOrNested.getFirst()
-			: nameOrNested.getSecond().getName();
+		return isAbstract()
+			? null
+			: nameOrNested.hasLeft()
+				? nameOrNested.getLeft()
+				: nameOrNested.getRight().getName();
+	}
+	
+	public boolean isFunctionDeclarator() {
+		return !postfixes.isEmpty()
+			&& postfixes.get(postfixes.size() - 1) instanceof FunctionDeclaratorPostfix;
+	}
+
+	public Type merge(Type type) {
+		return merge(this, type);
 	}
 	
 	public Type merge(Positioned pos, Type type) {
@@ -65,8 +81,8 @@ public class Declarator extends Node {
 		for(DeclaratorPostfix postfix : postfixes)
 			type = postfix.applyTo(pos, type);
 		
-		return nameOrNested.hasSecond()
-			? nameOrNested.getSecond().merge(pos, type)
+		return nameOrNested.hasRight()
+			? nameOrNested.getRight().merge(pos, type)
 			: type;
 	}
 	

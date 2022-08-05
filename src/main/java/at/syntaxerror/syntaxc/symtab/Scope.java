@@ -27,11 +27,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import lombok.Getter;
+import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
+@ToString(of = "symbols")
 public class Scope<T extends Symbol> {
 
 	@Getter
@@ -48,19 +50,25 @@ public class Scope<T extends Symbol> {
 	}
 	
 	public T find(String name) {
-		if(!symbols.containsKey(name)) {
-			if(parent != null)
-				return parent.find(name);
-			
-			return null;
-		}
+		T value = findInScope(name);
 		
+		if(value == null && parent != null)
+			value = parent.find(name);
+		
+		return value;
+	}
+	
+	public T findInScope(String name) {
 		return symbols.get(name);
 	}
 	
 	public boolean has(String name) {
-		return symbols.containsKey(name)
+		return hasInScope(name)
 			|| (parent != null && parent.has(name));
+	}
+	
+	public boolean hasInScope(String name) {
+		return symbols.containsKey(name);
 	}
 	
 	public boolean add(T symbol) {

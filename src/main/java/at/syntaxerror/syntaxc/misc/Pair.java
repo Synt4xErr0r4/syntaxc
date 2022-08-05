@@ -43,7 +43,7 @@ import lombok.ToString;
 @Getter
 @ToString
 @EqualsAndHashCode
-public class Pair<A, B> {
+public class Pair<L, R> {
 
 	private static final Pair<?, ?> EMPTY = new Pair<>(null, null);
 	
@@ -52,115 +52,115 @@ public class Pair<A, B> {
 		return (Pair<A, B>) EMPTY;
 	}
 	
-	public static <A, B> Pair<A, B> ofFirst(A first) {
-		return first == null
+	public static <A, B> Pair<A, B> ofLeft(A left) {
+		return left == null
 			? empty()
-			: new Pair<>(first, null);
+			: new Pair<>(left, null);
 	}
 
-	public static <A, B> Pair<A, B> ofSecond(B second) {
-		return second == null
+	public static <A, B> Pair<A, B> ofRight(B right) {
+		return right == null
 			? empty()
-			: new Pair<>(null, second);
+			: new Pair<>(null, right);
 	}
 	
-	public static <A, B> Pair<A, B> of(A first, B second) {
-		return first == null && second == null
+	public static <A, B> Pair<A, B> of(A left, B right) {
+		return left == null && right == null
 			? empty()
-			: new Pair<>(first, second);
+			: new Pair<>(left, right);
 	}
 	
-	private final A first;
-	private final B second;
+	private final L left;
+	private final R right;
 
-	public boolean hasNone() {
-		return first == null
-			&& second == null;
+	public boolean hasNeither() {
+		return left == null
+			&& right == null;
 	}
 	
 	public boolean hasBoth() {
-		return first != null
-			&& second != null;
+		return left != null
+			&& right != null;
 	}
 
 	public boolean hasAny() {
-		return first != null
-			|| second != null;
+		return left != null
+			|| right != null;
 	}
 	
-	public boolean hasFirst() {
-		return first != null;
+	public boolean hasLeft() {
+		return left != null;
 	}
 	
-	public boolean hasSecond() {
-		return second != null;
+	public boolean hasRight() {
+		return right != null;
 	}
 	
-	public boolean hasOnlyFirst() {
-		return first != null
-			&& second == null;
+	public boolean hasOnlyLeft() {
+		return left != null
+			&& right == null;
 	}
 	
-	public boolean hasOnlySecond() {
-		return second != null
-			&& first == null;
+	public boolean hasOnlyRight() {
+		return right != null
+			&& left == null;
 	}
 	
-	public Pair<A, B> withFirst(A first) {
-		return of(first, second);
+	public Pair<L, R> withLeft(L left) {
+		return of(left, right);
 	}
 
-	public Pair<A, B> withSecond(B second) {
-		return of(first, second);
+	public Pair<L, R> withRight(R right) {
+		return of(left, right);
 	}
 	
-	public Optional<A> getFirstOptional() {
-		return Optional.ofNullable(first);
+	public Optional<L> getLeftOptional() {
+		return Optional.ofNullable(left);
 	}
 
-	public Optional<B> getSecondOptional() {
-		return Optional.ofNullable(second);
+	public Optional<R> getRightOptional() {
+		return Optional.ofNullable(right);
 	}
 
-	public void ifBothPresent(BiConsumer<A, B> consumer) {
-		if(hasBoth()) consumer.accept(first, second);
+	public void ifBothPresent(BiConsumer<L, R> consumer) {
+		if(hasBoth()) consumer.accept(left, right);
 	}
 
-	public void ifAnyPresent(BiConsumer<A, B> consumer) {
-		if(hasAny()) consumer.accept(first, second);
+	public void ifAnyPresent(BiConsumer<L, R> consumer) {
+		if(hasAny()) consumer.accept(left, right);
 	}
 
-	public void ifPresent(Consumer<A> consumerFirst, Consumer<B> consumerSecond) {
-		ifFirstPresent(consumerFirst);
-		ifSecondPresent(consumerSecond);
+	public void ifPresent(Consumer<L> consumerLeft, Consumer<R> consumerRight) {
+		ifLeftPresent(consumerLeft);
+		ifRightPresent(consumerRight);
 	}
 	
-	public void ifFirstPresent(Consumer<A> consumer) {
-		if(hasFirst()) consumer.accept(first);
+	public void ifLeftPresent(Consumer<L> consumer) {
+		if(hasLeft()) consumer.accept(left);
 	}
 	
-	public void ifSecondPresent(Consumer<B> consumer) {
-		if(hasSecond()) consumer.accept(second);
+	public void ifRightPresent(Consumer<R> consumer) {
+		if(hasRight()) consumer.accept(right);
 	}
 	
-	public <X, Y> Pair<X, Y> mapFlat(BiFunction<A, B, Pair<X, Y>> map) {
-		return map.apply(first, second);
+	public <X, Y> Pair<X, Y> mapFlat(BiFunction<L, R, Pair<X, Y>> map) {
+		return map.apply(left, right);
 	}
 	
-	public <X, Y> Pair<X, Y> map(@NonNull Function<A, X> mapFirst, @NonNull Function<B, Y> mapSecond) {
-		return of(mapFirst.apply(first), mapSecond.apply(second));
+	public <X, Y> Pair<X, Y> map(@NonNull Function<L, X> mapFirst, @NonNull Function<R, Y> mapSecond) {
+		return of(mapFirst.apply(left), mapSecond.apply(right));
 	}
 	
-	public <X> Pair<X, B> mapFirst(@NonNull Function<A, X> map) {
-		return of(map.apply(first), second);
+	public <X> Pair<X, R> mapLeft(@NonNull Function<L, X> map) {
+		return of(map.apply(left), right);
 	}
 	
-	public <Y> Pair<A, Y> mapSecond(@NonNull Function<B, Y> map) {
-		return of(first, map.apply(second));
+	public <Y> Pair<L, Y> mapRight(@NonNull Function<R, Y> map) {
+		return of(left, map.apply(right));
 	}
 	
-	public Pair<B, A> swap() {
-		return of(second, first);
+	public Pair<R, L> swap() {
+		return of(right, left);
 	}
 	
 }

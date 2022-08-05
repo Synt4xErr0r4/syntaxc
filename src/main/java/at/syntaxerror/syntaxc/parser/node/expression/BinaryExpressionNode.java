@@ -22,6 +22,8 @@
  */
 package at.syntaxerror.syntaxc.parser.node.expression;
 
+import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+
 import java.util.List;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
