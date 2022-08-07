@@ -52,7 +52,7 @@ public class GlobalVariableNode extends Node {
 	public List<Pair<String, TreeNode>> getChildren() {
 		List<Pair<String, TreeNode>> children = new ArrayList<>();
 		
-		children.add(child(object.getName(), object.getType()));
+		children.add(child(object.getDebugName(), object.getType()));
 		
 		if(object.getData() != null) {
 			SymbolVariableData data = object.getVariableData();

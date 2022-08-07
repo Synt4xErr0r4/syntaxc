@@ -25,7 +25,6 @@ package at.syntaxerror.syntaxc.parser.node.statement;
 import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 
 import java.util.List;
-import java.util.Set;
 
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.tree.TreeNode;
@@ -45,16 +44,6 @@ public class GotoStatementNode extends StatementNode {
 	
 	private final Position position;
 	private final String label;
-	
-	@Override
-	protected boolean checkInterrupt() {
-		return true;
-	}
-	
-	@Override
-	protected Set<String> checkLabels() {
-		return Set.of(label);
-	}
 
 	@Override
 	public List<Pair<String, TreeNode>> getChildren() {

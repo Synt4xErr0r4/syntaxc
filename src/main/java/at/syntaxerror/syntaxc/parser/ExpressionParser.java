@@ -65,6 +65,7 @@ import lombok.RequiredArgsConstructor;
 public class ExpressionParser extends AbstractParser {
 	
 	private final AbstractParser parser;
+	private final DeclarationParser declarationParser;
 	
 	@Override
 	protected void sync() {
@@ -103,14 +104,12 @@ public class ExpressionParser extends AbstractParser {
 		return parser.readNextToken();
 	}
 	
-	@Override
 	public boolean isTypeName() {
-		return parser.isTypeName();
+		return declarationParser.isTypeName();
 	}
 	
-	@Override
 	public Type nextTypeName() {
-		return parser.nextTypeName();
+		return declarationParser.nextTypeName();
 	}
 	
 	/* 
@@ -1468,8 +1467,36 @@ public class ExpressionParser extends AbstractParser {
 		return new CommaExpressionNode(pos.getPosition(), left, right);
 	}
 	
-	// An assignment 'x op= y' is equivalent to 'z = &x, *z = *z op y'
 	private ExpressionNode newAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {
+		if(left instanceof VariableExpressionNode)
+			return newSimpleAssignment(pos, left, right, operation);
+		
+		return newComplexAssignment(pos, left, right, operation);
+	}
+	
+	// An assignment 'x op= y' is equivalent to 'x = x op y' if 'x' has no side effects
+	private ExpressionNode newSimpleAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operator) {
+		Type leftType = left.getType();
+		
+		if(left instanceof VariableExpressionNode var && var.getVariable().isLocalVariable())
+			var.getVariable().setInitialized(true);
+		
+		return newBinary( // x = x op y
+			pos,
+			left,
+			newBinary( // x op y
+				pos,
+				left,
+				right,
+				operator
+			),
+			Punctuator.ASSIGN,
+			leftType.unqualified()
+		);
+	}
+	
+	// An assignment 'x op= y' is equivalent to 'z = &x, *z = *z op y' if 'x' has side effects
+	private ExpressionNode newComplexAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {
 		Type leftType = left.getType();
 		Type leftAddr = leftType.addressOf();
 		
@@ -1477,8 +1504,6 @@ public class ExpressionParser extends AbstractParser {
 			pos.getPosition(),
 			leftAddr
 		);
-		
-		getSymbolTable().addObject(sym);
 		
 		// z (temporary variable)
 		VariableExpressionNode var = new VariableExpressionNode(
@@ -1578,7 +1603,13 @@ public class ExpressionParser extends AbstractParser {
 			b = scaledOffset;
 		}
 		
-		return newBinary(pos, a, b, op, pointer.getType());
+		return newBinary(
+			pos,
+			a,
+			b,
+			op,
+			pointer.getType()
+		);
 	}
 	
 }

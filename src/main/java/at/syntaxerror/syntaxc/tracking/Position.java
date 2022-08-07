@@ -28,7 +28,7 @@ import at.syntaxerror.syntaxc.io.CharStream;
  * @author Thomas Kasper
  * 
  */
-public record Position(long bytenum, long position, long column, long line, long length, CharStream file) implements Positioned {
+public record Position(long bytenum, long position, long column, long line, long length, CharStream file) implements Positioned, Comparable<Position> {
 
 	public static final long ARGUMENT = Long.MIN_VALUE;
 	
@@ -65,6 +65,11 @@ public record Position(long bytenum, long position, long column, long line, long
 
 	public Position range(Positioned other) {
 		return range(other.getPosition());
+	}
+	
+	@Override
+	public int compareTo(Position o) {
+		return Long.compare(bytenum, o.bytenum);
 	}
 
 }

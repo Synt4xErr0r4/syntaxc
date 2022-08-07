@@ -79,8 +79,8 @@ public class Parser extends AbstractParser {
 		symbolTables = new Stack<>();
 		symbolTables.push(globalSymbolTable);
 		
-		expressionParser = new ExpressionParser(this);
 		declarationParser = new DeclarationParser(this);
+		expressionParser = new ExpressionParser(this, declarationParser);
 		statementParser = new StatementParser(this, declarationParser, expressionParser);
 	}
 	
@@ -138,16 +138,6 @@ public class Parser extends AbstractParser {
 		symbolTables.pop();
 	}
 
-	@Override
-	public boolean isTypeName() {
-		return declarationParser.isTypeName();
-	}
-	
-	@Override
-	public Type nextTypeName() {
-		return declarationParser.nextTypeName();
-	}
-	
 	public ExpressionNode nextAssignmentExpression() {
 		try {
 			return expressionParser.nextAssignment();
@@ -238,7 +228,7 @@ public class Parser extends AbstractParser {
 				Set<String> parameterNamesFound = new HashSet<>();
 				
 				while(!skip("{")) {
-					if(!isTypeName() && !equal("typedef", "extern", "static", "auto", "register"))
+					if(!declarationParser.isTypeName() && !equal("typedef", "extern", "static", "auto", "register"))
 						error("Expected function body");
 					
 					declSpecs = declarationParser.nextDeclarationSpecifiers();
@@ -302,6 +292,11 @@ public class Parser extends AbstractParser {
 			
 			StatementNode body = statementParser.nextFunctionBody(funType.getReturnType(), name);
 			
+			var declarations = statementParser.getDeclarations();
+			
+			statementParser.getGlobalVariables()
+				.forEach(obj -> nodes.add(new GlobalVariableNode(obj)));
+			
 			leaveScope();
 			
 			SymbolTable symtab = getSymbolTable();
@@ -337,7 +332,7 @@ public class Parser extends AbstractParser {
 			
 			symtab.addObject(obj);
 			
-			nodes.add(new FunctionNode(obj, body));
+			nodes.add(new FunctionNode(obj, declarations, body));
 		}
 		else while(true) {
 			Initializer init = null;
@@ -372,7 +367,7 @@ public class Parser extends AbstractParser {
 		return nodes;
 	}
 	
-	private void warnUseless(Type type) {
+	public void warnUseless(Type type) {
 		if(!type.isEnum() && (!type.isStructLike() || type.toStructLike().isAnonymous()))
 			warn(Warning.USELESS, "Useless declaration does not declare anything");
 	}

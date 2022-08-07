@@ -80,15 +80,7 @@ public class VariableExpressionNode extends ExpressionNode {
 	public List<Pair<String, TreeNode>> getChildren() {
 		List<Pair<String, TreeNode>> children = new ArrayList<>();
 		
-		children.add(
-			child(
-				"name",
-				variable.getName()
-				 + (variable.isTemporaryVariable()
-					? " (tmp)"
-					: "")
-			)
-		);
+		children.add(child("name", variable.getDebugName()));
 		
 		children.add(child("type", getType()));
 		

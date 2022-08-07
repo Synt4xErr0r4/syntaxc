@@ -22,89 +22,22 @@
  */
 package at.syntaxerror.syntaxc.parser.node.statement;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.BinaryOperator;
-import java.util.function.Function;
-import java.util.stream.Stream;
-
 import at.syntaxerror.syntaxc.parser.node.Node;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public abstract class StatementNode extends Node {
-
-	protected static final BinaryOperator<Set<String>> COMBINE = (a, b) -> { a.addAll(b); return a; };
-
-	protected static Set<String> combine(Function<StatementNode, Set<String>> getter, StatementNode...nodes) {
-		return Stream.of(nodes)
-			.filter(stmt -> stmt != null)
-			.map(getter)
-			.reduce(new HashSet<>(), COMBINE);
-	}
-	
-	private boolean analyzed;
-	
-	private Set<String> gotos;
-	private Set<String> labels;
-
-	private boolean interrupt;
-	
-	private void analyze() {
-		if(analyzed)
-			return;
-		
-		analyzed = true;
-		
-		gotos = checkGotos();
-		labels = checkLabels();
-		
-		interrupt = checkInterrupt();
-	}
-	
-	public final boolean doesInterrupt() {
-		analyze();
-		return interrupt;
-	}
-	
-	public final boolean hasGoto() {
-		analyze();
-		return !gotos.isEmpty();
-	}
-
-	public final boolean hasLabels() {
-		analyze();
-		return !labels.isEmpty();
-	}
-
-	public final Set<String> getGotos() {
-		analyze();
-		return Collections.unmodifiableSet(gotos);
-	}
-
-	public final Set<String> getLabels() {
-		analyze();
-		return Collections.unmodifiableSet(labels);
-	}
-	
-	protected Set<String> checkGotos() {
-		return Set.of();
-	}
-
-	protected Set<String> checkLabels() {
-		return Set.of();
-	}
-
-	protected boolean checkInterrupt() {
-		return false;
-	}
+public abstract class StatementNode extends Node implements Comparable<StatementNode> {
 	
 	@Override
 	public String getLeafName() {
 		return super.getLeafName().replaceFirst("Statement$", "");
+	}
+	
+	@Override
+	public int compareTo(StatementNode o) {
+		return getPosition().compareTo(o.getPosition());
 	}
 
 }

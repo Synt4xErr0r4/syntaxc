@@ -25,7 +25,6 @@ package at.syntaxerror.syntaxc.parser.node.statement;
 import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 
 import java.util.List;
-import java.util.Set;
 
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.tree.TreeNode;
@@ -47,16 +46,6 @@ public class LabeledStatementNode extends StatementNode {
 	private final String label;
 	private final StatementNode statement;
 	
-	@Override
-	protected boolean checkInterrupt() {
-		return statement.doesInterrupt();
-	}
-	
-	@Override
-	protected Set<String> checkLabels() {
-		return Set.of(label);
-	}
-
 	@Override
 	public List<Pair<String, TreeNode>> getChildren() {
 		return List.of(

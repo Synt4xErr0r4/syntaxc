@@ -33,6 +33,7 @@ import at.syntaxerror.syntaxc.type.Type;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 /**
@@ -44,8 +45,11 @@ import lombok.ToString;
 @ToString(exclude = "position")
 public class SymbolObject implements Symbol, Positioned {
 
+	public static final int OFFSET_NONE = Integer.MIN_VALUE;
+	
 	private static long temporaryId = 0;
 	private static long stringId = 0;
+	private static long localStaticId = 0;
 	
 	public static SymbolObject returns(Positioned pos, Type type) {
 		return new SymbolObject(
@@ -170,10 +174,22 @@ public class SymbolObject implements Symbol, Positioned {
 
 	private final SymbolData data;
 	
-	private boolean unused = true;
+	private long fullNameId = -1;
 	
-	public void setUnused(boolean unused) {
-		this.unused = unused;
+	private @Setter boolean unused = true;
+	private @Setter boolean initialized = false;
+	private @Setter int offset = OFFSET_NONE;
+	
+	public void setLocalStatic() {
+		fullNameId = localStaticId++;
+	}
+	
+	public String getFullName() {
+		return name + (fullNameId < 0 ? "" : "." + fullNameId);
+	}
+	
+	public String getDebugName() {
+		return getFullName() + (isTemporaryVariable() ? ".temp" : "");
 	}
 	
 	public SymbolFunctionData getFunctionData() {

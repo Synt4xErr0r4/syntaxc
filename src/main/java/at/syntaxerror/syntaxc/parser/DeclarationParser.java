@@ -782,7 +782,6 @@ public class DeclarationParser extends AbstractParser {
 		return new Initializer(value.getPosition(), Pair.ofLeft(value));
 	}
 	
-	@Override
 	public boolean isTypeName() {
 		if(equal("void", "char", "short", "int", "long", "float", "double",
 				"signed", "unsigned", "struct", "union", "enum", "const", "volatile"))
@@ -798,7 +797,6 @@ public class DeclarationParser extends AbstractParser {
 		return false;
 	}
 	
-	@Override
 	public Type nextTypeName() {
 		Type type = nextSpecifierQualifierList();
 		

@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Stack;
 
+import at.syntaxerror.syntaxc.analysis.ControlFlowAnalyzer;
+import at.syntaxerror.syntaxc.analysis.DataFlowAnalyzer;
 import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
@@ -46,14 +48,13 @@ import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.statement.CompoundStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.ExpressionStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.GotoStatementNode;
-import at.syntaxerror.syntaxc.parser.node.statement.IfStatementNode;
+import at.syntaxerror.syntaxc.parser.node.statement.JumpStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.LabeledStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.NullStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
-import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
@@ -70,25 +71,31 @@ public class StatementParser extends AbstractParser {
 	private final DeclarationParser declarationParser;
 	private final ExpressionParser expressionParser;
 	
-	private Type expectedType;
-	private Stack<ScopeType> scopeType;
+	private final ControlFlowAnalyzer controlFlowAnalyzer = new ControlFlowAnalyzer(this);
+	private final DataFlowAnalyzer dataFlowAnalyzer = new DataFlowAnalyzer();
 	
-	private Map<String, LabeledStatementNode> labels;
-	private List<StatementNode> gotos;
+	private final Stack<ScopeType> scopeType = new Stack<>();
 
-	private Stack<Map<BigInteger, LabeledStatementNode>> cases;
+	private final Stack<Map<BigInteger, LabeledStatementNode>> cases = new Stack<>();
+	
+	private final @Getter Map<String, LabeledStatementNode> labels = new HashMap<>();
+	private final @Getter List<GotoStatementNode> gotos = new ArrayList<>();
+	
+	private final Stack<String> labelContinue = new Stack<>();
+	private final Stack<String> labelBreak = new Stack<>();
 	
 	private long loopId;
-	
-	private Stack<String> labelContinue;
-	private Stack<String> labelBreak;
-	
+
+	private Type expectedType;
 	private VariableExpressionNode returnValueField;
 	private String returnLabel;
 	
 	@Getter
-	private List<SymbolObject> globalVariables;
+	private List<SymbolObject> globalVariables = new ArrayList<>();
 
+	@Getter
+	private List<SymbolObject> declarations = new ArrayList<>();
+	
 	private String nextLabel() {
 		return ".L" + loopId++;
 	}
@@ -263,7 +270,7 @@ public class StatementParser extends AbstractParser {
 			
 			statements.add(new GotoStatementNode(pos, returnLabel));
 			
-			return new CompoundStatementNode(pos, List.of(), statements);
+			return new CompoundStatementNode(pos, statements);
 		}
 		
 		ExpressionNode expr = parser.nextExpression();
@@ -286,10 +293,7 @@ public class StatementParser extends AbstractParser {
 			var cases = getCases();
 			
 			if(cases.containsKey(constant))
-				error(
-					pos,
-					"Duplicate label for »switch« statement"
-				);
+				error(pos, Warning.SEM_NONE, "Duplicate label for »switch« statement");
 			
 			consume(":");
 			
@@ -314,6 +318,9 @@ public class StatementParser extends AbstractParser {
 				label,
 				nextStatement()
 			);
+			
+			if(labels.containsKey(label))
+				error(pos, Warning.SEM_NONE, "Duplicate label »%s« in current function", label);
 			
 			labels.put(label, stmt);
 			
@@ -344,6 +351,40 @@ public class StatementParser extends AbstractParser {
 		return Pair.of(expr, nextStatement());
 	}
 	
+	/*
+	 * The statement
+	 * 
+	 *   if(condition)
+	 *   	thenBody;
+	 *   else elseBody;
+	 *   
+	 * is equivalent to
+	 * 
+	 *   if(!condition) goto elseBlock;
+	 *   
+	 *   thenBody;
+	 *   goto end;
+	 *   
+	 *   elseBlock:
+	 *   elseBody;
+	 *   
+	 *   end:
+	 *   ;
+	 * 
+	 * and the statement
+	 * 
+	 *   if(condition)
+	 *   	thenBody;
+	 * 
+	 * is equivalent to
+	 * 
+	 * 	 if(!condition) goto end;
+	 * 	 
+	 *   thenBody;
+	 * 	 
+	 *   end:
+	 *   ;
+	 */
 	private StatementNode nextIf() {
 		Position pos = previous.getPosition();
 		
@@ -351,32 +392,70 @@ public class StatementParser extends AbstractParser {
 		
 		ExpressionNode condition = exprStmt.getLeft();
 		
-		StatementNode ifStmt = exprStmt.getRight();
-		StatementNode elseStmt = null;
+		StatementNode stmtThen = exprStmt.getRight();
+		StatementNode stmtElse = null;
 		
 		Position elsePos = getPosition();
 		
 		if(skip("else"))
-			elseStmt = nextStatement();
+			stmtElse = nextStatement();
 		
 		var val = checkBooleanValue(condition);
 		
 		if(val.isPresent()) {
-			if(!val.get()) {
+			if(!val.get()) { // if(0) ... [else ...]
 				warn(pos, Warning.DEAD_CODE, "»if« block is unreachable because condition always evaluates to false");
 				
-				return elseStmt == null
+				return stmtElse == null
 					? new NullStatementNode(pos)
-					: elseStmt;
+					: stmtElse;
 			}
 			
-			if(elseStmt != null)
+			if(stmtElse != null) // if(1) ... else ...
 				warn(elsePos, Warning.DEAD_CODE, "»else« block is unreachable because condition always evaluates to true");
 
-			return ifStmt;
+			return stmtThen;
 		}
+
+		List<StatementNode> statements = new ArrayList<>();
 		
-		return new IfStatementNode(pos, condition, ifStmt, elseStmt);
+		String labelEnd = nextLabel();
+		
+		if(stmtElse != null) { // if(condition) ... else ...
+			String labelElse = nextLabel();
+			
+			statements.add(new JumpStatementNode( // if(!condition) goto elseBlock;
+				pos,
+				condition,
+				labelElse
+			));
+			
+			statements.add(stmtThen); // thenBody;
+			statements.add(new GotoStatementNode(pos, labelEnd)); // goto end;
+			
+			statements.add(new LabeledStatementNode( // elseBlock: elseBody;
+				pos,
+				labelElse,
+				stmtElse
+			));
+		}
+		else { // if(condition) ...
+			statements.add(new JumpStatementNode( // if(!condition) goto end;
+				pos,
+				condition,
+				labelEnd
+			));
+
+			statements.add(stmtThen); // thenBody;
+		}
+
+		statements.add(new LabeledStatementNode( // end: ;
+			pos,
+			labelEnd,
+			new NullStatementNode(pos)
+		));
+		
+		return new CompoundStatementNode(pos, statements);
 	}
 	
 	/*
@@ -443,7 +522,7 @@ public class StatementParser extends AbstractParser {
 		if(rawBody instanceof CompoundStatementNode compound)
 			body = compound;
 		
-		else body = new CompoundStatementNode(rawBody.getPosition(), List.of(), List.of(rawBody));
+		else body = new CompoundStatementNode(rawBody.getPosition(), List.of(rawBody));
 		
 		List<StatementNode> statements = new ArrayList<>();
 
@@ -451,8 +530,6 @@ public class StatementParser extends AbstractParser {
 			pos.getPosition(),
 			value.getType()
 		);
-		
-		getSymbolTable().addObject(valueCache);
 		
 		VariableExpressionNode valueVar = new VariableExpressionNode(pos, valueCache);
 		
@@ -491,14 +568,11 @@ public class StatementParser extends AbstractParser {
 				Type.INT
 			);
 			
-			GotoStatementNode jump = new GotoStatementNode(pos, caseLabel.getLabel());
-			
 			statements.add( // if(tmp == X) goto case_X;
-				new IfStatementNode(
+				new JumpStatementNode(
 					pos,
 					condition,
-					jump,
-					null
+					caseLabel.getLabel()
 				)
 			);
 		}
@@ -517,10 +591,7 @@ public class StatementParser extends AbstractParser {
 		
 		Position unreachablePos = null;
 		
-		if(!body.getDeclarations().isEmpty())
-			unreachablePos = body.getDeclarations().get(0).getPosition();
-		
-		else if(!body.getStatements().isEmpty()) {
+		if(!body.getStatements().isEmpty()) {
 			
 			StatementNode first = body.getStatements().get(0);
 			
@@ -544,7 +615,6 @@ public class StatementParser extends AbstractParser {
 		
 		return new CompoundStatementNode(
 			pos,
-			List.of(valueCache), // typeof(value) tmp;
 			statements
 		);
 	}
@@ -610,11 +680,10 @@ public class StatementParser extends AbstractParser {
 			statements.add(new LabeledStatementNode( // if(!condition) goto brk;
 				pos,
 				getLabelContinue(),
-				new IfStatementNode( // if(!condition) goto brk;
+				new JumpStatementNode( // if(!condition) goto brk;
 					pos,
 					condition,
-					new GotoStatementNode(pos, getLabelBreak()),
-					null
+					getLabelBreak()
 				)
 			));
 			
@@ -634,7 +703,7 @@ public class StatementParser extends AbstractParser {
 		);
 		
 		leaveLoop();
-		return new CompoundStatementNode(pos, List.of(), statements);
+		return new CompoundStatementNode(pos, statements);
 	}
 	
 	/*
@@ -726,11 +795,10 @@ public class StatementParser extends AbstractParser {
 			);
 
 			statements.add( // if(condition) goto cont;
-				new IfStatementNode(
+				new JumpStatementNode(
 					pos,
 					condition,
-					new GotoStatementNode(pos, getLabelContinue()),
-					null
+					getLabelContinue()
 				)
 			);
 		}
@@ -744,7 +812,7 @@ public class StatementParser extends AbstractParser {
 		);
 		
 		leaveLoop();
-		return new CompoundStatementNode(pos, List.of(), statements);
+		return new CompoundStatementNode(pos, statements);
 	}
 
 	/*
@@ -866,11 +934,10 @@ public class StatementParser extends AbstractParser {
 			statements.add(new LabeledStatementNode( // cond: if(condition) goto body;
 				pos,
 				labelCond,
-				new IfStatementNode(
+				new JumpStatementNode(
 					pos,
 					condition,
-					new GotoStatementNode(pos, labelBody),
-					null
+					labelBody
 				)
 			));
 		else statements.add(new GotoStatementNode(pos, labelBody)); // goto body;
@@ -884,16 +951,15 @@ public class StatementParser extends AbstractParser {
 		);
 		
 		leaveLoop();
-		return new CompoundStatementNode(pos, List.of(), statements);
+		return new CompoundStatementNode(pos, statements);
 	}
 
 	private CompoundStatementNode nextCompound(boolean skipBrace) {
 		Position pos = previous.getPosition();
 		
-		List<SymbolObject> declarations = new ArrayList<>();
 		List<StatementNode> statements = new ArrayList<>();
 		
-		while(isTypeName()) {
+		while(declarationParser.isTypeName()) {
 			var declSpec = declarationParser.nextDeclarationSpecifiers();
 			
 			var optSpec = declSpec.getLeft();
@@ -929,9 +995,14 @@ public class StatementParser extends AbstractParser {
 			
 			Type baseType = declSpec.getRight();
 			
-			while(!skip(";")) {
+			if(skip(";")) {
+				parser.warnUseless(baseType);
+				continue;
+			}
+			
+			while(true) {
 				Declarator decl = declarationParser.nextDeclarator();
-
+				
 				Type type = decl.merge(baseType);
 				
 				Initializer init = null;
@@ -946,7 +1017,9 @@ public class StatementParser extends AbstractParser {
 					pos,
 					type,
 					decl.getName(),
-					init,
+					internal
+						? init
+						: null,
 					new DeclarationState(
 						external
 							? Linkage.EXTERNAL
@@ -957,6 +1030,12 @@ public class StatementParser extends AbstractParser {
 					)
 				);
 				
+				if(internal)
+					globalVariables.add(obj);
+				
+				else if(!external)
+					declarations.add(obj);
+				
 				if(init != null && !internal)
 					statements.addAll(
 						InitializerSerializer.toAssignment(
@@ -966,6 +1045,11 @@ public class StatementParser extends AbstractParser {
 							init
 						)
 					);
+				
+				consume(",", ";");
+				
+				if(previous.is(";"))
+					break;
 			}
 		}
 		
@@ -975,22 +1059,23 @@ public class StatementParser extends AbstractParser {
 		if(skipBrace)
 			next();
 		
-		return new CompoundStatementNode(pos, declarations, statements);
+		return new CompoundStatementNode(pos, statements);
 	}
 	
 	public StatementNode nextFunctionBody(Type expectedReturnType, String funcName) {
 		expectedType = expectedReturnType;
 		
-		scopeType = new Stack<>();
-		cases = new Stack<>();
+		scopeType.clear();
+		cases.clear();
 		
-		labels = new HashMap<>();
-		gotos = new ArrayList<>();
+		labels.clear();
+		gotos.clear();
 		
-		labelBreak = new Stack<>();
-		labelContinue = new Stack<>();
+		labelBreak.clear();
+		labelContinue.clear();
 		
-		globalVariables = new ArrayList<>();
+		globalVariables.clear();
+		declarations.clear();
 		
 		scopeType.push(ScopeType.FUNCTION);
 		
@@ -1017,9 +1102,34 @@ public class StatementParser extends AbstractParser {
 		
 		returnLabel = nextLabel();
 		
-		StatementNode body = nextCompound(false);
+		CompoundStatementNode body = nextCompound(false);
+		
+		postInitVariables();
+		
+		body = controlFlowAnalyzer.checkDeadCode(body, returnLabel);
+		
+		dataFlowAnalyzer.checkInitialized(body);
 		
 		return body;
+	}
+	
+	private void postInitVariables() {
+		int length = declarations.size();
+		
+		int offset = 0;
+		
+		for(int i = length - 1; i >= 0; --i) {
+			SymbolObject decl = declarations.get(i);
+			
+			if(decl.isFunction())
+				continue;
+
+			offset += decl.getType().sizeof();
+			
+			decl.setOffset(offset);
+		}
+		
+		globalVariables.forEach(SymbolObject::setLocalStatic);
 	}
 	
 	private static enum ScopeType {

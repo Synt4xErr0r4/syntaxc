@@ -100,6 +100,8 @@ public enum Warning implements NamedToggle {
 	RETURN_VALUE			("return-value",			"Warns when a §creturn §fstatement returns a value inside a void function"),
 	RETURN_TYPE				("return-type",				"Warns when a §creturn §fstatement returns an incompatible type"),
 	DEAD_CODE				("dead-code",				"Warns when a section of code is unreachable"),
+	UNUSED_LABEL			("unused-label",			"Warns when a label is not used"),
+	UNUSED_VALUE			("unused-value",			"Warns when the value of an expression is not used"),
 	
 	/**
 	 * ===== OPTIMIZATION =====

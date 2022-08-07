@@ -34,7 +34,6 @@ import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
@@ -69,14 +68,6 @@ public abstract class AbstractParser implements Logable {
 
 	public abstract void reread();
 	
-	public boolean isTypeName() {
-		return false;
-	}
-	
-	public Type nextTypeName() {
-		return Type.VOID;
-	}
-
 	public final void mark() {
 		markTokenState();
 		marked.push(Pair.of(previous, current));

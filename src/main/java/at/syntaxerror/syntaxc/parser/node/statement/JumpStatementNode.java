@@ -26,7 +26,6 @@ import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
@@ -43,38 +42,18 @@ import lombok.ToString;
 @RequiredArgsConstructor
 @Getter
 @ToString(exclude = "position")
-public class IfStatementNode extends StatementNode {
+public class JumpStatementNode extends StatementNode {
 	
 	private final Position position;
 	private final ExpressionNode condition;
-	private final StatementNode thenBody;
-	private final StatementNode elseBody;
+	private final String jumpLabel;
 	
-	@Override
-	protected boolean checkInterrupt() {
-		return thenBody.doesInterrupt()
-			&& (elseBody == null || elseBody.doesInterrupt());
-	}
-	
-	@Override
-	protected Set<String> checkLabels() {
-		return combine(StatementNode::getLabels, thenBody, elseBody);
-	}
-	
-	@Override
-	protected Set<String> checkGotos() {
-		return combine(StatementNode::checkGotos, thenBody, elseBody);
-	}
-
 	@Override
 	public List<Pair<String, TreeNode>> getChildren() {
 		List<Pair<String, TreeNode>> children = new ArrayList<>();
 		
 		children.add(child("condition", condition));
-		children.add(child("then", thenBody));
-		
-		if(elseBody != null)
-			children.add(child("else", elseBody));
+		children.add(child("label", jumpLabel));
 		
 		return children;
 	}

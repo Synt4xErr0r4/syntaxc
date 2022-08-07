@@ -43,6 +43,7 @@ import lombok.ToString;
 public class FunctionNode extends Node {
 
 	private final SymbolObject object;
+	private final List<SymbolObject> declarations;
 	private final Node body;
 	
 	@Override
@@ -53,6 +54,23 @@ public class FunctionNode extends Node {
 	@Override
 	public List<Pair<String, TreeNode>> getChildren() {
 		return List.of(
+			child(
+				"declarations",
+				declarations.stream()
+					.map(sym -> new TreeListNode(
+						List.of(
+							child("name", sym.getDebugName()),
+							child("type", sym.getType()),
+							child(
+								"offset",
+								sym.getOffset() == SymbolObject.OFFSET_NONE
+									? "none"
+									: Integer.toString(sym.getOffset())
+							)
+						)
+					))
+					.toList()
+			),
 			child("name", object.getName()),
 			child("type", object.getType()),
 			child("body", body)
