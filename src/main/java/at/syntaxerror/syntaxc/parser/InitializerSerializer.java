@@ -288,14 +288,14 @@ public class InitializerSerializer {
 		List<ExpressionNode> assignments = new ArrayList<>();
 		
 		if(type.isArray()) {
-			
+			// TODO
 		}
 		
 		else if(type.isIncomplete())
 			Logger.error(initializer, Warning.SEM_NONE, "Cannot initialize incomplete type");
 		
 		else if(type.isStructLike()) {
-			
+			// TODO
 		}
 		
 		else {

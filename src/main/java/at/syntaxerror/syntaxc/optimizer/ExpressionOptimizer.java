@@ -29,7 +29,6 @@ import at.syntaxerror.syntaxc.misc.Optimization;
 import at.syntaxerror.syntaxc.parser.ConstantExpressionEvaluator;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.expression.CommaExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.NumberLiteralExpressionNode;
@@ -127,19 +126,6 @@ public class ExpressionOptimizer {
 			);
 
 			eval = isNumber(target);
-		}
-		
-		else if(expr instanceof CommaExpressionNode comma) {
-			ExpressionNode left = optimize(comma.getLeft());
-			ExpressionNode right = optimize(comma.getRight());
-
-			expr = new CommaExpressionNode(
-				pos,
-				left,
-				right
-			);
-
-			eval = isNumber(left, right);
 		}
 		
 		else if(expr instanceof CastExpressionNode cast) {

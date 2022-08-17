@@ -102,6 +102,9 @@ public enum Warning implements NamedToggle {
 	DEAD_CODE				("dead-code",				"Warns when a section of code is unreachable"),
 	UNUSED_LABEL			("unused-label",			"Warns when a label is not used"),
 	UNUSED_VALUE			("unused-value",			"Warns when the value of an expression is not used"),
+	UNUSED					("unused",					"Warns when a variable is declared, but not used"),
+	UNINITIALIZED			("uninitialized",			"Warns when a variable might not have been initialized yet"),
+	
 	
 	/**
 	 * ===== OPTIMIZATION =====

@@ -35,7 +35,6 @@ import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.expression.CommaExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.MemberAccessExpressionNode;
@@ -68,7 +67,8 @@ public class ConstantExpressionEvaluator {
 		Punctuator.LESS,			comparison(i -> i < 0),
 		Punctuator.LESS_EQUAL,		comparison(i -> i <= 0),
 		Punctuator.GREATER,			comparison(i -> i > 0),
-		Punctuator.GREATER_EQUAL,	comparison(i -> i >= 0)
+		Punctuator.GREATER_EQUAL,	comparison(i -> i >= 0),
+		Punctuator.COMMA,			Pair.of((l, r) -> r, (l, r) -> r)
 	);
 	
 	private static final Map<Punctuator, MathFunction<BigInteger>> BITWISE_OPERATIONS = Map.of(
@@ -252,9 +252,6 @@ public class ConstantExpressionEvaluator {
 			return (BigInteger) checkBounds(bigint, cast.getType());
 		}
 		
-		if(expr instanceof CommaExpressionNode comma && isConstant(comma.getLeft()))
-			return evalInteger(comma.getRight());
-		
 		if(expr instanceof ConditionalExpressionNode cond)
 			return evalInteger(cond.getCondition()).compareTo(BigInteger.ZERO) != 0
 				? evalInteger(cond.getWhenTrue())
@@ -332,9 +329,6 @@ public class ConstantExpressionEvaluator {
 			
 			return checkBounds(value, cast.getType());
 		}
-		
-		if(expr instanceof CommaExpressionNode comma && isConstant(comma.getLeft()))
-			return evalArithmetic(comma.getRight());
 		
 		if(expr instanceof ConditionalExpressionNode cond)
 			return !isZero(evalArithmetic(cond.getCondition()))
@@ -501,9 +495,6 @@ public class ConstantExpressionEvaluator {
 			return AddressState.ofValue(bigint);
 		}
 		
-		if(expr instanceof CommaExpressionNode comma && isConstant(comma.getLeft()))
-			return evalAddressExpr(comma.getRight());
-		
 		if(expr instanceof ConditionalExpressionNode cond)
 			return evalAddressExpr(cond.getCondition())
 					.booleanValue()
@@ -556,10 +547,6 @@ public class ConstantExpressionEvaluator {
 			return unary.getOperation() != Punctuator.INDIRECTION
 				&& unary.getOperation() != Punctuator.ADDRESS_OF
 				&& isConstant(unary.getTarget());
-		
-		if(expr instanceof CommaExpressionNode comma)
-			return isConstant(comma.getLeft())
-				&& isConstant(comma.getRight());
 		
 		if(expr instanceof CastExpressionNode cast)
 			return isConstant(cast.getTarget());

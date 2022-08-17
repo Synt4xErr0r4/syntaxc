@@ -84,6 +84,8 @@ public class StatementParser extends AbstractParser {
 	private final Stack<String> labelContinue = new Stack<>();
 	private final Stack<String> labelBreak = new Stack<>();
 	
+	private final List<SymbolObject> allVariables = new ArrayList<>();
+	
 	private long loopId;
 
 	private Type expectedType;
@@ -959,6 +961,8 @@ public class StatementParser extends AbstractParser {
 		
 		List<StatementNode> statements = new ArrayList<>();
 		
+		parser.enterScope();
+		
 		while(declarationParser.isTypeName()) {
 			var declSpec = declarationParser.nextDeclarationSpecifiers();
 			
@@ -1003,6 +1007,8 @@ public class StatementParser extends AbstractParser {
 			while(true) {
 				Declarator decl = declarationParser.nextDeclarator();
 				
+				Position declPos = decl.getPosition();
+				
 				Type type = decl.merge(baseType);
 				
 				Initializer init = null;
@@ -1014,7 +1020,7 @@ public class StatementParser extends AbstractParser {
 					error(decl, "Illegal »static« specifier for block-scope function");
 				
 				SymbolObject obj = parser.registerDeclaration(
-					pos,
+					declPos,
 					type,
 					decl.getName(),
 					internal
@@ -1030,6 +1036,8 @@ public class StatementParser extends AbstractParser {
 					)
 				);
 				
+				allVariables.add(obj);
+				
 				if(internal)
 					globalVariables.add(obj);
 				
@@ -1040,7 +1048,7 @@ public class StatementParser extends AbstractParser {
 					statements.addAll(
 						InitializerSerializer.toAssignment(
 							expressionParser,
-							new VariableExpressionNode(pos, obj),
+							new VariableExpressionNode(declPos, obj),
 							type,
 							init
 						)
@@ -1059,6 +1067,8 @@ public class StatementParser extends AbstractParser {
 		if(skipBrace)
 			next();
 		
+		parser.leaveScope();
+		
 		return new CompoundStatementNode(pos, statements);
 	}
 	
@@ -1076,6 +1086,8 @@ public class StatementParser extends AbstractParser {
 		
 		globalVariables.clear();
 		declarations.clear();
+		
+		allVariables.clear();
 		
 		scopeType.push(ScopeType.FUNCTION);
 		
@@ -1110,6 +1122,8 @@ public class StatementParser extends AbstractParser {
 		
 		dataFlowAnalyzer.checkInitialized(body);
 		
+		checkVariableUsage();
+		
 		return body;
 	}
 	
@@ -1130,6 +1144,15 @@ public class StatementParser extends AbstractParser {
 		}
 		
 		globalVariables.forEach(SymbolObject::setLocalStatic);
+	}
+	
+	private void checkVariableUsage() {
+		allVariables.forEach(obj -> {
+			
+			if(obj.isUnused())
+				warn(obj, Warning.UNUSED, "Variable »%s« is declared, but not used", obj.getName());
+			
+		});
 	}
 	
 	private static enum ScopeType {

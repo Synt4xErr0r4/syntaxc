@@ -130,11 +130,11 @@ public class Parser extends AbstractParser {
 		return symbolTables.peek();
 	}
 	
-	private void enterScope() {
+	public void enterScope() {
 		symbolTables.push(getSymbolTable().newChild());
 	}
 	
-	private void leaveScope() {
+	public void leaveScope() {
 		symbolTables.pop();
 	}
 

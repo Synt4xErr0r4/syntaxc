@@ -36,7 +36,6 @@ import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.expression.CommaExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.MemberAccessExpressionNode;
@@ -126,8 +125,6 @@ public class ExpressionParser extends AbstractParser {
 			SymbolObject sym = getSymbolTable().findObject(ident.getString());
 			
 			if(sym != null) {
-				sym.setUnused(false);
-				
 				if(sym.isEnumerator()) // enum constant
 					return newNumber(
 						getPosition(),
@@ -1049,7 +1046,7 @@ public class ExpressionParser extends AbstractParser {
 			next();
 			ExpressionNode right = nextAssignment();
 			
-			left = new CommaExpressionNode(pos, left, right);
+			left = newComma(pos, left, right);
 		}
 		
 		return left;
@@ -1463,8 +1460,8 @@ public class ExpressionParser extends AbstractParser {
 		return new BinaryExpressionNode(pos.getPosition(), left, right, op, type);
 	}
 
-	private static CommaExpressionNode newComma(Positioned pos, ExpressionNode left, ExpressionNode right) {
-		return new CommaExpressionNode(pos.getPosition(), left, right);
+	private static BinaryExpressionNode newComma(Positioned pos, ExpressionNode left, ExpressionNode right) {
+		return newBinary(pos, left, right, Punctuator.COMMA, right.getType());
 	}
 	
 	private ExpressionNode newAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {

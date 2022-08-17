@@ -204,6 +204,12 @@ public class SymbolObject implements Symbol, Positioned {
 		return (SymbolEnumeratorData) data;
 	}
 	
+	public boolean isUserDefined() {
+		return kind == SymbolKind.VARIABLE_LOCAL
+			|| kind == SymbolKind.VARIABLE_GLOBAL
+			|| kind == SymbolKind.FUNCTION;
+	}
+	
 	public boolean isVariable() {
 		return kind == SymbolKind.VARIABLE_LOCAL
 			|| kind == SymbolKind.VARIABLE_GLOBAL

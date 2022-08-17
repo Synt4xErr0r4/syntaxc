@@ -341,7 +341,7 @@ public class DeclarationParser extends AbstractParser {
 			
 			while(!skip("}")) {
 				
-				Type memberType = nextSpecifierQualifierList();
+				Type baseType = nextSpecifierQualifierList();
 				
 				while(true) {
 					
@@ -351,16 +351,25 @@ public class DeclarationParser extends AbstractParser {
 					
 					Positioned memberPos = null;
 					
-					if(!equal(":"))
+					Type memberType;
+					
+					if(!equal(":")) {
 						memberPos = declarator = nextDeclarator();
+						
+						memberType = declarator.merge(baseType);
+					}
 
-					if(skip(":")) {
+					else {
+						next();
+						
 						memberPos = current;
 						
+						memberType = baseType;
+						
 						do {
-							if(memberType.isInteger()) {
+							if(baseType.isInteger()) {
 								
-								NumericValueType valType = memberType.toNumber().getNumericType();
+								NumericValueType valType = baseType.toNumber().getNumericType();
 								
 								if(valType == NumericValueType.SIGNED_INT || valType == NumericValueType.UNSIGNED_INT)
 									break;
@@ -382,10 +391,16 @@ public class DeclarationParser extends AbstractParser {
 						bitfield = true;
 						bitWidth = value.intValue();
 					}
+					
+					if(memberType.isFunction())
+						error(memberPos, "Illegal function type for »%s« member", name);
 
+					if(memberType.isIncomplete())
+						error(memberPos, "Illegal incomplete type for »%s« member", name);
+					
 					if(declarator == null)
-						type.addAnonymousMember(memberPos, memberType, bitfield, bitWidth);
-					else type.addMember(memberPos, declarator.getName(), memberType, bitfield, bitWidth);
+						type.addAnonymousMember(memberPos, baseType, bitfield, bitWidth);
+					else type.addMember(memberPos, declarator.getName(), baseType, bitfield, bitWidth);
 					
 					consume(",", ";");
 					
