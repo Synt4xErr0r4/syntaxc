@@ -26,6 +26,7 @@ import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.node.statement.CompoundStatementNode;
 import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -44,7 +45,7 @@ public class FunctionNode extends Node {
 
 	private final SymbolObject object;
 	private final List<SymbolObject> declarations;
-	private final Node body;
+	private final CompoundStatementNode body;
 	
 	@Override
 	public Position getPosition() {

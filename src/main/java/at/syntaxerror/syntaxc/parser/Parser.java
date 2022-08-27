@@ -40,7 +40,7 @@ import at.syntaxerror.syntaxc.parser.node.Node;
 import at.syntaxerror.syntaxc.parser.node.declaration.Declarator;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
+import at.syntaxerror.syntaxc.parser.node.statement.CompoundStatementNode;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
@@ -290,9 +290,9 @@ public class Parser extends AbstractParser {
 
 			String name = decl.getName();
 			
-			StatementNode body = statementParser.nextFunctionBody(funType.getReturnType(), name);
+			CompoundStatementNode body = statementParser.nextFunctionBody(funType.getReturnType(), name);
 			
-			var declarations = statementParser.getDeclarations();
+			var globalVariables = statementParser.getGlobalVariables();
 			
 			statementParser.getGlobalVariables()
 				.forEach(obj -> nodes.add(new GlobalVariableNode(obj)));
@@ -332,7 +332,7 @@ public class Parser extends AbstractParser {
 			
 			symtab.addObject(obj);
 			
-			nodes.add(new FunctionNode(obj, declarations, body));
+			nodes.add(new FunctionNode(obj, globalVariables, body));
 		}
 		else while(true) {
 			Initializer init = null;

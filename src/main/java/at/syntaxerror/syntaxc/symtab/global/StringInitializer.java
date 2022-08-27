@@ -33,7 +33,7 @@ import at.syntaxerror.syntaxc.parser.tree.TreeNode;
  * @author Thomas Kasper
  * 
  */
-public record StringInitializer(long id, String value, boolean wide) implements GlobalVariableInitializer {
+public record StringInitializer(long id, String value, boolean wide, boolean withNul) implements GlobalVariableInitializer {
 	
 	@Override
 	public List<Pair<String, TreeNode>> getChildren() {

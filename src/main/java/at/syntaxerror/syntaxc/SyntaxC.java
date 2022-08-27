@@ -22,13 +22,18 @@
  */
 package at.syntaxerror.syntaxc;
 
+import java.io.File;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
+import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
+import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.io.CharStream;
 import at.syntaxerror.syntaxc.lexer.Lexer;
 import at.syntaxerror.syntaxc.lexer.Token;
@@ -61,11 +66,14 @@ public class SyntaxC {
 	
 	public static boolean terminate;
 
-	public static boolean onlyAssemble; // -c
-	public static boolean onlyCompile; // -S
-	public static boolean onlyPreprocess; // -E
+	public static boolean onlyAssemble;		// -c (don't link)
+	public static boolean onlyCompile;		// -S (don't assemble)
+	public static boolean onlyPreprocess;	// -E (don't parse)
 	
 	public static OutputStream syntaxTree; // -fsyntax-tree
+
+	public static String inputFileName;
+	public static String outputFileName;
 
 	public static void compile(CharStream input, OutputStream output) {
 		Architecture architecture = ArchitectureRegistry.getArchitecture();
@@ -96,6 +104,7 @@ public class SyntaxC {
 			} catch (Exception e) {
 				outputFailed(e);
 			}
+			
 			return;
 		}
 		
@@ -143,7 +152,7 @@ public class SyntaxC {
 			else postprocessed.add(token);
 		}
 		
-		/* Parsing */
+		/* Parsing (Syntactic + Sematic Analysis) */
 		
 		List<Node> parsed = new Parser(postprocessed).parse();
 		
@@ -151,6 +160,62 @@ public class SyntaxC {
 		
 		if(syntaxTree != null)
 			TreeGenerator.generate(syntaxTree, parsed);
+		
+		/* Code Generation */
+		
+		CodeGenerator codeGen = ArchitectureRegistry.getArchitecture().getCodeGenerator(inputFileName);
+		
+		List<AssemblyInstruction> assembly = codeGen.generate(parsed);
+		
+		File asmOut = uniqueFile(outputFileName, ".s");
+		
+		try(PrintStream writer = new PrintStream(asmOut)) {
+			
+			for(AssemblyInstruction instruction : assembly)
+				writer.println(instruction.toAssembly());
+			
+		} catch (Exception e) {
+			outputFailed(e);
+		}
+		
+		if(onlyCompile) {
+			
+			try {
+				Files.copy(asmOut.toPath(), output);
+				asmOut.delete();
+			} catch (Exception e) {
+				outputFailed(e);
+			}
+			
+			return;
+		}
+		
+		/* Assemble */
+
+		// TODO assemble
+		
+		asmOut.delete();
+		
+		if(onlyAssemble) {
+			
+			
+			return;
+		}
+		
+		/* Link */
+		
+		
+	}
+	
+	public static File uniqueFile(String name, String ext) {
+		File file = new File(name + ext);
+		
+		int counter = 0;
+		
+		while(file.exists())
+			file = new File(name + "." + counter++ + ext);
+		
+		return file;
 	}
 	
 	private static void outputFailed(Exception e) {

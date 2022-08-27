@@ -427,8 +427,10 @@ public class SyntaxCMain {
 
 		OutputStream output;
 		
-		if(out.equals("-"))
+		if(out.equals("-")) {
 			output = AnsiPipe.getStdout();
+			out = file + ".stdout";
+		}
 		
 		else output = createStream(parser, out);
 		
@@ -443,6 +445,9 @@ public class SyntaxCMain {
 			
 			SyntaxC.syntaxTree = createStream(parser, base + ".syntaxtree." + ext);
 		}
+		
+		SyntaxC.outputFileName = out;
+		SyntaxC.inputFileName = file;
 		
 		SyntaxC.compile(input, output);
 		

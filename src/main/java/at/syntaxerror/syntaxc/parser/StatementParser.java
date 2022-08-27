@@ -95,7 +95,6 @@ public class StatementParser extends AbstractParser {
 	@Getter
 	private List<SymbolObject> globalVariables = new ArrayList<>();
 
-	@Getter
 	private List<SymbolObject> declarations = new ArrayList<>();
 	
 	private String nextLabel() {
@@ -1072,7 +1071,7 @@ public class StatementParser extends AbstractParser {
 		return new CompoundStatementNode(pos, statements);
 	}
 	
-	public StatementNode nextFunctionBody(Type expectedReturnType, String funcName) {
+	public CompoundStatementNode nextFunctionBody(Type expectedReturnType, String funcName) {
 		expectedType = expectedReturnType;
 		
 		scopeType.clear();

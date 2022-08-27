@@ -26,6 +26,7 @@ import java.nio.ByteOrder;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
+import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Flag;
@@ -44,6 +45,11 @@ public class X86Architecture extends Architecture {
 	}
 	
 	@Override
+	public CodeGenerator getCodeGenerator(String inputFileName) {
+		return new X86CodeGenerator(inputFileName);
+	}
+	
+	@Override
 	public void onInit(OperatingSystem system, BitSize bitSize, ByteOrder endianness) {
 		/* https://agner.org/optimize/calling_conventions.pdf
 		 * § 18 Predefined macros
@@ -52,6 +58,13 @@ public class X86Architecture extends Architecture {
 		 * § AMD64
 		 * § Intel x86
 		 */
+		
+		if(endianness != ByteOrder.LITTLE_ENDIAN)
+			Logger.error(
+				"Unsupported endianness for x86 architecture: %s (only %s is supported)",
+				endianness,
+				ByteOrder.LITTLE_ENDIAN
+			);
 		
 		if(Flag.LONG_DOUBLE.isEnabled())
 			NumericValueType.LDOUBLE.modify(16, FloatingSpec.EXTENDED);

@@ -83,8 +83,44 @@ public class InitializerSerializer {
 					StringInitializer init = (StringInitializer) ((VariableExpressionNode) expr).getVariable()
 						.getVariableData().initializer();
 					
+					int strlen = init.value().getBytes(StandardCharsets.UTF_8).length + 1;
+					
 					if(len == ArrayType.SIZE_UNKNOWN)
-						array.setLength(init.value().getBytes(StandardCharsets.UTF_8).length + 1);
+						array.setLength(strlen);
+					
+					else {
+						int width = base.sizeof();
+						
+						if(len > strlen)
+							return new ListInitializer(List.of(
+								new ListInitializerEntry(0, init),
+								new ListInitializerEntry(
+									strlen * width,
+									new ZeroInitializer((len - strlen) * width)
+								)
+							));
+						
+						if(len < strlen) {
+							
+							if(len + 1 == strlen)
+								return new StringInitializer(
+									init.id(),
+									init.value(),
+									init.wide(),
+									false
+								);
+							
+							Logger.warn(initializer, Warning.SEM_NONE, "Initializer string for array is too long");
+
+							return new StringInitializer(
+								init.id(),
+								init.value()
+									.substring(0, len),
+								init.wide(),
+								false
+							);
+						}
+					}
 					
 					return init;
 				}
@@ -113,12 +149,13 @@ public class InitializerSerializer {
 					serialize(base, inits.get(i))
 				));
 			
-			if(nEntries < len) {
-				final ZeroInitializer zero = new ZeroInitializer(offset);
-				
-				for(int i = nEntries; i < len; ++i)
-					entries.add(new ListInitializerEntry(i * offset, zero));
-			}
+			if(nEntries < len)
+				entries.add(
+					new ListInitializerEntry(
+						nEntries * offset,
+						new ZeroInitializer(offset * (len - nEntries))
+					)
+				);
 			
 			return new ListInitializer(entries);
 		}

@@ -563,7 +563,7 @@ public class ConstantExpressionEvaluator {
 		return false;
 	}
 	
-	private static void error(Positioned pos, String message, Object...args) {new Throwable().printStackTrace();
+	private static void error(Positioned pos, String message, Object...args) {
 		Logger.error(pos, Warning.SEM_NONE, message, args);
 	}
 	

@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
+import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.logger.Logger;
@@ -46,7 +47,7 @@ import static at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro.defineNumbe
  * @author Thomas Kasper
  * 
  */
-public class Architecture {
+public abstract class Architecture {
 
 	@Getter
 	private final String[] names;
@@ -56,6 +57,8 @@ public class Architecture {
 		names[0] = name;
 		System.arraycopy(more, 0, names, 1, more.length);
 	}
+	
+	public abstract CodeGenerator getCodeGenerator(String inputFileName);
 	
 	public final void onInit() {
 		onInit(
@@ -312,6 +315,11 @@ public class Architecture {
 	
 	public static Architecture unsupported(String name) {
 		return new Architecture(name) {
+			
+			@Override
+			public CodeGenerator getCodeGenerator(String inputFileName) {
+				return null;
+			}
 			
 			@Override
 			public void onInit(OperatingSystem system, BitSize bitSize, ByteOrder endianness) {

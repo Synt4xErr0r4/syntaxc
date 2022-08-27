@@ -20,33 +20,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.symtab;
+package at.syntaxerror.syntaxc.generator.asm.target;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.math.BigInteger;
 
-import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class StringTable {
+public interface AssemblyInteger extends AssemblyTarget {
 
-	private Map<String, StringInitializer> table = new HashMap<>();
+	BigInteger getValue();
+	NumericValueType getType();
 	
-	private long id;
-	
-	public StringInitializer add(String value, boolean wide) {
-		synchronized(table) {
-			return table.computeIfAbsent(value, str -> new StringInitializer(id++, str, wide, true));
-		}
-	}
-	
-	public Collection<StringInitializer> getEntries() {
-		return Collections.unmodifiableCollection(table.values());
-	}
-
 }

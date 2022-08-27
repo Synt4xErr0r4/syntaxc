@@ -20,33 +20,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.symtab;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
-import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
+package at.syntaxerror.syntaxc.generator.asm;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class StringTable {
-
-	private Map<String, StringInitializer> table = new HashMap<>();
+public interface AssemblyInstruction {
 	
-	private long id;
+	String toAssembly();
 	
-	public StringInitializer add(String value, boolean wide) {
-		synchronized(table) {
-			return table.computeIfAbsent(value, str -> new StringInitializer(id++, str, wide, true));
-		}
-	}
-	
-	public Collection<StringInitializer> getEntries() {
-		return Collections.unmodifiableCollection(table.values());
-	}
-
 }
