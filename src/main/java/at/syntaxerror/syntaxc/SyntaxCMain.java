@@ -22,12 +22,7 @@
  */
 package at.syntaxerror.syntaxc;
 
-import java.io.OutputStream;
 import java.nio.ByteOrder;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -94,20 +89,20 @@ public class SyntaxCMain {
 			.with('c')								.description("Compile and assemble, but don't link").build()
 			.with('E')								.description("Output preprocessed file").build()
 			
-			.with('D').compact("defn[=value]")		.description("Define a macro", SyntaxCMain::docDefine).build()
+			.with('D').compact("defn[=value]")		.description("Define a macro", CLIDoc::define).build()
 			.with('U').compact("name")				.description("Undefine a predefined macro").build()
 			
-			.with('I').compact("path")				.description("Add a directory to the include path", SyntaxCMain::docInclude).build()
-			.with('m').compact("option[=value]")	.description("Configure the target architecture", SyntaxCMain::docAssembler).build()
-			.with('W').compact("[no-]warning")		.description("Enable or disable a specific compiler warning", SyntaxCMain::docWarning).build()
-			.with('f').compact("[no-]flag[=value]")	.description("Enable or disable a specific compiler flag", SyntaxCMain::docFlag).build()
-			.with('O').compact("[no-]opt[=value]")	.description("Enable or disable a specific compiler optimization", SyntaxCMain::docOpt).build()
+			.with('I').compact("path")				.description("Add a directory to the include path", CLIDoc::include).build()
+			.with('m').compact("option[=value]")	.description("Configure the target architecture", CLIDoc::assembler).build()
+			.with('W').compact("[no-]warning")		.description("Enable or disable a specific compiler warning", CLIDoc::warning).build()
+			.with('f').compact("[no-]flag[=value]")	.description("Enable or disable a specific compiler flag", CLIDoc::flag).build()
+			.with('O').compact("[no-]opt[=value]")	.description("Enable or disable a specific compiler optimization", CLIDoc::optimize).build()
 			
 			.with('o').argument("file").description("Specify the output file").build()
 			.with().argument("file").description("Specify the input file").required().build();
 		
 		OptionResult result = parser.parse(args);
-		
+
 		/*		=====================
 		 * 			DOCUMENTATION
 		 * 		=====================
@@ -128,6 +123,7 @@ public class SyntaxCMain {
 				parser.showUsage("Unrecognized option »%s«", arg);
 			
 			parser.showDocumentation(option);
+			return;
 		}
 		
 		/*		========================
@@ -141,20 +137,161 @@ public class SyntaxCMain {
 		
 		if(SyntaxC.onlyCompile && SyntaxC.onlyAssemble)
 			parser.showUsage("Options -S and -c are mutually exclusive");
+		
 		else if(SyntaxC.onlyAssemble && SyntaxC.onlyPreprocess)
 			parser.showUsage("Options -c and -E are mutually exclusive");
+		
 		else if(SyntaxC.onlyPreprocess && SyntaxC.onlyCompile)
 			parser.showUsage("Options -E and -S are mutually exclusive");
-		
-		if(result.has("no-stdlib"))
-			IncludePathRegistry.clear();
-		
-		/*		====================
-		 * 			ARCHITECTURE
-		 * 		====================
+
+		/*		===================
+		 * 			CLI OPTIONS
+		 * 		===================
 		 */
 		
-		result.get('m').forEach(arg -> {
+		result.get('m').forEach(CLIHandler::assembler);
+		
+		result.get('W').forEach(CLIHandler::warning);
+		
+		result.get('f').forEach(CLIHandler::flag);
+		
+		result.get('O').forEach(CLIHandler::optimize);
+		
+		result.get('D').forEach(CLIHandler::define);
+		result.get('U').forEach(CLIHandler::undef);
+		
+		if(Flag.NO_STDLIB.isEnabled())
+			IncludePathRegistry.clear();
+		
+		result.get('I').forEach(IncludePathRegistry::add);
+		
+		if(result.has("version")) {
+			CLIHandler.version();
+			return;
+		}
+
+		/*		=========================
+		 * 			INPUT/OUTPUT FILE
+		 * 		=========================
+		 */
+		
+		if(!result.hasUnnamed())
+			parser.showUsage("Missing input file");
+		
+		if(result.getUnnamedCount() != 1)
+			parser.showUsage("Too many input files specified");
+			
+		String file = result.getUnnamed().get(0);
+		
+		if(!file.endsWith(".c"))
+			parser.showUsage("Illegal file name extension for input file");
+		
+		CharStream input = CharStream.fromFile(file, null);
+		
+		String base = file.substring(0, file.length() - 2);
+		
+		if(result.has('o')) {
+			if(result.getCount('o') != 1)
+				parser.showUsage("Too many output files specified");
+			
+			SyntaxC.outputFileName = result.get('o').get(0);
+		}
+
+		if(Flag.SYNTAX_TREE.isEnabled()) {
+			@SuppressWarnings("preview")
+			String ext = switch(Flag.SYNTAX_TREE.getValue().toLowerCase()) {
+			case "svg" -> "svg";
+			case "png" -> "png";
+			case null -> "dot";
+			default -> "dot";
+			};
+			
+			SyntaxC.syntaxTree = SyntaxC.createStream(parser, base + ".syntaxtree." + ext);
+		}
+		
+		SyntaxC.inputFileName = file;
+		
+		SyntaxC.compile(input);
+	}
+	
+	private static Pair<String, String> split(String value, char delimiter) {
+		int index = value.indexOf(delimiter);
+		
+		return index == -1
+			? Pair.of(value, null)
+			: Pair.of(value.substring(0, index), value.substring(index + 1));
+	}
+	
+	/* Utility class for command line option handling */
+	private static class CLIHandler {
+		
+		private static void version() {
+			ArchitectureRegistry.getArchitecture().onInit();
+			
+			System.out.println("§9§lSyntax§1C§r v" + SyntaxC.Version.VERSION);
+			
+			System.out.println("Architecture: " + ArchitectureRegistry.getArchitecture().getNames()[0]);
+			System.out.println("Bit size: " + ArchitectureRegistry.getBitSize());
+			System.out.println("Target system: " + ArchitectureRegistry.getOperatingSystem());
+			System.out.println("Endianness: " + (ArchitectureRegistry.getEndianness() == ByteOrder.BIG_ENDIAN ? "big" : "little"));
+			
+			System.out.println("Include path:");
+			
+			IncludePathRegistry.getIncludePath()
+				.forEach(path -> System.out.println("  " + path));
+			
+			System.out.println("Predefined macros:");
+			
+			List<String> keys = new ArrayList<>(BuiltinMacro.getBuiltinMacros().keySet());
+			
+			Collections.sort(keys);
+			
+			keys.forEach(key -> {
+				BuiltinMacro macro = BuiltinMacro.getBuiltinMacros().get(key);
+
+				System.out.printf("  %s = %s\n", key, macro);
+			});
+		}
+		
+		private static void undef(String name) {
+			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
+				Logger.warn(Warning.UNDEF, "Undefinition of non-existent macro »%s«", name);
+			
+			else BuiltinMacro.getBuiltinMacros().remove(name);
+		}
+		
+		private static void define(String arg) {
+			var definition = split(arg, '=');
+			
+			String name = definition.getLeft();
+			String value = definition.getRight();
+			
+			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
+				Logger.warn(Warning.REDEF, "Redefinition of predefined macro »%s«", name);
+			
+			if(value == null)
+				BuiltinMacro.define(name);
+			
+			else {
+				value = value.strip();
+				
+				Position pos = new Position(Position.ARGUMENT, 0, 0, 0, value.length(), null);
+				
+				PreLexer lexer = new PreLexer(CharStream.fromString(value, pos));
+				
+				List<Token> tokens = new ArrayList<>();
+				
+				Token tok;
+				
+				while((tok = lexer.nextToken()) != null)
+					if(!tok.is(TokenType.NEWLINE))
+						tokens.add(tok);
+				
+				BuiltinMacro.defineList(name, self -> tokens, true);
+			}
+		}
+		
+		private static void assembler(String arg) {
 			var option = split(arg, '=');
 			
 			String name = option.getLeft();
@@ -211,44 +348,34 @@ public class SyntaxCMain {
 				Logger.warn("Unrecognized assembler option »%s«", name);
 				break;
 			}
-		});
+		}
 		
-		/*		================
-		 * 			WARNINGS
-		 * 		================
-		 */
-		
-		result.get('W').forEach(warningName -> {
+		private static void warning(String arg) {
 			boolean state = true;
 			
-			if(warningName.startsWith("no-")) {
-				warningName = warningName.substring(3);
+			if(arg.startsWith("no-")) {
+				arg = arg.substring(3);
 				state = false;
 			}
 			
-			Warning warning = Warning.of(warningName);
+			Warning warning = Warning.of(arg);
 			
 			if(warning != null) {
 				warning.setEnabled(state);
 				return;
 			}
 			
-			WarningGroup group = Warning.groupOf(warningName);
+			WarningGroup group = Warning.groupOf(arg);
 			
 			if(group == null) {
-				Logger.warn("Unrecognized warning: %s", warningName);
+				Logger.warn("Unrecognized warning: %s", arg);
 				return;
 			}
 			
 			group.setEnabled(state);
-		});
-		
-		/*		=============
-		 * 			FLAGS
-		 * 		=============
-		 */
+		}
 
-		result.get('f').forEach(arg -> {
+		private static void flag(String arg) {
 			var flagData = split(arg, '=');
 			
 			String flagName = flagData.getLeft();
@@ -276,14 +403,9 @@ public class SyntaxCMain {
 				flag.setValue(flagValue);
 			
 			flag.setEnabled(state);
-		});
+		}
 		
-		/*		=====================
-		 * 			OPTIMIZATIONS
-		 * 		=====================
-		 */
-
-		result.get('O').forEach(arg -> {
+		private static void optimize(String arg) {
 			var optData = split(arg, '=');
 			
 			String optName = optData.getLeft();
@@ -311,322 +433,164 @@ public class SyntaxCMain {
 				opt.setValue(optValue);
 			
 			opt.setEnabled(state);
-		});
+		}
 		
-		/*		=========================
-		 * 			MACRO DEFINITIONS
-		 * 		=========================
-		 */
-		
-		result.get('D').forEach(arg -> {
-			var definition = split(arg, '=');
-			
-			String name = definition.getLeft();
-			String value = definition.getRight();
-			
-			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
-				Logger.warn(Warning.REDEF, "Redefinition of predefined macro »%s«", name);
-			
-			if(value == null)
-				BuiltinMacro.define(name);
-			
-			else {
-				value = value.strip();
-				
-				Position pos = new Position(Position.ARGUMENT, 0, 0, 0, value.length(), null);
-				
-				PreLexer lexer = new PreLexer(CharStream.fromString(value, pos));
-				
-				List<Token> tokens = new ArrayList<>();
-				
-				Token tok;
-				
-				while((tok = lexer.nextToken()) != null)
-					if(!tok.is(TokenType.NEWLINE))
-						tokens.add(tok);
-				
-				BuiltinMacro.defineList(name, self -> tokens, true);
-			}
-		});
-		
-		result.get('U').forEach(name -> {
-			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
-				Logger.warn(Warning.UNDEF, "Undefinition of non-existent macro »%s«", name);
-			
-			else BuiltinMacro.getBuiltinMacros().remove(name);
-		});
-		
-		/*		====================
-		 * 			INCLUDE PATH
-		 * 		====================
-		 */
-		
-		if(Flag.NO_STDLIB.isEnabled())
-			IncludePathRegistry.clear();
-		
-		result.get('I').forEach(IncludePathRegistry::add);
-		
-		if(result.has("version")) {
-			ArchitectureRegistry.getArchitecture().onInit();
-			
-			System.out.println("§9§lSyntax§1C§r v" + SyntaxC.Version.VERSION);
-			
-			System.out.println("Architecture: " + ArchitectureRegistry.getArchitecture().getNames()[0]);
-			System.out.println("Bit size: " + ArchitectureRegistry.getBitSize());
-			System.out.println("Target system: " + ArchitectureRegistry.getOperatingSystem());
-			System.out.println("Endianness: " + (ArchitectureRegistry.getEndianness() == ByteOrder.BIG_ENDIAN ? "big" : "little"));
-			
-			System.out.println("Include path:");
-			
-			IncludePathRegistry.getIncludePath()
-				.forEach(path -> System.out.println("  " + path));
-			
-			System.out.println("Predefined macros:");
-			
-			List<String> keys = new ArrayList<>(BuiltinMacro.getBuiltinMacros().keySet());
-			
-			Collections.sort(keys);
-			
-			keys.forEach(key -> {
-				BuiltinMacro macro = BuiltinMacro.getBuiltinMacros().get(key);
+	}
+	
+	/* Utility class for command line option documentation */
+	private static class CLIDoc {
 
-				System.out.printf("  %s = %s\n", key, macro);
+		private static void define() {
+			System.out.print(
+				"""
+				The parameter specifies the name of the macro.
+				Optionally, a value can be set by separating name and value with an equals sign (§c=§f)
+				
+				Examples:
+				a. §c-DDEBUG §f- This defines a macro called §cDEBUG §fwithout a value
+				   This is effectively equal to §d#define DEBUG§f
+				b. §c-DPI=3.14 §f- This defines a macro called §cPI §fwith the value §c3.14§f
+				   This is effectively equal to §d#define PI 3.14§f
+				
+				Omitting the value §land §rthe equals sign (§c=§f) results in the macro having a value of §c1§f.
+				"""
+			);
+		}
+
+		private static void include() {
+			
+		}
+		
+		private static void assembler() {
+			System.out.print(
+				"""
+				The parameter specifies the option for the assembler.
+				A value can be set by separating name and value with an equals sign (§c=§f; might not be required by every option)
+				
+				Examples:
+				a. §c-m32 §f- This sets the bit size to 32§f
+				b. §c-march=x86 §f- This sets the target architecture to x86§f
+				
+				The following options are currently defined:
+				
+				 §8- §a-march=ARCH§f         Specifies the target architecture (see below)
+				 §8- §a-mtarget=TARGET§f     Specifies the target system (see below)
+				 §8- §a-mendian=ENDIANNESS§f Specifies the target endianness (see below)
+				 §8- §a-m8§f                 Sets the bit size to 8
+				 §8- §a-m16§f                Sets the bit size to 16
+				 §8- §a-m32§f                Sets the bit size to 32
+				 §8- §a-m64§f                Sets the bit size to 64
+				 §8- §a-m128§f               Sets the bit size to 128
+				
+				Supported architectures:
+				
+				"""
+			);
+			
+			ArchitectureRegistry.getArchitectures()
+				.forEach(arch -> {
+					String[] names = arch.getNames();
+					
+					System.out.printf(" §8- §a%s§r", names[0]);
+					
+					if(names.length != 1)
+						System.out.printf(" §8(aka. §a%s§8)", String.join("§8, §a", Arrays.copyOfRange(names, 1, names.length)));
+					
+					System.out.println(getNotice(ArchitectureRegistry.getArchitecture() == arch));
+				});
+			
+			System.out.println("\nSupported targets:\n");
+
+			for(OperatingSystem system : OperatingSystem.values())
+				if(system != OperatingSystem.UNSPECIFIED)
+					System.err.printf(
+						" §8- §a%s%s§r\n",
+						system,
+						getNotice(ArchitectureRegistry.getOperatingSystem() == system)
+					);
+			
+			System.out.printf(
+				"""
+				
+				Supported endiannesses:
+				
+				 §8- §alittle%s
+				 §8- §abig%s
+				""",
+				getNotice(ArchitectureRegistry.getEndianness() == ByteOrder.LITTLE_ENDIAN),
+				getNotice(ArchitectureRegistry.getEndianness() == ByteOrder.BIG_ENDIAN)
+			);
+		}
+		
+		private static String getNotice(boolean flag) {
+			return flag ? " §8(active)§r" : "";
+		}
+		
+		private static void printList(Collection<? extends NamedToggle> list) {
+			list.forEach(toggle -> {
+				String name = toggle.getName();
+				
+				int len = name.length();
+				
+				System.out.printf(" §8- §a%s%s§f%s§r\n", name, " ".repeat(Math.max(1, 20 - len)), toggle.getDescription());
 			});
 			
-			return;
+			if(list.isEmpty())
+				System.out.println(" §8<none>§r");
 		}
 		
-		if(!result.hasUnnamed())
-			parser.showUsage("Missing input file");
-		
-		if(result.getUnnamedCount() != 1)
-			parser.showUsage("Too many input files specified");
-			
-		String file = result.getUnnamed().get(0);
-		
-		if(!file.endsWith(".c"))
-			parser.showUsage("Illegal file name extension for input file");
-		
-		CharStream input = CharStream.fromFile(file, null);
-		
-		String base = file.substring(0, file.length() - 2);
-		String out;
-		
-		if(result.has('o')) {
-			if(result.getCount('o') != 1)
-				parser.showUsage("Too many output files specified");
-			
-			out = result.get('o').get(0);
-		}
-		else out = base 
-			+ (SyntaxC.onlyPreprocess
-				? ".preprocessed.c"
-				: SyntaxC.onlyCompile
-					? ".s"
-					: ".o");
-
-		OutputStream output;
-		
-		if(out.equals("-")) {
-			output = AnsiPipe.getStdout();
-			out = file + ".stdout";
-		}
-		
-		else output = createStream(parser, out);
-		
-		if(Flag.SYNTAX_TREE.isEnabled()) {
-			@SuppressWarnings("preview")
-			String ext = switch(Flag.SYNTAX_TREE.getValue().toLowerCase()) {
-			case "svg" -> "svg";
-			case "png" -> "png";
-			case null -> "dot";
-			default -> "dot";
-			};
-			
-			SyntaxC.syntaxTree = createStream(parser, base + ".syntaxtree." + ext);
-		}
-		
-		SyntaxC.outputFileName = out;
-		SyntaxC.inputFileName = file;
-		
-		SyntaxC.compile(input, output);
-		
-		try {
-			output.flush();
-			output.close();
-		} catch (Exception e) { }
-	}
-	
-	private static OutputStream createStream(OptionParser parser, String file) {
-		try {
-			Path path = Paths.get(file);
-			
-			Files.createDirectories(path.getParent());
-			
-			return Files.newOutputStream(path, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-		} catch (Exception e) {
-			parser.showUsage("Failed to open output file: %s", e.getMessage());
-			return null;
-		}
-	}
-	
-	private static Pair<String, String> split(String value, char delimiter) {
-		int index = value.indexOf(delimiter);
-		
-		return index == -1
-			? Pair.of(value, null)
-			: Pair.of(value.substring(0, index), value.substring(index + 1));
-	}
-	
-	private static void docDefine() {
-		System.out.print(
-			"""
-			The parameter specifies the name of the macro.
-			Optionally, a value can be set by separating name and value with an equals sign (§c=§f)
-			
-			Examples:
-			a. §c-DDEBUG §f- This defines a macro called §cDEBUG §fwithout a value
-			   This is effectively equal to §d#define DEBUG§f
-			b. §c-DPI=3.14 §f- This defines a macro called §cPI §fwith the value §c3.14§f
-			   This is effectively equal to §d#define PI 3.14§f
-			
-			Omitting the value §land §rthe equals sign (§c=§f) results in the macro having a value of §c1§f.
-			"""
-		);
-	}
-
-	private static void docInclude() {
-		
-	}
-	
-	private static void docAssembler() {
-		System.out.print(
-			"""
-			The parameter specifies the option for the assembler.
-			A value can be set by separating name and value with an equals sign (§c=§f; might not be required by every option)
-			
-			Examples:
-			a. §c-m32 §f- This sets the bit size to 32§f
-			b. §c-march=x86 §f- This sets the target architecture to x86§f
-			
-			The following options are currently defined:
-			
-			 §8- §a-march=ARCH§f         Specifies the target architecture (see below)
-			 §8- §a-mtarget=TARGET§f     Specifies the target system (see below)
-			 §8- §a-mendian=ENDIANNESS§f Specifies the target endianness (see below)
-			 §8- §a-m8§f                 Sets the bit size to 8
-			 §8- §a-m16§f                Sets the bit size to 16
-			 §8- §a-m32§f                Sets the bit size to 32
-			 §8- §a-m64§f                Sets the bit size to 64
-			 §8- §a-m128§f               Sets the bit size to 128
-			
-			Supported architectures:
-			
-			"""
-		);
-		
-		ArchitectureRegistry.getArchitectures()
-			.forEach(arch -> {
-				String[] names = arch.getNames();
+		private static void warning() {
+			System.out.println(
+				"""
+				The parameter specifies the warning to be disabled/enabled.
 				
-				System.out.printf(" §8- §a%s§r", names[0]);
+				Prefixing the name with 'no-' disables the warning:
+				a. §c-Wwarning-name-here §aenables §fthe warning named '§cwarning-name-here§f'
+				b. §c-Wno-warning-name-here §9disables §fthe warning named '§cwarning-name-here§f'
 				
-				if(names.length != 1)
-					System.out.printf(" §8(aka. §a%s§8)", String.join("§8, §a", Arrays.copyOfRange(names, 1, names.length)));
+				List of warnings:
+				"""
+			);
+			
+			printList(Warning.getWarnings());
+			
+			System.out.println("\nList of warning groups:\n");
+			
+			printList(Warning.getGroups());
+		}
+		
+		private static void flag() {
+			System.out.println(
+				"""
+				The parameter specifies the flag to be disabled/enabled.
 				
-				System.out.println(getNotice(ArchitectureRegistry.getArchitecture() == arch));
-			});
+				Prefixing the name with 'no-' disables the flag:
+				a. §c-fflag-name-here §aenables §fthe flag named '§cflag-name-here§f'
+				b. §c-fno-flag-name-here §9disables §fthe flag named '§cflag-name-here§f'
+				
+				List of flags:
+				"""
+			);
+			
+			printList(Flag.getFlags());
+		}
 		
-		System.out.println("\nSupported targets:\n");
-
-		for(OperatingSystem system : OperatingSystem.values())
-			if(system != OperatingSystem.UNSPECIFIED)
-				System.err.printf(
-					" §8- §a%s%s§r\n",
-					system,
-					getNotice(ArchitectureRegistry.getOperatingSystem() == system)
-				);
+		private static void optimize() {
+			System.out.println(
+				"""
+				The parameter specifies the optimization to be disabled/enabled.
+				
+				Prefixing the name with 'no-' disables the optimization:
+				a. §c-Oopt-name-here §aenables §fthe optimization named '§copt-name-here§f'
+				b. §c-Ono-opt-name-here §9disables §fthe optimization named '§copt-name-here§f'
+				
+				List of optimization:
+				"""
+			);
+			
+			printList(Optimization.getOptimizations());
+		}
 		
-		System.out.printf(
-			"""
-			
-			Supported endiannesses:
-			
-			 §8- §alittle%s
-			 §8- §abig%s
-			""",
-			getNotice(ArchitectureRegistry.getEndianness() == ByteOrder.LITTLE_ENDIAN),
-			getNotice(ArchitectureRegistry.getEndianness() == ByteOrder.BIG_ENDIAN)
-		);
-	}
-	
-	private static String getNotice(boolean flag) {
-		return flag ? " §8(active)§r" : "";
-	}
-	
-	private static void printList(Collection<? extends NamedToggle> list) {
-		list.forEach(toggle -> {
-			String name = toggle.getName();
-			
-			int len = name.length();
-			
-			System.out.printf(" §8- §a%s%s§f%s§r\n", name, " ".repeat(Math.max(1, 20 - len)), toggle.getDescription());
-		});
-		
-		if(list.isEmpty())
-			System.out.println(" §8<none>§r");
-	}
-	
-	private static void docWarning() {
-		System.out.println(
-			"""
-			The parameter specifies the warning to be disabled/enabled.
-			
-			Prefixing the name with 'no-' disables the warning:
-			a. §c-Wwarning-name-here §aenables §fthe warning named '§cwarning-name-here§f'
-			b. §c-Wno-warning-name-here §9disables §fthe warning named '§cwarning-name-here§f'
-			
-			List of warnings:
-			"""
-		);
-		
-		printList(Warning.getWarnings());
-		
-		System.out.println("\nList of warning groups:\n");
-		
-		printList(Warning.getGroups());
-	}
-	
-	private static void docFlag() {
-		System.out.println(
-			"""
-			The parameter specifies the flag to be disabled/enabled.
-			
-			Prefixing the name with 'no-' disables the flag:
-			a. §c-fflag-name-here §aenables §fthe flag named '§cflag-name-here§f'
-			b. §c-fno-flag-name-here §9disables §fthe flag named '§cflag-name-here§f'
-			
-			List of flags:
-			"""
-		);
-		
-		printList(Flag.getFlags());
-	}
-	
-	private static void docOpt() {
-		System.out.println(
-			"""
-			The parameter specifies the optimization to be disabled/enabled.
-			
-			Prefixing the name with 'no-' disables the optimization:
-			a. §c-Oopt-name-here §aenables §fthe optimization named '§copt-name-here§f'
-			b. §c-Ono-opt-name-here §9disables §fthe optimization named '§copt-name-here§f'
-			
-			List of optimization:
-			"""
-		);
-		
-		printList(Optimization.getOptimizations());
 	}
 	
 }
