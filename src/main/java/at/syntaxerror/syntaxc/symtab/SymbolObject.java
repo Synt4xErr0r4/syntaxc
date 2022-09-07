@@ -130,7 +130,8 @@ public class SymbolObject implements Symbol, Positioned {
 		);
 	}
 	
-	public static SymbolObject global(Positioned pos, String name, Type type, Linkage linkage, GlobalVariableInitializer initializer) {
+	public static SymbolObject global(Positioned pos, String name, Type type,
+			Linkage linkage, GlobalVariableInitializer initializer) {
 		return new SymbolObject(
 			pos.getPosition(),
 			name,

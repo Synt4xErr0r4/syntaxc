@@ -108,6 +108,14 @@ public class X86Assembly {
 	public AssemblyInstruction mov(X86Register a, X86Register b) {
 		return asm("mov%c %s, %s", getSuffix(a, b), a, b);
 	}
+
+	public AssemblyInstruction test(X86Register register) {
+		return asm("test%1$c %2$s, %2$s", getSuffix(register), register);
+	}
+
+	public AssemblyInstruction je(String label) {
+		return asm("je %s", label);
+	}
 	
 	public AssemblyInstruction ret() {
 		return RET;

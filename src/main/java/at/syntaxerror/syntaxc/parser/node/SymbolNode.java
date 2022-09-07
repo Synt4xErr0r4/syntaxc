@@ -22,55 +22,14 @@
  */
 package at.syntaxerror.syntaxc.parser.node;
 
-import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
-import at.syntaxerror.syntaxc.symtab.SymbolObject.SymbolVariableData;
-import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
-import at.syntaxerror.syntaxc.tracking.Position;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
-@Getter
-@ToString
-public class GlobalVariableNode extends SymbolNode {
+public abstract class SymbolNode extends Node {
 
-	private final SymbolObject object;
-	
-	@Override
-	public List<Pair<String, TreeNode>> getChildren() {
-		List<Pair<String, TreeNode>> children = new ArrayList<>();
-		
-		children.add(child(object.getDebugName(), object.getType()));
-		
-		if(object.getData() != null) {
-			SymbolVariableData data = object.getVariableData();
-			
-			children.add(child(".linkage", data.linkage().toString()));
-			
-			GlobalVariableInitializer init = data.initializer();
-			
-			if(init != null)
-				children.add(child(".init", init));
-		}
-		
-		return children;
-	}
-	
-	@Override
-	public Position getPosition() {
-		return object.getPosition();
-	}
+	public abstract SymbolObject getObject();
 	
 }

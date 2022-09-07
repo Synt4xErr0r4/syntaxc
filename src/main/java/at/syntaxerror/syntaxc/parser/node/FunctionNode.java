@@ -41,7 +41,7 @@ import lombok.ToString;
 @RequiredArgsConstructor
 @Getter
 @ToString
-public class FunctionNode extends Node {
+public class FunctionNode extends SymbolNode {
 
 	private final SymbolObject object;
 	private final List<SymbolObject> declarations;
