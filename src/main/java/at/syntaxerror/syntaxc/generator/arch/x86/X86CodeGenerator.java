@@ -35,6 +35,7 @@ import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.AssemblySegmentKind;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.misc.StringUtils;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 
@@ -216,6 +217,14 @@ public class X86CodeGenerator extends CodeGenerator {
 		}
 		
 		return instructions;
+	}
+	
+	@Override
+	public List<AssemblyInstruction> asmJumpUnlessZero(AssemblyTarget value, String label) {
+		return List.of(
+			x86.test((X86Register) value),
+			x86.je(label)
+		);
 	}
 	
 	@Override

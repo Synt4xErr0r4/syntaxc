@@ -41,6 +41,7 @@ import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.parser.Parser;
 import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.parser.node.SymbolNode;
 import at.syntaxerror.syntaxc.parser.tree.TreeGenerator;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.type.NumericValueType;
@@ -154,9 +155,14 @@ public class SyntaxC {
 		
 		/* Parsing (Syntactic + Sematic Analysis) */
 		
-		List<Node> parsed = new Parser(postprocessed).parse();
+		List<SymbolNode> parsed = new Parser(postprocessed).parse();
 		
-		System.out.println(parsed);
+		System.out.println(
+			parsed
+				.stream()
+				.map(Node::getClass)
+				.toList()
+		);
 		
 		if(syntaxTree != null)
 			TreeGenerator.generate(syntaxTree, parsed);

@@ -29,10 +29,14 @@ import java.util.List;
 
 import at.syntaxerror.syntaxc.SyntaxCException;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.StringUtils;
+import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.FunctionNode;
-import at.syntaxerror.syntaxc.parser.node.GlobalVariableNode;
-import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.parser.node.SymbolNode;
+import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.statement.JumpStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
@@ -43,6 +47,7 @@ import at.syntaxerror.syntaxc.symtab.global.IntegerInitializer;
 import at.syntaxerror.syntaxc.symtab.global.ListInitializer;
 import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
 import at.syntaxerror.syntaxc.symtab.global.ZeroInitializer;
+import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.ArrayType;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
@@ -52,25 +57,30 @@ import at.syntaxerror.syntaxc.type.Type;
  * 
  */
 @SuppressWarnings("preview")
-public abstract class CodeGenerator {
+public abstract class CodeGenerator implements Logable {
 
 	private final List<AssemblyInstruction> instructions = new ArrayList<>();
 
-	public final List<AssemblyInstruction> generate(List<Node> nodes) {
+	@Override
+	public Position getPosition() {
+		return null;
+	}
+	
+	@Override
+	public Warning getDefaultWarning() {
+		return Warning.GEN_NONE;
+	}
+	
+	public final List<AssemblyInstruction> generate(List<SymbolNode> nodes) {
 		instructions.clear();
 		
 		add(generateBegin());
 		
 		nodes.forEach(node -> {
+
+			generateObj(node.getObject());
 			
-			if(node instanceof GlobalVariableNode glob)
-				generateObj(glob.getObject());
-			
-			else if(node instanceof FunctionNode fun) {
-				fun.getDeclarations().forEach(this::generateObj);
-				
-				generateObj(fun.getObject());
-				
+			if(node instanceof FunctionNode fun) {
 				add(asmFunctionPrologue());
 				
 				generateAll(fun.getBody().getStatements());
@@ -95,7 +105,7 @@ public abstract class CodeGenerator {
 	
 	private final void generateObj(SymbolObject globalVariable) {
 		
-		String name = globalVariable.getName();
+		String name = globalVariable.getFullName();
 
 		Type type = globalVariable.getType();
 		
@@ -209,7 +219,16 @@ public abstract class CodeGenerator {
 	}
 
 	private final void generateStmt(StatementNode statement) {
+		if(statement instanceof JumpStatementNode jmp) {
+			AssemblyTarget condition = generateExpr(jmp.getCondition());
+			
+			add(asmJumpUnlessZero(condition, jmp.getJumpLabel()));
+		}
+	}
+	
+	private final AssemblyTarget generateExpr(ExpressionNode expression) {
 		
+		return null;
 	}
 	
 	public List<AssemblyInstruction> generateBegin() {
@@ -231,6 +250,8 @@ public abstract class CodeGenerator {
 	public abstract AssemblyInstruction asmPointer(String label, BigInteger offset);
 	
 	public abstract List<AssemblyInstruction> asmConstant(BigInteger value, int size);
+
+	public abstract List<AssemblyInstruction> asmJumpUnlessZero(AssemblyTarget value, String label);
 	
 	public abstract List<AssemblyInstruction> asmFunctionPrologue();
 	public abstract List<AssemblyInstruction> asmFunctionEpilogue();

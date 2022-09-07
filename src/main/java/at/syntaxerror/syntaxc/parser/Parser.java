@@ -36,7 +36,7 @@ import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.optimizer.ExpressionOptimizer;
 import at.syntaxerror.syntaxc.parser.node.FunctionNode;
 import at.syntaxerror.syntaxc.parser.node.GlobalVariableNode;
-import at.syntaxerror.syntaxc.parser.node.Node;
+import at.syntaxerror.syntaxc.parser.node.SymbolNode;
 import at.syntaxerror.syntaxc.parser.node.declaration.Declarator;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
@@ -170,11 +170,11 @@ public class Parser extends AbstractParser {
 		}
 	}
 	
-	private List<Node> nextExternalDeclaration() {
+	private List<SymbolNode> nextExternalDeclaration() {
 		if(equal(";")) // skip single semicola
 			return List.of();
 		
-		List<Node> nodes = new ArrayList<>();
+		List<SymbolNode> nodes = new ArrayList<>();
 		
 		var declSpecs = declarationParser.nextDeclarationSpecifiers();
 		
@@ -372,7 +372,8 @@ public class Parser extends AbstractParser {
 			warn(Warning.USELESS, "Useless declaration does not declare anything");
 	}
 	
-	public SymbolObject registerDeclaration(Positioned pos, Type type, String name, Initializer initializer, DeclarationState state) {
+	public SymbolObject registerDeclaration(Positioned pos, Type type, String name,
+			Initializer initializer, DeclarationState state) {
 		boolean hasInit = initializer != null;
 		
 		if(hasInit && (state.typedef() || state.external()))
@@ -434,12 +435,26 @@ public class Parser extends AbstractParser {
 		return obj;
 	}
 	
-	public List<Node> parse() {
-		List<Node> nodes = new ArrayList<>();
+	public List<SymbolNode> parse() {
+		List<SymbolNode> nodes = new ArrayList<>();
 		enterScope();
 		
 		while(next() != null)
 			nodes.addAll(nextExternalDeclaration());
+		
+		for(var it = nodes.iterator(); it.hasNext();) {
+			SymbolObject object = it.next().getObject();
+			
+			if(object.isUnused()) {
+				
+				if(object.isFunction() && object.getFunctionData().linkage() == Linkage.INTERNAL)
+					it.remove();
+		
+				else if(object.isGlobalVariable() && object.getVariableData().linkage() == Linkage.INTERNAL)
+					it.remove();
+				
+			}
+		}
 		
 		leaveScope();
 		
