@@ -22,12 +22,12 @@
  */
 package at.syntaxerror.syntaxc.symtab.global;
 
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public interface GlobalVariableInitializer extends TreeNode {
+public interface GlobalVariableInitializer extends SyntaxTreeNode {
 
 }

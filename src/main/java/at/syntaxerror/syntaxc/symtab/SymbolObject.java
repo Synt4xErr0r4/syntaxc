@@ -47,6 +47,8 @@ public class SymbolObject implements Symbol, Positioned {
 
 	public static final int OFFSET_NONE = Integer.MIN_VALUE;
 	
+	public static final String RETURN_VALUE_NAME = ".RV";
+	
 	private static long temporaryId = 0;
 	private static long stringId = 0;
 	private static long localStaticId = 0;
@@ -54,7 +56,7 @@ public class SymbolObject implements Symbol, Positioned {
 	public static SymbolObject returns(Positioned pos, Type type) {
 		return new SymbolObject(
 			pos.getPosition(),
-			".RV",
+			RETURN_VALUE_NAME,
 			SymbolKind.VARIABLE_RETURN,
 			type,
 			null
@@ -67,7 +69,7 @@ public class SymbolObject implements Symbol, Positioned {
 			name,
 			SymbolKind.FUNCTION,
 			FunctionType.IMPLICIT,
-			new SymbolFunctionData(Linkage.INTERNAL, true)
+			new SymbolFunctionData(Linkage.INTERNAL, true, null)
 		);
 	}
 	
@@ -104,7 +106,7 @@ public class SymbolObject implements Symbol, Positioned {
 		);
 	}
 	
-	public static SymbolObject function(Positioned pos, String name, Type type, Linkage linkage) {
+	public static SymbolObject function(Positioned pos, String name, Type type, Linkage linkage, String returnLabel) {
 		return new SymbolObject(
 			pos.getPosition(),
 			name,
@@ -112,7 +114,8 @@ public class SymbolObject implements Symbol, Positioned {
 			type,
 			new SymbolFunctionData(
 				linkage,
-				false
+				false,
+				returnLabel
 			)
 		);
 	}
@@ -125,7 +128,8 @@ public class SymbolObject implements Symbol, Positioned {
 			type,
 			new SymbolFunctionData(
 				linkage,
-				false
+				false,
+				null
 			)
 		);
 	}
@@ -145,7 +149,11 @@ public class SymbolObject implements Symbol, Positioned {
 	}
 	
 	public static SymbolObject extern(Positioned pos, String name, Type type) {
-		return global(pos, name, type, Linkage.EXTERNAL, null);
+		SymbolObject obj = global(pos, name, type, Linkage.EXTERNAL, null);
+		
+		obj.extern = true;
+		
+		return obj;
 	}
 	
 	public static SymbolObject typedef(Positioned pos, String name, Type type) {
@@ -176,6 +184,7 @@ public class SymbolObject implements Symbol, Positioned {
 	private final SymbolData data;
 	
 	private long fullNameId = -1;
+	private boolean extern = false;
 	
 	private @Setter boolean unused = true;
 	private @Setter boolean initialized = false;
@@ -205,6 +214,10 @@ public class SymbolObject implements Symbol, Positioned {
 		return (SymbolEnumeratorData) data;
 	}
 	
+	public Linkage getLinkage() {
+		return data.linkage();
+	}
+	
 	public boolean isUserDefined() {
 		return kind == SymbolKind.VARIABLE_LOCAL
 			|| kind == SymbolKind.VARIABLE_GLOBAL
@@ -217,6 +230,10 @@ public class SymbolObject implements Symbol, Positioned {
 			|| kind == SymbolKind.VARIABLE_TEMPORARY
 			|| kind == SymbolKind.STRING
 			|| kind == SymbolKind.FUNCTION;
+	}
+	
+	public boolean isReturnValue() {
+		return kind == SymbolKind.VARIABLE_RETURN;
 	}
 
 	public boolean isLocalVariable() {
@@ -255,10 +272,14 @@ public class SymbolObject implements Symbol, Positioned {
 	
 	public static interface SymbolData {
 		
+		default Linkage linkage() {
+			return Linkage.INTERNAL;
+		}
+		
 	}
-	
+
 	// additional data for functions
-	public static record SymbolFunctionData(Linkage linkage, boolean isImplicit) implements SymbolData {
+	public static record SymbolFunctionData(Linkage linkage, boolean isImplicit, String returnLabel) implements SymbolData {
 		
 	}
 

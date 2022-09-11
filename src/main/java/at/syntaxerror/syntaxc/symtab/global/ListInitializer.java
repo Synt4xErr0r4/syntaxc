@@ -22,12 +22,12 @@
  */
 package at.syntaxerror.syntaxc.symtab.global;
 
-import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
 
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 
 /**
  * @author Thomas Kasper
@@ -40,7 +40,7 @@ public record ListInitializer(List<ListInitializerEntry> initializers) implement
 	}
 
 	@Override
-	public List<Pair<String, TreeNode>> getChildren() {
+	public List<Pair<String, SyntaxTreeNode>> getChildren() {
 		return initializers.stream()
 			.map(entry -> child(Integer.toString(entry.offset()), entry.initializer()))
 			.toList();

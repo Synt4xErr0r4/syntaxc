@@ -22,6 +22,8 @@
  */
 package at.syntaxerror.syntaxc.generator.arch;
 
+import static at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro.defineNumber;
+
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.function.Function;
@@ -41,8 +43,6 @@ import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.Getter;
 import lombok.NonNull;
 
-import static at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro.defineNumber;
-
 /**
  * @author Thomas Kasper
  * 
@@ -51,14 +51,35 @@ public abstract class Architecture {
 
 	@Getter
 	private final String[] names;
-
+	
+	private final String syntax;
+	
 	public Architecture(@NonNull String name, String...more) {
 		names = new String[1 + more.length];
 		names[0] = name;
 		System.arraycopy(more, 0, names, 1, more.length);
+		
+		var syntaxes = getSyntaxes();
+		
+		syntax = syntaxes.isEmpty() ? null : syntaxes.get(0);
 	}
 	
 	public abstract CodeGenerator getCodeGenerator(String inputFileName);
+	
+	public List<String> getSyntaxes() {
+		return List.of();
+	}
+	
+	public String getSyntax() {
+		return syntax;
+	}
+	
+	public boolean setSyntax(String syntax) {
+		if(!getSyntaxes().contains(syntax))
+			return false;
+		
+		return true;
+	}
 	
 	public final void onInit() {
 		onInit(

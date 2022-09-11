@@ -24,50 +24,44 @@ package at.syntaxerror.syntaxc.analysis;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.FreeIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
 import at.syntaxerror.syntaxc.logger.Logable;
+import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Warning;
-import at.syntaxerror.syntaxc.parser.StatementParser;
-import at.syntaxerror.syntaxc.parser.node.statement.CompoundStatementNode;
-import at.syntaxerror.syntaxc.parser.node.statement.GotoStatementNode;
-import at.syntaxerror.syntaxc.parser.node.statement.LabeledStatementNode;
-import at.syntaxerror.syntaxc.parser.node.statement.NullStatementNode;
-import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author Thomas Kasper
  * 
  */
 public class ControlFlowAnalyzer implements Logable {
-
-	private final StatementParser parser;
 	
-	private Map<String, List<GotoStatementNode>> gotos;
-	private Map<String, LabeledStatementNode> labels;
+	private final Map<String, List<JumpIntermediate>> jumps;
+	private final Map<String, LabelIntermediate> labels;
 	
-	private Set<String> unused;
-	private Set<StatementNode> warnCandidates;
+	private final Map<String, CFGNode> blocks;
+	private final List<LinkInfo> linkInfos;
+	private final List<Intermediate> code;
 	
-	private boolean removedAny;
-	private boolean alreadyWarned;
+	private String returnLabel;
 	
-	private Set<String> deadCandidates;
-	private String activeLabel;
+	private long counterLabel;
 	
-	public ControlFlowAnalyzer(StatementParser parser) {
-		this.parser = parser;
-		
-		gotos = new HashMap<>();
+	public ControlFlowAnalyzer() {
+		jumps = new HashMap<>();
 		labels = new HashMap<>();
 		
-		unused = new HashSet<>();
-		warnCandidates = new HashSet<>();
-		deadCandidates = new HashSet<>();
+		blocks = new LinkedHashMap<>();
+		linkInfos = new ArrayList<>();
+		code = new ArrayList<>();
 	}
 	
 	@Override
@@ -84,192 +78,268 @@ public class ControlFlowAnalyzer implements Logable {
 	 * 
 	 * also appends the a null statement labeled with the returnLabel
 	 */
-	public CompoundStatementNode checkDeadCode(CompoundStatementNode root, String returnLabel) {
-		gotos.clear();
+	public List<Intermediate> checkDeadCode(Position pos, String name, List<Intermediate> intermediates, String returnLabel) {
+		this.returnLabel = returnLabel;
+		
+		jumps.clear();
 		labels.clear();
-		unused.clear();
-		warnCandidates.clear();
+		blocks.clear();
+		linkInfos.clear();
+
+		intermediates.add(new LabelIntermediate(pos, returnLabel));
 		
-		parser.getGotos() // group gotos by label
-			.forEach(stmt ->
-				gotos.computeIfAbsent(
-					stmt.getLabel(),
+		for(Intermediate intermediate : intermediates)
+			if(intermediate instanceof LabelIntermediate label)
+				labels.put(label.getLabel(), label);
+		
+			else if(intermediate instanceof JumpIntermediate jump)
+				jumps.computeIfAbsent(
+					jump.getLabel(),
 					k -> new ArrayList<>()
-				).add(stmt)
-			);
+				).add(jump);
 		
-		labels = parser.getLabels();
+		checkUnknownLabels(); // check for unknown labels
+		checkUnusedLabels(); // check for unused labels. Also matches labels where the associated goto statement is dead code
+
+		generateNodes(name, intermediates);
+		checkNodes();
 		
-		List<StatementNode> statements = root.getStatements();
-		
-		ScanResult result;
-		
-		do {
-			removedAny = false;
-			alreadyWarned = false;
-			activeLabel = null;
-			
-			deadCandidates.clear();
-			
-			result = scanDead(false, statements);
-			
-			checkUnknownLabels(); // check for unknown labels
-			checkUnusedLabels(); // check for unused labels. Also matches labels where the associated goto statement is dead code
-			
-			statements = result.statements();
-		} while(removedAny);
-		
-		warnCandidates
+		return blocks.values()
 			.stream()
-			.sorted()
-			.forEach(stmt -> warn(stmt, Warning.DEAD_CODE, "Code is unreachable"));
-		
-		statements.add(new LabeledStatementNode(
-			root.getPosition(),
-			returnLabel,
-			new NullStatementNode(root.getPosition())
-		));
-		
-		return new CompoundStatementNode(
-			root.getPosition(),
-			statements
-				.stream()
-				.filter(stmt -> stmt != REMOVED_NODE)
-				.map(stmt -> { // strip unused labels
-					if(stmt instanceof LabeledStatementNode label)
-						if(unused.contains(label.getLabel()))
-							return label.getStatement();
-					
-					return stmt;
-				})
-				.toList()
-		);
-	}
-	
-	private void removeDeadGoto(GotoStatementNode stmt) {
-		String label = stmt.getLabel();
-		
-		if(gotos.containsKey(label)) {
-			var entries = gotos.get(label);
-			
-			entries.remove(stmt);
-			
-			if(entries.isEmpty()) // remove whole entry if all references to the label are dead
-				gotos.remove(label);
-		}
-	}
-	
-	private void removeDeadLabeled(LabeledStatementNode labeled) {
-		labels.remove(labeled.getLabel());
-	}
-	
-	// scans a list of statements for dead code
-	private ScanResult scanDead(boolean isDead, List<StatementNode> statements) {
-		List<StatementNode> result = new ArrayList<>();
-		
-		for(StatementNode stmt : statements) {
-			ScanResult scan = scanDeadSingle(
-				isDead,
-				stmt
-			);
-			
-			isDead = scan.isDead();
-			
-			if(!isDead)
-				alreadyWarned = false;
-			
-			result.addAll(scan.statements());
-		}
-		
-		return new ScanResult(isDead, result);
-	}
-
-	// scans a statement for dead code
-	private ScanResult scanDeadSingle(boolean isDead, StatementNode stmt) {
-		if(stmt == REMOVED_NODE) {
-			alreadyWarned = true;
-			return new ScanResult(isDead, List.of(REMOVED_NODE));
-		}
-		
-		if(stmt instanceof CompoundStatementNode compound)
-			return scanDead(isDead, compound.getStatements()); // scan children
-		
-		else if(isDead) {
-			boolean internal = false; // skip internal labels (starting with a period '.')
-			
-			if(stmt instanceof GotoStatementNode gotoStmt) {
-				removeDeadGoto(gotoStmt);
-				
-				internal = gotoStmt.getLabel().startsWith(".");
-			}
-			
-			else if(stmt instanceof LabeledStatementNode labeled) {
-				
-				String label = labeled.getLabel();
-				
-				if(!unused.contains(label)) { // used label encountered
-					deadCandidates.add(label);
-					activeLabel = label;
-					
-					return new ScanResult(false, List.of(labeled));
+			.map(
+				node -> node.dead || node.code == null
+					? node.free
+					: node.code
+			).reduce(
+				new ArrayList<>(),
+				(a, b) -> {
+					a.addAll(b);
+					return a;
 				}
-				
-				removeDeadLabeled(labeled);
+			);
+	}
+	
+	public CFGNode getGraph() {
+		return blocks.values()
+			.iterator()
+			.next();
+	}
+	
+	private void addBlock(CFGNode node) {
+		blocks.put(node.name, node);
+	}
 
-				internal = label.startsWith(".");
-			}
+	private void linkInfo(String src, String dst) {
+		linkInfo(src, dst, LinkKind.NEXT);
+	}
+
+	private void linkInfo(String src, String dst, LinkKind kind) {
+		linkInfos.add(new LinkInfo(src, dst, kind));
+	}
+	
+	private CFGNode makeBlock(String name) {
+		return new CFGNode(name, new ArrayList<>(code));
+	}
+	
+	private void generateNodes(String name, List<Intermediate> intermediates) {
+		boolean wasJump = false;
+		boolean wasGoto = false;
+		
+		boolean skipLink = false;
+		
+		String previous = null;
+
+		for(int i = 0; i < intermediates.size(); ++i) {
 			
-			if(!internal && !alreadyWarned) { // only warn at the first dead statement
-				alreadyWarned = true;
+			Intermediate intermediate = intermediates.get(i);
+			
+			if(!Flag.CFG_VERBOSE.isEnabled()) {
 				
-				warnCandidates.add(stmt);
+				if(intermediate instanceof FreeIntermediate)
+					continue;
+				
 			}
 			
-			else warnCandidates.remove(stmt);
+			if(intermediate instanceof LabelIntermediate label) {
+
+				if(wasGoto || wasJump) {
+					wasGoto = wasJump = false;
+					
+					name = label.getLabel();
+					
+					continue;
+				}
+
+				String current = name;
+				name = label.getLabel();
+
+				if(!skipLink)
+					linkInfo(current, name);
+				
+				addBlock(makeBlock(current));
+				
+				previous = current;
+				
+				wasJump = wasGoto = false;
+				skipLink = false;
+
+				code.clear();
+				continue;
+			}
+
+			if(!(intermediate instanceof FreeIntermediate))
+				wasGoto = wasJump = false;
 			
-			removedAny = true;
-			return new ScanResult(isDead, List.of(REMOVED_NODE));
+			code.add(intermediate);
+			
+			if(intermediate instanceof JumpIntermediate jump) {
+
+				wasJump = jump.isConditional();
+				wasGoto = !wasJump;
+
+				String current = name;
+				
+				int nextIdx = i + 1;
+				Intermediate next;
+				
+				do {
+					next = intermediates.get(nextIdx++);
+				} while(next instanceof FreeIntermediate);
+				
+				
+				if(next instanceof LabelIntermediate label)
+					name = label.getLabel();
+				
+				else name = ".synthetic_" + counterLabel++;
+				
+				if(wasJump) // this -> true
+					linkInfo(current, name, LinkKind.THEN);
+				
+				addBlock(makeBlock(current));
+
+				code.clear();
+				
+				// this -> false
+				linkInfo(
+					current,
+					jump.getLabel(),
+					wasJump
+						? LinkKind.ELSE
+						: LinkKind.NEXT
+				);
+				
+				skipLink = true;
+				
+				previous = current;
+			}
+			
 		}
 		
-		else if(stmt instanceof LabeledStatementNode labeled)
-			activeLabel = labeled.getLabel();
+		boolean doesReturn = true;
+		String returnName = name;
 		
-		else if(stmt instanceof GotoStatementNode gotoStmt) {
+		if(skipLink)
+			doesReturn = linkInfos.stream()
+				.anyMatch(info -> info.destination().equals(returnName));
+		
+		if(doesReturn) {
 			
-			/*
-			 * measure to counteract constructions like
-			 * 
-			 *   return;
-			 *   label:
-			 *   goto label;
-			 * 
-			 * which would otherwise not be detected as dead code
-			 */
-			if(activeLabel != null &&
-				deadCandidates.contains(activeLabel) &&
-				gotoStmt.getLabel().equals(activeLabel)) {
-				
-				removeDeadGoto(gotoStmt);
-				return new ScanResult(isDead, List.of(REMOVED_NODE));
-			}
+			addBlock(CFGNode.EXIT);
 			
-			return new ScanResult(true, List.of(stmt));
+			if(!skipLink)
+				linkInfo(previous, name);
+			
+			linkInfo(name, ".exit");
 		}
 		
-		return new ScanResult(false, List.of(stmt));
+		linkInfos.forEach(info -> {
+			
+			CFGNode src = blocks.get(info.source());
+			CFGNode dst = blocks.get(info.destination());
+			
+			if(src != null)
+				switch(info.kind()) {
+				case NEXT: src.next = dst; break;
+				case THEN: src.nextThen = dst; break;
+				case ELSE: src.nextElse = dst; break;
+				}
+			
+		});
+	}
+
+	private void checkNodes() {
+		List<CFGNode> traversed = new ArrayList<>();
+		
+		traverse(traversed, getGraph());
+		
+		blocks.values()
+			.stream()
+			.filter(node -> !traversed.contains(node))
+			.forEach(this::warnDead);
+	}
+	
+	private void traverse(final List<CFGNode> traversed, CFGNode node) {
+		if(node == null || traversed.contains(node))
+			return;
+		
+		traversed.add(node);
+		
+		traverse(traversed, node.next);
+		traverse(traversed, node.nextThen);
+		traverse(traversed, node.nextElse);
+	}
+	
+	private void warnDead(CFGNode block) {
+		if(block == null || block.code == null)
+			return;
+		
+		block.dead = true;
+		
+		Intermediate dead = null;
+		
+		var iter = block.code.iterator();
+		
+		while(iter.hasNext()) {
+			Intermediate intermediate = iter.next();
+			
+			if(intermediate instanceof FreeIntermediate free) {
+				block.free.add(free);
+				continue;
+			}
+			
+			if(dead != null)
+				continue;
+			
+			String label = null;
+			
+			if(intermediate instanceof LabelIntermediate lbl)
+				label = lbl.getLabel();
+		
+			else if(intermediate instanceof JumpIntermediate jump)
+				label = jump.getLabel();
+			
+			if(label == null || !label.startsWith("."))
+				dead = intermediate;
+		}
+		
+		if(dead != null)
+			warn(dead, Warning.DEAD_CODE, "Code is unreachable");
 	}
 	
 	private void checkUnknownLabels() {
 		boolean foundUnknownLabel = false;
-		
-		for(var entry : gotos.entrySet()) {
+
+		for(var entry : jumps.entrySet()) {
 			String label = entry.getKey();
+			
+			if(label.equals(returnLabel))
+				continue;
 			
 			if(!labels.containsKey(label)) {
 				foundUnknownLabel = true;
 				
-				for(GotoStatementNode stmt : entry.getValue())
-					error(stmt, Warning.CONTINUE, "Unknown label »%s«", label);
+				for(JumpIntermediate pos : entry.getValue())
+					error(pos, Warning.CONTINUE, "Unknown label »%s«", label);
 			}
 		}
 		
@@ -284,48 +354,62 @@ public class ControlFlowAnalyzer implements Logable {
 			if(label.startsWith(".")) // skip internal labels
 				continue;
 			
-			if(!unused.contains(label) && !gotos.containsKey(label)) {
+			if(!jumps.containsKey(label))
 				warn(entry.getValue(), Warning.UNUSED_LABEL, "Unused label »%s«", label);
-				unused.add(label);
-			}
 		}
 	}
 	
-	private static final StatementNode REMOVED_NODE = new StatementNode() {
+	@RequiredArgsConstructor
+	public static class CFGNode {
+		
+		public static final CFGNode ENTRY = new CFGNode(".entry", null);
+		public static final CFGNode EXIT = new CFGNode(".exit", null);
+		
+		public final String name;
+		public final List<Intermediate> code;
+		
+		private final List<Intermediate> free = new ArrayList<>();
+		
+		public boolean dead;
+		
+		public CFGNode next;
+
+		public CFGNode nextThen;
+		public CFGNode nextElse;
 		
 		@Override
-		public Position getPosition() {
-			return null;
+		public String toString() {
+			if(nextThen != null || nextElse != null)
+				return "Node[%s -> %s & %s; %s]".formatted(
+					name,
+					getName(nextThen),
+					getName(nextElse),
+					code
+				);
+			
+			return "Node[%s -> %s; %s]".formatted(
+				name,
+				getName(next),
+				code
+			);
 		}
 		
-	};
+		private String getName(CFGNode node) {
+			return node == null
+				? null
+				: node.name;
+		}
+		
+	}
 	
-	private static record ScanResult(boolean isDead, List<StatementNode> statements) {
+	private static record LinkInfo(String source, String destination, LinkKind kind) {
 		
-		/* isDead:
-		 * 
-		 * true if the compound obstructs execution afterwards
-		 * 
-		 * e.g.
-		 * 
-		 *   {
-		 *   	...
-		 *   	return;
-		 *   }
-		 * 
-		 * but not
-		 * 
-		 *   {
-		 *   	...
-		 *   	return;
-		 *   	
-		 *   	label:
-		 *   	...
-		 *   }
-		 * 
-		 * unless 'label' is not referenced by a 'goto' statement
-		 */
-		
+	}
+	
+	private static enum LinkKind {
+		NEXT,
+		THEN,
+		ELSE
 	}
 	
 }

@@ -932,8 +932,8 @@ public class ExpressionParser extends AbstractParser {
 			return new ConditionalExpressionNode(
 				pos,
 				exprCondition,
-				newLazyCast(exprWhenTrue, exprWhenTrue, result),
-				newLazyCast(exprWhenFalse, exprWhenFalse, result),
+				newCast(exprWhenTrue, exprWhenTrue, result),
+				newCast(exprWhenFalse, exprWhenFalse, result),
 				result
 			);
 		}
@@ -1406,25 +1406,17 @@ public class ExpressionParser extends AbstractParser {
 	}
 	
 	private static ExpressionNode newPromote(ExpressionNode expr) {
-		Type type = expr.getType();
-		Type promoted = TypeUtils.promoteInteger(type);
-		
-		if(TypeUtils.isEqual(type, promoted))
-			return expr;
+		Type promoted = TypeUtils.promoteInteger(expr.getType());
 		
 		return newCast(expr, expr, promoted);
 	}
 	
-	private static ExpressionNode newLazyCast(Positioned pos, ExpressionNode expr, Type type) {
+	private static ExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
 		Type current = expr.getType();
 		
 		if(TypeUtils.isEqual(current, type))
 			return expr;
 		
-		return newCast(pos, expr, type);
-	}
-	
-	private static CastExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
 		return new CastExpressionNode(pos.getPosition(), expr, type);
 	}
 	
@@ -1446,8 +1438,8 @@ public class ExpressionParser extends AbstractParser {
 		
 		Type usual = TypeUtils.convertUsualArithmetic(lType, rType);
 		
-		if(!TypeUtils.isEqual(lType, usual)) left = newCast(pos, left, usual);
-		if(!TypeUtils.isEqual(rType, usual)) right = newCast(pos, right, usual);
+		left = newCast(pos, left, usual);
+		right = newCast(pos, right, usual);
 		
 		return newBinary(pos, left, right, op, Objects.requireNonNullElse(type, usual));
 	}

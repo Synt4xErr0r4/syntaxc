@@ -36,13 +36,15 @@ import lombok.Setter;
  */
 @Getter
 public enum Flag implements NamedToggle {
-	NO_STDLIB		("stdlib",			"Adds default library paths to the include path"),
-	ELIFDEF			("elifdef", 		"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
-	FUNC			("func",			"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
-	BINARY_LITERALS	("binary-literals",	"Specifies whether binary literals are allowed"),
-	LONG_DOUBLE		("long-double",		"When disabled, §clong double §fis an alias for §cdouble"),
-	UNSIGNED_CHAR	("unsigned-char",	"When enabled, §cchar§fs will be unsigned", false),
-	SYNTAX_TREE		("syntax-tree",		"Generates the syntax tree in DOT, PNG or SVG format", false, "dot")
+	NO_STDLIB			("stdlib",				"Adds default library paths to the include path"),
+	ELIFDEF				("elifdef", 			"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
+	FUNC				("func",				"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
+	BINARY_LITERALS		("binary-literals",		"Specifies whether binary literals are allowed"),
+	LONG_DOUBLE			("long-double",			"When disabled, §clong double §fis an alias for §cdouble"),
+	UNSIGNED_CHAR		("unsigned-char",		"When enabled, §cchar§fs will be unsigned", false),
+	SYNTAX_TREE			("syntax-tree",			"Generates the syntax tree in DOT, PNG, or SVG format", false, "dot"),
+	CONTROL_FLOW_GRAPH	("control-flow-graph",	"Generates the control flow graph in DOT, PNG, or SVG format", false, "dot"),
+	CFG_VERBOSE			("cfg-verbose",			"Includes synthetic instruction in the control flow graph output", false)
 	;
 	
 	private static final Map<String, Flag> FLAGS;

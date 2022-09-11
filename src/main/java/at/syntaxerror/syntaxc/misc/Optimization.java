@@ -36,8 +36,9 @@ import lombok.Setter;
  */
 @Getter
 public enum Optimization implements NamedToggle {
-	INLINE_CONST	("inline-const",		"Automatically inlines global arithmetic variables declared as »§cconst§f«"),
-	EVAL_EXPR		("eval-expressions",	"Automatically evaluates expression with a constant value (such as »§c1 + 1§f«)")
+	CONST_FOLDING	("const-folding",		"Automatically inlines global arithmetic variables declared as »§cconst§f«"),
+	GOTO			("goto",				"Automatically removes »§cgoto§f« statements followed by the label they jump to"),
+	JUMP_TO_JUMP	("jump-to-jump",		"Automatically chooses the shortest path instead of jumping several times in a row"),
 	;
 	
 	private static final Map<String, Optimization> OPTIMIZATIONS;

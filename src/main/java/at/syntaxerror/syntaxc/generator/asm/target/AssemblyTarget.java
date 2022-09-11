@@ -22,10 +22,14 @@
  */
 package at.syntaxerror.syntaxc.generator.asm.target;
 
+import at.syntaxerror.syntaxc.type.Type;
+
 /**
  * @author Thomas Kasper
  * 
  */
 public interface AssemblyTarget {
 
+	Type getType();
+	
 }

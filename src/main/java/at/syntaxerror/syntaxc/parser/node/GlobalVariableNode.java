@@ -22,15 +22,14 @@
  */
 package at.syntaxerror.syntaxc.parser.node;
 
-import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
-import at.syntaxerror.syntaxc.symtab.SymbolObject.SymbolVariableData;
 import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
@@ -49,20 +48,22 @@ public class GlobalVariableNode extends SymbolNode {
 	private final SymbolObject object;
 	
 	@Override
-	public List<Pair<String, TreeNode>> getChildren() {
-		List<Pair<String, TreeNode>> children = new ArrayList<>();
+	public List<Pair<String, SyntaxTreeNode>> getChildren() {
+		List<Pair<String, SyntaxTreeNode>> children = new ArrayList<>();
 		
 		children.add(child(object.getDebugName(), object.getType()));
 		
 		if(object.getData() != null) {
-			SymbolVariableData data = object.getVariableData();
+			children.add(child(".linkage", object.getLinkage().toString()));
 			
-			children.add(child(".linkage", data.linkage().toString()));
+			if(object.isGlobalVariable()) {
 			
-			GlobalVariableInitializer init = data.initializer();
+				GlobalVariableInitializer init = object.getVariableData().initializer();
+				
+				if(init != null)
+					children.add(child(".init", init));
 			
-			if(init != null)
-				children.add(child(".init", init));
+			}
 		}
 		
 		return children;

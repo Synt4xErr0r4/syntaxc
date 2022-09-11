@@ -94,6 +94,7 @@
 		</dependency>
 		
 		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-nop -->
+		<!-- disables SLF4J used by graphviz-java -->
 		<dependency>
 		    <groupId>org.slf4j</groupId>
 		    <artifactId>slf4j-nop</artifactId>

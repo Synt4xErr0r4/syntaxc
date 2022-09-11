@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Stack;
 
-import at.syntaxerror.syntaxc.analysis.ControlFlowAnalyzer;
 import at.syntaxerror.syntaxc.analysis.DataFlowAnalyzer;
 import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
@@ -56,6 +55,7 @@ import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -71,7 +71,6 @@ public class StatementParser extends AbstractParser {
 	private final DeclarationParser declarationParser;
 	private final ExpressionParser expressionParser;
 	
-	private final ControlFlowAnalyzer controlFlowAnalyzer = new ControlFlowAnalyzer(this);
 	private final DataFlowAnalyzer dataFlowAnalyzer = new DataFlowAnalyzer();
 	
 	private final Stack<ScopeType> scopeType = new Stack<>();
@@ -80,6 +79,7 @@ public class StatementParser extends AbstractParser {
 	
 	private final @Getter Map<String, LabeledStatementNode> labels = new HashMap<>();
 	private final @Getter List<GotoStatementNode> gotos = new ArrayList<>();
+	private final @Getter List<JumpStatementNode> jumps = new ArrayList<>();
 	
 	private final Stack<String> labelContinue = new Stack<>();
 	private final Stack<String> labelBreak = new Stack<>();
@@ -90,6 +90,8 @@ public class StatementParser extends AbstractParser {
 
 	private Type expectedType;
 	private VariableExpressionNode returnValueField;
+	
+	@Getter
 	private String returnLabel;
 	
 	@Getter
@@ -178,6 +180,37 @@ public class StatementParser extends AbstractParser {
 		return parser.readNextToken();
 	}
 	
+	private LabeledStatementNode newLabel(Positioned pos, String label, StatementNode stmt) {
+		LabeledStatementNode labeled = new LabeledStatementNode(
+			pos.getPosition(),
+			label,
+			stmt
+		);
+		
+		if(labels.containsKey(label))
+			error(pos, Warning.SEM_NONE, "Duplicate label »%s« in current function", label);
+		
+		labels.put(label, labeled);
+		
+		return labeled;
+	}
+	
+	private GotoStatementNode newGoto(Positioned pos, String label) {
+		GotoStatementNode stmt = new GotoStatementNode(pos.getPosition(), label);
+		
+		gotos.add(stmt);
+		
+		return stmt;
+	}
+	
+	private JumpStatementNode newJump(Positioned pos, ExpressionNode condition, String label) {
+		JumpStatementNode stmt = new JumpStatementNode(pos.getPosition(), condition, label);
+		
+		jumps.add(stmt);
+		
+		return stmt;
+	}
+	
 	private StatementNode nextStatement() {
 		
 		if(equal("case", "default")) {
@@ -218,9 +251,7 @@ public class StatementParser extends AbstractParser {
 			consume(TokenType.IDENTIFIER);
 			consume(";");
 			
-			GotoStatementNode gotoStmt = new GotoStatementNode(pos, label);
-			
-			gotos.add(gotoStmt);
+			GotoStatementNode gotoStmt = newGoto(pos, label);
 			
 			return gotoStmt;
 		}
@@ -233,7 +264,7 @@ public class StatementParser extends AbstractParser {
 			
 			consume(";");
 			
-			return new GotoStatementNode(pos, label);
+			return newGoto(pos, label);
 		}
 		
 		if(skip("return")) {
@@ -269,7 +300,7 @@ public class StatementParser extends AbstractParser {
 				
 			}
 			
-			statements.add(new GotoStatementNode(pos, returnLabel));
+			statements.add(newGoto(pos, returnLabel));
 			
 			return new CompoundStatementNode(pos, statements);
 		}
@@ -298,7 +329,7 @@ public class StatementParser extends AbstractParser {
 			
 			consume(":");
 			
-			LabeledStatementNode stmt = new LabeledStatementNode(
+			LabeledStatementNode stmt = newLabel(
 				pos,
 				nextLabel(),
 				nextStatement()
@@ -314,18 +345,11 @@ public class StatementParser extends AbstractParser {
 			require(":");
 			next();
 			
-			LabeledStatementNode stmt = new LabeledStatementNode(
+			return newLabel(
 				pos,
 				label,
 				nextStatement()
 			);
-			
-			if(labels.containsKey(label))
-				error(pos, Warning.SEM_NONE, "Duplicate label »%s« in current function", label);
-			
-			labels.put(label, stmt);
-			
-			return stmt;
 		}
 	}
 	
@@ -421,36 +445,46 @@ public class StatementParser extends AbstractParser {
 		List<StatementNode> statements = new ArrayList<>();
 		
 		String labelEnd = nextLabel();
+		String labelThen = nextLabel();
 		
 		if(stmtElse != null) { // if(condition) ... else ...
+			
 			String labelElse = nextLabel();
 			
-			statements.add(new JumpStatementNode( // if(!condition) goto elseBlock;
+			statements.add(newJump( // if(!condition) goto elseBlock;
 				pos,
 				condition,
 				labelElse
 			));
+
+			statements.add(newLabel( // thenBlock: thenBody;
+				pos,
+				labelThen,
+				stmtThen
+			));
+			statements.add(newGoto(pos, labelEnd)); // goto end;
 			
-			statements.add(stmtThen); // thenBody;
-			statements.add(new GotoStatementNode(pos, labelEnd)); // goto end;
-			
-			statements.add(new LabeledStatementNode( // elseBlock: elseBody;
+			statements.add(newLabel( // elseBlock: elseBody;
 				pos,
 				labelElse,
 				stmtElse
 			));
 		}
 		else { // if(condition) ...
-			statements.add(new JumpStatementNode( // if(!condition) goto end;
+			statements.add(newJump( // if(!condition) goto end;
 				pos,
 				condition,
 				labelEnd
 			));
 
-			statements.add(stmtThen); // thenBody;
+			statements.add(newLabel( // thenBlock: thenBody;
+				pos,
+				labelThen,
+				stmtThen
+			));
 		}
 
-		statements.add(new LabeledStatementNode( // end: ;
+		statements.add(newLabel( // end: ;
 			pos,
 			labelEnd,
 			new NullStatementNode(pos)
@@ -570,7 +604,7 @@ public class StatementParser extends AbstractParser {
 			);
 			
 			statements.add( // if(tmp == X) goto case_X;
-				new JumpStatementNode(
+				newJump(
 					pos,
 					condition,
 					caseLabel.getLabel()
@@ -582,11 +616,11 @@ public class StatementParser extends AbstractParser {
 			// goto case_default;
 			LabeledStatementNode labelDefault = caseMap.get(null);
 			
-			statements.add(new GotoStatementNode(pos, labelDefault.getLabel()));
+			statements.add(newGoto(pos, labelDefault.getLabel()));
 		}
 		
 		// goto brk;
-		else statements.add(new GotoStatementNode(pos, getLabelBreak()));
+		else statements.add(newGoto(pos, getLabelBreak()));
 
 		statements.add(body);
 		
@@ -605,7 +639,7 @@ public class StatementParser extends AbstractParser {
 			warn(unreachablePos, Warning.DEAD_CODE, "Code before first switch label is unreachable");
 		
 		statements.add( // brk: ;
-			new LabeledStatementNode(
+			newLabel(
 				pos,
 				getLabelBreak(),
 				new NullStatementNode(pos)
@@ -669,7 +703,7 @@ public class StatementParser extends AbstractParser {
 				return new NullStatementNode(pos);
 			}
 			else statements.add(
-				new LabeledStatementNode( // cont: body_statement;
+				newLabel( // cont: body_statement;
 					pos,
 					getLabelContinue(),
 					body
@@ -678,10 +712,10 @@ public class StatementParser extends AbstractParser {
 		}
 		
 		else {
-			statements.add(new LabeledStatementNode( // if(!condition) goto brk;
+			statements.add(newLabel( // if(!condition) goto brk;
 				pos,
 				getLabelContinue(),
-				new JumpStatementNode( // if(!condition) goto brk;
+				newJump( // if(!condition) goto brk;
 					pos,
 					condition,
 					getLabelBreak()
@@ -692,11 +726,11 @@ public class StatementParser extends AbstractParser {
 		}
 		
 		statements.add( // goto cont;
-			new GotoStatementNode(pos, getLabelContinue())
+			newGoto(pos, getLabelContinue())
 		);
 		
 		statements.add(
-			new LabeledStatementNode( // brk: ;
+			newLabel( // brk: ;
 				pos,
 				getLabelBreak(),
 				new NullStatementNode(pos)
@@ -763,7 +797,7 @@ public class StatementParser extends AbstractParser {
 			if(val.get()) { // do ... while(1)
 				
 				statements.add(
-					new LabeledStatementNode( // cont: body_statement;
+					newLabel( // cont: body_statement;
 						pos,
 						getLabelContinue(),
 						body
@@ -771,14 +805,14 @@ public class StatementParser extends AbstractParser {
 				);
 				
 				statements.add( // goto cont;
-					new GotoStatementNode(pos, getLabelContinue())
+					newGoto(pos, getLabelContinue())
 				);
 			}
 			else { // do ... while(0)
 				statements.add(body);
 				
 				statements.add(
-					new LabeledStatementNode( // cont: ;
+					newLabel( // cont: ;
 						pos,
 						getLabelContinue(),
 						new NullStatementNode(pos)
@@ -788,7 +822,7 @@ public class StatementParser extends AbstractParser {
 		}
 		else {
 			statements.add(
-				new LabeledStatementNode( // cont: body_statement;
+				newLabel( // cont: body_statement;
 					pos,
 					getLabelContinue(),
 					body
@@ -796,7 +830,7 @@ public class StatementParser extends AbstractParser {
 			);
 
 			statements.add( // if(condition) goto cont;
-				new JumpStatementNode(
+				newJump(
 					pos,
 					condition,
 					getLabelContinue()
@@ -805,7 +839,7 @@ public class StatementParser extends AbstractParser {
 		}
 
 		statements.add(
-			new LabeledStatementNode( // brk: ;
+			newLabel( // brk: ;
 				pos,
 				getLabelBreak(),
 				new NullStatementNode(pos)
@@ -916,35 +950,35 @@ public class StatementParser extends AbstractParser {
 		
 		if(!infiniteLoop) {
 			labelCond = nextLabel();
-			statements.add(new GotoStatementNode(pos, labelCond)); // goto cond;
+			statements.add(newGoto(pos, labelCond)); // goto cond;
 		}
 		
-		statements.add(new LabeledStatementNode( // body: body_statement;
+		statements.add(newLabel( // body: body_statement;
 			pos,
 			labelBody,
 			body
 		));
 		
-		statements.add(new LabeledStatementNode( // cont: operation;
+		statements.add(newLabel( // cont: operation;
 			pos,
 			getLabelContinue(),
 			new ExpressionStatementNode(operation)
 		));
 
 		if(!infiniteLoop)
-			statements.add(new LabeledStatementNode( // cond: if(condition) goto body;
+			statements.add(newLabel( // cond: if(condition) goto body;
 				pos,
 				labelCond,
-				new JumpStatementNode(
+				newJump(
 					pos,
 					condition,
 					labelBody
 				)
 			));
-		else statements.add(new GotoStatementNode(pos, labelBody)); // goto body;
+		else statements.add(newGoto(pos, labelBody)); // goto body;
 
 		statements.add(
-			new LabeledStatementNode( // brk: ;
+			newLabel( // brk: ;
 				pos,
 				getLabelBreak(),
 				new NullStatementNode(pos)
@@ -1079,6 +1113,7 @@ public class StatementParser extends AbstractParser {
 		
 		labels.clear();
 		gotos.clear();
+		jumps.clear();
 		
 		labelBreak.clear();
 		labelContinue.clear();
@@ -1103,6 +1138,8 @@ public class StatementParser extends AbstractParser {
 				.add(funcName, false)
 		);
 		
+		__func__.setInitialized(true);
+		
 		getSymbolTable().addObject(__func__);
 		globalVariables.add(__func__);
 		
@@ -1117,7 +1154,7 @@ public class StatementParser extends AbstractParser {
 		
 		postInitVariables();
 		
-		body = controlFlowAnalyzer.checkDeadCode(body, returnLabel);
+//		body = controlFlowAnalyzer.checkDeadCode(body, returnLabel);
 		
 		dataFlowAnalyzer.checkInitialized(body);
 		

@@ -22,14 +22,14 @@
  */
 package at.syntaxerror.syntaxc.parser.node.expression;
 
-import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.StringUtils;
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -77,8 +77,8 @@ public class VariableExpressionNode extends ExpressionNode {
 	}
 	
 	@Override
-	public List<Pair<String, TreeNode>> getChildren() {
-		List<Pair<String, TreeNode>> children = new ArrayList<>();
+	public List<Pair<String, SyntaxTreeNode>> getChildren() {
+		List<Pair<String, SyntaxTreeNode>> children = new ArrayList<>();
 		
 		children.add(child("name", variable.getDebugName()));
 		

@@ -22,8 +22,6 @@
  */
 package at.syntaxerror.syntaxc.generator.asm.target;
 
-import at.syntaxerror.syntaxc.type.NumericValueType;
-
 /**
  * @author Thomas Kasper
  * 
@@ -31,6 +29,5 @@ import at.syntaxerror.syntaxc.type.NumericValueType;
 public interface AssemblyLabel extends AssemblyTarget {
 
 	String getName();
-	NumericValueType getType();
 	
 }

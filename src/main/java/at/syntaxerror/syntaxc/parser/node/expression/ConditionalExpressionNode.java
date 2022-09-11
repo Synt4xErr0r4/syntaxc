@@ -22,12 +22,12 @@
  */
 package at.syntaxerror.syntaxc.parser.node.expression;
 
-import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
 
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
@@ -50,7 +50,7 @@ public class ConditionalExpressionNode extends ExpressionNode {
 	private final Type type;
 	
 	@Override
-	public List<Pair<String, TreeNode>> getChildren() {
+	public List<Pair<String, SyntaxTreeNode>> getChildren() {
 		return List.of(
 			child("cond", condition),
 			child("true", whenTrue),

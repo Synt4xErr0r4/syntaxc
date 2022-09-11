@@ -22,25 +22,20 @@
  */
 package at.syntaxerror.syntaxc.generator;
 
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.SyntaxCException;
+import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
-import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.generator.asm.FunctionMetadata;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.StringUtils;
 import at.syntaxerror.syntaxc.misc.Warning;
-import at.syntaxerror.syntaxc.parser.node.FunctionNode;
-import at.syntaxerror.syntaxc.parser.node.SymbolNode;
-import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.statement.JumpStatementNode;
-import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
-import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
-import at.syntaxerror.syntaxc.symtab.SymbolObject.SymbolVariableData;
 import at.syntaxerror.syntaxc.symtab.global.AddressInitializer;
 import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
 import at.syntaxerror.syntaxc.symtab.global.IntegerInitializer;
@@ -48,9 +43,8 @@ import at.syntaxerror.syntaxc.symtab.global.ListInitializer;
 import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
 import at.syntaxerror.syntaxc.symtab.global.ZeroInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.type.ArrayType;
 import at.syntaxerror.syntaxc.type.NumericValueType;
-import at.syntaxerror.syntaxc.type.Type;
+import lombok.Getter;
 
 /**
  * @author Thomas Kasper
@@ -59,6 +53,7 @@ import at.syntaxerror.syntaxc.type.Type;
 @SuppressWarnings("preview")
 public abstract class CodeGenerator implements Logable {
 
+	@Getter
 	private final List<AssemblyInstruction> instructions = new ArrayList<>();
 
 	@Override
@@ -71,85 +66,68 @@ public abstract class CodeGenerator implements Logable {
 		return Warning.GEN_NONE;
 	}
 	
-	public final List<AssemblyInstruction> generate(List<SymbolNode> nodes) {
-		instructions.clear();
-		
-		add(generateBegin());
-		
-		nodes.forEach(node -> {
-
-			generateObj(node.getObject());
-			
-			if(node instanceof FunctionNode fun) {
-				add(asmFunctionPrologue());
-				
-				generateAll(fun.getBody().getStatements());
-
-				add(asmFunctionEpilogue());
-			}
-			
-		});
-		
-		add(generateEnd());
-		
-		return instructions;
+	protected final void add(AssemblyInstruction...instructions) {
+		add(Arrays.asList(instructions));
 	}
 	
-	private final void add(AssemblyInstruction...instructions) {
-		add(List.of(instructions));
+	protected final void add(List<AssemblyInstruction> instructions) {
+		this.instructions.addAll(
+			instructions.stream()
+				.filter(i -> i != null)
+				.toList()
+		);
 	}
 	
-	private final void add(List<AssemblyInstruction> instructions) {
-		this.instructions.addAll(instructions);
+	protected final void addAt(int index, List<AssemblyInstruction> instructions) {
+		this.instructions.addAll(
+			index,
+			instructions.stream()
+				.filter(i -> i != null)
+				.toList()
+		);
 	}
 	
-	private final void generateObj(SymbolObject globalVariable) {
+	public final void generateObject(SymbolObject object) {
+		if(object.isExtern())
+			return;
 		
-		String name = globalVariable.getFullName();
-
-		Type type = globalVariable.getType();
+		AssemblyGenerator asm = getAssembler();
 		
-		GlobalVariableInitializer init = null;
-		Linkage linkage;
+		asm.metadata(object);
 		
-		if(globalVariable.isFunction())
-			linkage = globalVariable.getFunctionData().linkage();
-		
-		else {
-			SymbolVariableData data = globalVariable.getVariableData();
+		if(object.isGlobalVariable()) {
 			
-			linkage = data.linkage();
-			init = data.initializer();
+			if(object.isInitialized())
+				generateInit(asm, object.getVariableData().initializer());
+			
+			else asm.zero(object.getType().sizeof());
+			
 		}
-		
-		add(asmVariable(
-			name,
-			type.sizeof(),
-			linkage == Linkage.EXTERNAL,
-			globalVariable.isFunction(),
-			init != null,
-			type.isConst() || type instanceof ArrayType
-		));
-		
-		generateInit(init);
 	}
 	
-	private final int generateInit(GlobalVariableInitializer init) {
+	public final void generateBody(List<Intermediate> intermediates, FunctionMetadata metadata) {
+		AssemblyGenerator asm = getAssembler();
+		
+		asm.prologue(metadata);
+		
+		intermediates.forEach(ir -> ir.generate(asm));
+		
+		asm.epilogue(metadata);
+	}
+	
+	private final int generateInit(AssemblyGenerator asm, GlobalVariableInitializer init) {
 		int size;
 		
 		switch(init) {
 		case StringInitializer strInit:
 			
-			add(
-				StringUtils.toASCII(strInit.value(), strInit.wide())
-					.stream()
-					.map(
-						strInit.withNul()
-							? this::asmNulString
-							: this::asmString
-					)
-					.toList()
-			);
+			StringUtils.toASCII(strInit.value(), strInit.wide())
+				.stream()
+				.forEach(
+					strInit.withNul()
+						? asm::nulString
+						: asm::rawString
+				);
 			
 			size = strInit.value()
 				.getBytes(StandardCharsets.UTF_8)
@@ -162,10 +140,10 @@ public abstract class CodeGenerator implements Logable {
 		
 		case AddressInitializer addrInit:
 			
-			add(asmPointer(
+			asm.pointerOffset(
 				addrInit.object().getName(),
 				addrInit.offset()
-			));
+			);
 			
 			return NumericValueType.POINTER.getSize() / 8;
 		
@@ -173,10 +151,10 @@ public abstract class CodeGenerator implements Logable {
 			
 			size = intInit.size();
 			
-			add(asmConstant(
+			asm.constant(
 				intInit.value(),
 				size
-			));
+			);
 			
 			return size;
 			
@@ -192,10 +170,10 @@ public abstract class CodeGenerator implements Logable {
 					if(diff < 0)
 						throw new SyntaxCException("Illegal offset for list initializer entry resides inside previous sibling's data");
 					
-					add(asmZero(diff));
+					asm.zero(diff);
 				}
 				
-				size += generateInit(entry.initializer());
+				size += generateInit(asm, entry.initializer());
 			}
 			
 			return size;
@@ -204,7 +182,7 @@ public abstract class CodeGenerator implements Logable {
 			
 			size = zeroInit.size();
 			
-			add(asmZero(size));
+			asm.zero(size);
 			
 			return size;
 			
@@ -213,47 +191,7 @@ public abstract class CodeGenerator implements Logable {
 			return 0;
 		}
 	}
-
-	private final void generateAll(List<StatementNode> statements) {
-		statements.forEach(this::generateStmt);
-	}
-
-	private final void generateStmt(StatementNode statement) {
-		if(statement instanceof JumpStatementNode jmp) {
-			AssemblyTarget condition = generateExpr(jmp.getCondition());
-			
-			add(asmJumpUnlessZero(condition, jmp.getJumpLabel()));
-		}
-	}
 	
-	private final AssemblyTarget generateExpr(ExpressionNode expression) {
-		
-		return null;
-	}
-	
-	public List<AssemblyInstruction> generateBegin() {
-		return List.of();
-	}
-
-	public List<AssemblyInstruction> generateEnd() {
-		return List.of();
-	}
-	
-	public abstract List<AssemblyInstruction> asmVariable(String name, int size,
-			boolean external, boolean function, boolean initialized, boolean readOnly);
-	
-	public abstract AssemblyInstruction asmLabel(String label);
-	
-	public abstract AssemblyInstruction asmZero(int n);
-	public abstract AssemblyInstruction asmNulString(String string);
-	public abstract AssemblyInstruction asmString(String string);
-	public abstract AssemblyInstruction asmPointer(String label, BigInteger offset);
-	
-	public abstract List<AssemblyInstruction> asmConstant(BigInteger value, int size);
-
-	public abstract List<AssemblyInstruction> asmJumpUnlessZero(AssemblyTarget value, String label);
-	
-	public abstract List<AssemblyInstruction> asmFunctionPrologue();
-	public abstract List<AssemblyInstruction> asmFunctionEpilogue();
+	public abstract AssemblyGenerator getAssembler();
 	
 }

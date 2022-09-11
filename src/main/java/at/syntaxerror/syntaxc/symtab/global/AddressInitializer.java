@@ -26,10 +26,10 @@ import java.math.BigInteger;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 
-import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
 
 /**
  * @author Thomas Kasper
@@ -38,7 +38,7 @@ import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
 public record AddressInitializer(SymbolObject object, BigInteger offset) implements GlobalVariableInitializer {
 
 	@Override
-	public List<Pair<String, TreeNode>> getChildren() {
+	public List<Pair<String, SyntaxTreeNode>> getChildren() {
 		return List.of(
 			child(object.getName(), object.getType()),
 			child("offset", offset.toString())

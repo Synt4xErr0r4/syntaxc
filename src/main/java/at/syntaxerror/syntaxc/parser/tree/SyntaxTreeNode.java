@@ -37,21 +37,21 @@ import at.syntaxerror.syntaxc.type.Type;
  * @author Thomas Kasper
  * 
  */
-public interface TreeNode {
+public interface SyntaxTreeNode {
 
 	default String getLeafName() {
 		return getClass().getSimpleName();
 	}
 	
-	default List<Pair<String, TreeNode>> getChildren() {
+	default List<Pair<String, SyntaxTreeNode>> getChildren() {
 		return List.of();
 	}
 	
-	public static Pair<String, TreeNode> child(String name, TreeNode node) {
+	public static Pair<String, SyntaxTreeNode> child(String name, SyntaxTreeNode node) {
 		return Pair.of(name, node);
 	}
 
-	public static Pair<String, TreeNode> child(String name, List<? extends TreeNode> list) {
+	public static Pair<String, SyntaxTreeNode> child(String name, List<? extends SyntaxTreeNode> list) {
 		AtomicInteger index = new AtomicInteger();
 		
 		return child(
@@ -64,23 +64,23 @@ public interface TreeNode {
 		);
 	}
 
-	public static Pair<String, TreeNode> child(String name, Type type) {
+	public static Pair<String, SyntaxTreeNode> child(String name, Type type) {
 		return child(name, type.toString());
 	}
 	
-	public static Pair<String, TreeNode> child(String name, String string) {
+	public static Pair<String, SyntaxTreeNode> child(String name, String string) {
 		return child(name, new TreeStringNode(string));
 	}
 
-	public static Pair<String, TreeNode> child(String name, boolean bool) {
+	public static Pair<String, SyntaxTreeNode> child(String name, boolean bool) {
 		return child(name, new TreeStringNode(Boolean.toString(bool)));
 	}
 
-	public static Pair<String, TreeNode> child(String name, Number num, NumericValueType type) {
+	public static Pair<String, SyntaxTreeNode> child(String name, Number num, NumericValueType type) {
 		return child(name, new TreeStringNode(type + " " + num));
 	}
 
-	public static Pair<String, TreeNode> child(String name, Token token) {
+	public static Pair<String, SyntaxTreeNode> child(String name, Token token) {
 		String strval;
 		
 		switch(token.getType()) {
@@ -115,15 +115,15 @@ public interface TreeNode {
 		return child(name, strval);
 	}
 
-	public static Pair<String, TreeNode> child(String name, Punctuator punct) {
+	public static Pair<String, SyntaxTreeNode> child(String name, Punctuator punct) {
 		return child(name, '»' + punct.getName() + '«');
 	}
 
-	public static Pair<String, TreeNode> child(String name, Keyword keyword) {
+	public static Pair<String, SyntaxTreeNode> child(String name, Keyword keyword) {
 		return child(name, keyword.getName());
 	}
 
-	public static record TreeListNode(List<Pair<String, TreeNode>> list) implements TreeNode {
+	public static record TreeListNode(List<Pair<String, SyntaxTreeNode>> list) implements SyntaxTreeNode {
 		
 		@Override
 		public String getLeafName() {
@@ -131,13 +131,13 @@ public interface TreeNode {
 		}
 		
 		@Override
-		public List<Pair<String, TreeNode>> getChildren() {
+		public List<Pair<String, SyntaxTreeNode>> getChildren() {
 			return list;
 		}
 		
 	}
 	
-	public static record TreeStringNode(String name) implements TreeNode {
+	public static record TreeStringNode(String name) implements SyntaxTreeNode {
 		
 		@Override
 		public String getLeafName() {

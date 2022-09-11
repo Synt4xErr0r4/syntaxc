@@ -23,6 +23,7 @@
 package at.syntaxerror.syntaxc.generator.arch.x86;
 
 import java.nio.ByteOrder;
+import java.util.List;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
@@ -42,6 +43,11 @@ public class X86Architecture extends Architecture {
 
 	public X86Architecture() {
 		super("x86", "i386");
+	}
+	
+	@Override
+	public List<String> getSyntaxes() {
+		return List.of("intel", "att");
 	}
 	
 	@Override

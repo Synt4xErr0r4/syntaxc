@@ -24,8 +24,6 @@ package at.syntaxerror.syntaxc.generator.asm.target;
 
 import java.math.BigInteger;
 
-import at.syntaxerror.syntaxc.type.NumericValueType;
-
 /**
  * @author Thomas Kasper
  * 
@@ -33,6 +31,5 @@ import at.syntaxerror.syntaxc.type.NumericValueType;
 public interface AssemblyInteger extends AssemblyTarget {
 
 	BigInteger getValue();
-	NumericValueType getType();
 	
 }

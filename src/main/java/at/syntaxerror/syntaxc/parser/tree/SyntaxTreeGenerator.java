@@ -22,17 +22,19 @@
  */
 package at.syntaxerror.syntaxc.parser.tree;
 
-import static guru.nidi.graphviz.model.Factory.*;
+import static guru.nidi.graphviz.model.Factory.graph;
+import static guru.nidi.graphviz.model.Factory.node;
+import static guru.nidi.graphviz.model.Factory.to;
 
 import java.io.OutputStream;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Flag;
+import at.syntaxerror.syntaxc.misc.GraphUtils;
 import guru.nidi.graphviz.attribute.Label;
 import guru.nidi.graphviz.attribute.Rank;
 import guru.nidi.graphviz.attribute.Rank.RankDir;
-import guru.nidi.graphviz.engine.Format;
 import guru.nidi.graphviz.engine.Graphviz;
 import guru.nidi.graphviz.model.Graph;
 import guru.nidi.graphviz.model.Node;
@@ -41,37 +43,29 @@ import guru.nidi.graphviz.model.Node;
  * @author Thomas Kasper
  * 
  */
-public class TreeGenerator {
+public class SyntaxTreeGenerator {
 
-	public static void generate(OutputStream out, List<? extends TreeNode> nodes) {
-		new TreeGenerator(out, nodes);
+	public static void generate(OutputStream out, List<? extends SyntaxTreeNode> nodes) {
+		new SyntaxTreeGenerator(out, nodes);
 	}
 	
 	private Graph graph;
 	
 	private long counter;
 	
-	private TreeGenerator(OutputStream out, List<? extends TreeNode> nodes) {
+	private SyntaxTreeGenerator(OutputStream out, List<? extends SyntaxTreeNode> nodes) {
 		graph = graph("syntaxtree")
 			.directed()
 			.graphAttr().with(Rank.dir(RankDir.TOP_TO_BOTTOM));
 		
 		Node node = node("root");
 		
-		for(TreeNode child : nodes)
+		for(SyntaxTreeNode child : nodes)
 			node = visit(node, null, child);
 		
 		try {
-			@SuppressWarnings("preview")
-			Format fmt = switch(Flag.SYNTAX_TREE.getValue().toLowerCase()) {
-			case "png" -> Format.PNG;
-			case "svg" -> Format.SVG;
-			case null -> Format.DOT;
-			default -> Format.DOT;
-			};
-			
 			Graphviz.fromGraph(graph.with(node))
-				.render(fmt)
+				.render(GraphUtils.getGraphFormat(Flag.SYNTAX_TREE))
 				.toOutputStream(out);
 		} catch (Exception e) {
 			Logger.warn("Failed to generate syntax tree: %s", e.getMessage());
@@ -82,7 +76,7 @@ public class TreeGenerator {
 		return node("node" + counter++);
 	}
 	
-	private Node visit(Node parent, String name, TreeNode node) {
+	private Node visit(Node parent, String name, SyntaxTreeNode node) {
 		Node self = next();
 		
 		if(name != null)

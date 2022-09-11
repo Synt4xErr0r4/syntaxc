@@ -22,14 +22,14 @@
  */
 package at.syntaxerror.syntaxc.parser.node.statement;
 
-import static at.syntaxerror.syntaxc.parser.tree.TreeNode.child;
+import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -49,8 +49,8 @@ public class JumpStatementNode extends StatementNode {
 	private final String jumpLabel;
 	
 	@Override
-	public List<Pair<String, TreeNode>> getChildren() {
-		List<Pair<String, TreeNode>> children = new ArrayList<>();
+	public List<Pair<String, SyntaxTreeNode>> getChildren() {
+		List<Pair<String, SyntaxTreeNode>> children = new ArrayList<>();
 		
 		children.add(child("condition", condition));
 		children.add(child("label", jumpLabel));

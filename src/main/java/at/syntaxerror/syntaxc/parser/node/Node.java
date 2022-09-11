@@ -22,18 +22,18 @@
  */
 package at.syntaxerror.syntaxc.parser.node;
 
-import at.syntaxerror.syntaxc.parser.tree.TreeNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public abstract class Node implements Positioned, TreeNode {
+public abstract class Node implements Positioned, SyntaxTreeNode {
 	
 	@Override
 	public String getLeafName() {
-		return TreeNode.super.getLeafName().replaceFirst("Node$", "");
+		return SyntaxTreeNode.super.getLeafName().replaceFirst("Node$", "");
 	}
 	
 }

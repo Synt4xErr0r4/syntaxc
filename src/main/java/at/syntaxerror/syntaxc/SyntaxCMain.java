@@ -70,9 +70,9 @@ public class SyntaxCMain {
 				"-fno-stdlib",
 				"-fno-long-double",
 				"-fsyntax-tree=svg",
-				"-S",
-				"-Oinline-const",
-				"-Ono-eval-expressions"
+				"-fcontrol-flow-graph=svg",
+				"-fcfg-verbose",
+				"-S"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -93,7 +93,7 @@ public class SyntaxCMain {
 			.with('U').compact("name")				.description("Undefine a predefined macro").build()
 			
 			.with('I').compact("path")				.description("Add a directory to the include path", CLIDoc::include).build()
-			.with('m').compact("option[=value]")	.description("Configure the target architecture", CLIDoc::assembler).build()
+			.with('m').compact("option[=value]")	.description("Configure the target architecture", CLIDoc::machine).build()
 			.with('W').compact("[no-]warning")		.description("Enable or disable a specific compiler warning", CLIDoc::warning).build()
 			.with('f').compact("[no-]flag[=value]")	.description("Enable or disable a specific compiler flag", CLIDoc::flag).build()
 			.with('O').compact("[no-]opt[=value]")	.description("Enable or disable a specific compiler optimization", CLIDoc::optimize).build()
@@ -149,7 +149,7 @@ public class SyntaxCMain {
 		 * 		===================
 		 */
 		
-		result.get('m').forEach(CLIHandler::assembler);
+		result.get('m').forEach(CLIHandler::machine);
 		
 		result.get('W').forEach(CLIHandler::warning);
 		
@@ -197,21 +197,33 @@ public class SyntaxCMain {
 			SyntaxC.outputFileName = result.get('o').get(0);
 		}
 
-		if(Flag.SYNTAX_TREE.isEnabled()) {
-			@SuppressWarnings("preview")
-			String ext = switch(Flag.SYNTAX_TREE.getValue().toLowerCase()) {
-			case "svg" -> "svg";
-			case "png" -> "png";
-			case null -> "dot";
-			default -> "dot";
-			};
-			
-			SyntaxC.syntaxTree = SyntaxC.createStream(parser, base + ".syntaxtree." + ext);
-		}
+		if(Flag.SYNTAX_TREE.isEnabled())
+			SyntaxC.syntaxTree = SyntaxC.createStream(
+				parser,
+				base + ".syntaxtree."
+					+ getGraphExtension(Flag.SYNTAX_TREE)
+			);
+
+		if(Flag.CONTROL_FLOW_GRAPH.isEnabled())
+			SyntaxC.controlFlowGraph = SyntaxC.createStream(
+				parser,
+				base + ".cfg."
+					+ getGraphExtension(Flag.CONTROL_FLOW_GRAPH)
+			);
 		
 		SyntaxC.inputFileName = file;
 		
 		SyntaxC.compile(input);
+	}
+	
+	@SuppressWarnings("preview")
+	private static String getGraphExtension(Flag flag) {
+		return switch(flag.getValue().toLowerCase()) {
+		case "svg" -> "svg";
+		case "png" -> "png";
+		case null -> "dot";
+		default -> "dot";
+		};
 	}
 	
 	private static Pair<String, String> split(String value, char delimiter) {
@@ -291,7 +303,7 @@ public class SyntaxCMain {
 			}
 		}
 		
-		private static void assembler(String arg) {
+		private static void machine(String arg) {
 			var option = split(arg, '=');
 			
 			String name = option.getLeft();
@@ -344,6 +356,12 @@ public class SyntaxCMain {
 				
 				break;
 			
+			case "syntax":
+				if(!ArchitectureRegistry.getArchitecture().setSyntax(value))
+					Logger.warn("Unknown assembly syntax »%s«", value);
+				
+				break;
+				
 			default:
 				Logger.warn("Unrecognized assembler option »%s«", name);
 				break;
@@ -461,10 +479,10 @@ public class SyntaxCMain {
 			
 		}
 		
-		private static void assembler() {
+		private static void machine() {
 			System.out.print(
 				"""
-				The parameter specifies the option for the assembler.
+				The parameter specifies the option regarding the target machine.
 				A value can be set by separating name and value with an equals sign (§c=§f; might not be required by every option)
 				
 				Examples:
@@ -476,6 +494,7 @@ public class SyntaxCMain {
 				 §8- §a-march=ARCH§f         Specifies the target architecture (see below)
 				 §8- §a-mtarget=TARGET§f     Specifies the target system (see below)
 				 §8- §a-mendian=ENDIANNESS§f Specifies the target endianness (see below)
+				 §8- §a-masm=SYNTAX§f        Specifies the assembly syntax (see below)
 				 §8- §a-m8§f                 Sets the bit size to 8
 				 §8- §a-m16§f                Sets the bit size to 16
 				 §8- §a-m32§f                Sets the bit size to 32
@@ -515,11 +534,32 @@ public class SyntaxCMain {
 				Supported endiannesses:
 				
 				 §8- §alittle%s
-				 §8- §abig%s
+				 §8- §abig%s§r
 				""",
 				getNotice(ArchitectureRegistry.getEndianness() == ByteOrder.LITTLE_ENDIAN),
 				getNotice(ArchitectureRegistry.getEndianness() == ByteOrder.BIG_ENDIAN)
 			);
+			
+			System.out.println("\nSupported assembly syntaxes:\n");
+
+
+			ArchitectureRegistry.getArchitectures()
+				.forEach(arch -> {
+					System.err.printf(
+						" §8- §ffor §a%s§f:\n",
+						arch.getNames()[0]
+					);
+						
+					String defaultSyntax = arch.getSyntax();
+					
+					for(String syntax : arch.getSyntaxes())
+						System.err.printf(
+							"   §8- §a%s%s§r\n",
+							syntax,
+							getNotice(syntax == defaultSyntax || syntax.equals(defaultSyntax))
+						);
+				});
+			
 		}
 		
 		private static String getNotice(boolean flag) {

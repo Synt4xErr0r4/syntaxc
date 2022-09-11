@@ -28,9 +28,11 @@ import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.misc.Optimization;
 import at.syntaxerror.syntaxc.parser.ConstantExpressionEvaluator;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.MemberAccessExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.NumberLiteralExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
@@ -47,10 +49,7 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class ExpressionOptimizer {
 
-	private static ExpressionNode eval(ExpressionNode expr, boolean forceEval) {
-		if(!forceEval && !Optimization.EVAL_EXPR.isEnabled())
-			return expr;
-		
+	private static ExpressionNode eval(ExpressionNode expr) {
 		return new NumberLiteralExpressionNode(
 			expr.getPosition(),
 			ConstantExpressionEvaluator.evalArithmetic(expr),
@@ -67,16 +66,12 @@ public class ExpressionOptimizer {
 	}
 	
 	public static ExpressionNode optimize(ExpressionNode expr) {
-		return optimize(expr, false);
-	}
-	
-	public static ExpressionNode optimize(ExpressionNode expr, boolean forceEval) {
 		Position pos = expr.getPosition();
 		boolean eval = false;
 		
 		if(expr instanceof VariableExpressionNode var) {
 			
-			if(Optimization.INLINE_CONST.isEnabled() && var.hasConstQualifier()) {
+			if(Optimization.CONST_FOLDING.isEnabled() && var.hasConstQualifier()) {
 				SymbolObject obj = var.getVariable();
 				
 				if(obj.isGlobalVariable() && obj.getType().isArithmetic()) {
@@ -136,7 +131,7 @@ public class ExpressionOptimizer {
 				target,
 				cast.getType()
 			);
-
+			
 			eval = isNumber(target);
 		}
 		
@@ -146,7 +141,7 @@ public class ExpressionOptimizer {
 			ExpressionNode whenTrue = optimize(cond.getWhenTrue());
 			ExpressionNode whenFalse = optimize(cond.getWhenFalse());
 			
-			if(isNumber(condition) && (forceEval || Optimization.EVAL_EXPR.isEnabled()))
+			if(isNumber(condition))
 				return ((BigInteger) ((NumberLiteralExpressionNode) condition).getLiteral())
 						.compareTo(BigInteger.ZERO) == 0
 					? whenFalse
@@ -161,9 +156,26 @@ public class ExpressionOptimizer {
 			);
 		}
 		
-		return eval
-			? eval(expr, forceEval)
-			: expr;
+		else if(expr instanceof CallExpressionNode call)
+			expr = new CallExpressionNode(
+				call.getPosition(),
+				optimize(call.getTarget()),
+				call.getParameters()
+					.stream()
+					.map(ExpressionOptimizer::optimize)
+					.toList(),
+				call.getFunctionType()
+			);
+		
+		else if(expr instanceof MemberAccessExpressionNode call)
+			expr = new MemberAccessExpressionNode(
+				call.getPosition(),
+				optimize(call.getTarget()),
+				call.getMember(),
+				call.getType()
+			);
+		
+		return eval ? eval(expr) : expr;
 	}
 	
 }

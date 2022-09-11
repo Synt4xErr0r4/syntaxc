@@ -47,6 +47,7 @@ import at.syntaxerror.syntaxc.parser.node.statement.GotoStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.JumpStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.LabeledStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.tracking.Position;
 
 /**
@@ -143,12 +144,14 @@ public class DataFlowAnalyzer implements Logable {
 		
 		if(stmt instanceof VariableExpressionNode var) {
 			
-			if(!var.getVariable().isUserDefined())
+			SymbolObject object = var.getVariable();
+			
+			if(!object.isUserDefined())
 				return false;
 			
-			String name = var.getVariable().getName();
+			String name = object.getName();
 			
-			if(!branches.has(name))
+			if(!object.isInitialized() && !object.isGlobalVariable() && !branches.has(name))
 				warn(
 					var,
 					Warning.UNINITIALIZED,
@@ -156,7 +159,7 @@ public class DataFlowAnalyzer implements Logable {
 					name
 				);
 			
-			var.getVariable().setUnused(false);
+			object.setUnused(false);
 			
 			return false;
 		}

@@ -211,7 +211,7 @@ public class Parser extends AbstractParser {
 		Type baseType = declSpecs.getRight();
 		Type type = decl.merge(baseType);
 		
-		if(!typedef && decl.isFunctionDeclarator() && !equal("=", ";")) {
+		if(!typedef && decl.isFunctionDeclarator() && !equal("=", ";", ",")) {
 			
 			enterScope();
 			
@@ -321,13 +321,16 @@ public class Parser extends AbstractParser {
 					note(obj, "Previously declared here");
 					terminate();
 				}
+				
+				obj.setInitialized(true);
 			}
 			
 			SymbolObject obj = SymbolObject.function(
 				decl,
 				name,
 				funType,
-				linkage
+				linkage,
+				statementParser.getReturnLabel()
 			);
 			
 			symtab.addObject(obj);
@@ -343,7 +346,7 @@ public class Parser extends AbstractParser {
 				
 				init = declarationParser.nextInitializer();
 			}
-			
+
 			SymbolObject obj = registerDeclaration(
 				decl,
 				type,
@@ -396,6 +399,9 @@ public class Parser extends AbstractParser {
 				terminate();
 			}
 			
+			if(obj.isPrototype()) // discard subsequent prototypes
+				return null;
+			
 			if(obj.getVariableData().initializer() != null && hasInit) {
 				error(pos, Warning.CONTINUE, "Redefinition of »%s«", name);
 				note(obj, "Previously declared here");
@@ -405,7 +411,7 @@ public class Parser extends AbstractParser {
 			if(state.linkage() == Linkage.EXTERNAL)
 				return null;
 			
-			if(state.internal() && obj.getVariableData().linkage() == Linkage.EXTERNAL) {
+			if(state.internal() && obj.getLinkage() == Linkage.EXTERNAL) {
 				error(pos, Warning.CONTINUE, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
 				note(obj, "Previously declared here");
 				terminate();
@@ -417,18 +423,26 @@ public class Parser extends AbstractParser {
 		if(state.typedef())
 			obj = SymbolObject.typedef(pos, name, type);
 		
+		else if(type.isFunction())
+			obj = SymbolObject.prototype(pos, name, type, state.linkage());
+		
 		else if(state.external())
 			obj = SymbolObject.extern(pos, name, type);
 		
-		else obj = SymbolObject.global(
-			pos,
-			name,
-			type,
-			state.linkage(),
-			hasInit
-				? InitializerSerializer.serialize(type, initializer)
-				: null
-		);
+		else {
+			obj = SymbolObject.global(
+				pos,
+				name,
+				type,
+				state.linkage(),
+				hasInit
+					? InitializerSerializer.serialize(type, initializer)
+					: null
+			);
+			
+			if(hasInit)
+				obj.setInitialized(true);
+		}
 		
 		symtab.addObject(obj);
 		

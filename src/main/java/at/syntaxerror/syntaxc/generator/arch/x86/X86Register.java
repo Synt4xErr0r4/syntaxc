@@ -22,7 +22,10 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86;
 
+import java.util.Map;
+
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyRegister;
+import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -78,42 +81,42 @@ public enum X86Register implements AssemblyRegister {
 	SP(2),
 	SPL(1),
 
-	R1X(8),
-	R1D(4),
-	R1W(2),
-	R1B(1),
+	R8(8),
+	R8D(4),
+	R8W(2),
+	R8B(1),
 
-	R9X(8),
+	R9(8),
 	R9D(4),
 	R9W(2),
 	R9B(1),
 
-	R10X(8),
+	R10(8),
 	R10D(4),
 	R10W(2),
 	R10B(1),
 
-	R11X(8),
+	R11(8),
 	R11D(4),
 	R11W(2),
 	R11B(1),
 
-	R12X(8),
+	R12(8),
 	R12D(4),
 	R12W(2),
 	R12B(1),
 
-	R13X(8),
+	R13(8),
 	R13D(4),
 	R13W(2),
 	R13B(1),
 
-	R14X(8),
+	R14(8),
 	R14D(4),
 	R14W(2),
 	R14B(1),
 
-	R15X(8),
+	R15(8),
 	R15D(4),
 	R15W(2),
 	R15B(1),
@@ -138,23 +141,37 @@ public enum X86Register implements AssemblyRegister {
 	ST6(10),
 	ST7(10),
 	
-	MM0(8),
-	MM1(8),
-	MM2(8),
-	MM3(8),
-	MM4(8),
-	MM5(8),
-	MM6(8),
-	MM7(8),
+	XMM0(16),
+	XMM1(16),
+	XMM2(16),
+	XMM3(16),
+	XMM4(16),
+	XMM5(16),
+	XMM6(16),
+	XMM7(16),
 	
 	;
+	
+	private static final Map<Integer, Type> TYPE_MAP = Map.of(
+		1, Type.UCHAR,
+		2, Type.USHORT,
+		4, Type.UINT,
+		8, Type.ULONG,
+		10, Type.LDOUBLE,
+		16, Type.DOUBLE
+	);
 	
 	private final String name = name().toLowerCase();
 	private final int size;
 	
 	@Override
+	public Type getType() {
+		return TYPE_MAP.get(size);
+	}
+	
+	@Override
 	public String toString() {
-		return "%" + name;
+		return name;
 	}
 	
 }
