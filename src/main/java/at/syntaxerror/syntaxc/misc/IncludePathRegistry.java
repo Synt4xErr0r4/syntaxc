@@ -26,9 +26,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
+import at.syntaxerror.syntaxc.SyntaxC;
 import at.syntaxerror.syntaxc.SystemUtils;
 import lombok.experimental.UtilityClass;
 
@@ -39,17 +40,20 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class IncludePathRegistry {
 
-	private static final Set<Path> INCLUDE_PATH = new HashSet<>();
+	private static final Set<Path> INCLUDE_PATH = new LinkedHashSet<>();
 
 	static {
+		String ver = SyntaxC.Version.VERSION;
+		
 		switch(SystemUtils.getOperatingSystem()) {
 		case LINUX:
+			INCLUDE_PATH.add(Paths.get("/opt/syntaxc/" + ver + "/include"));
 			INCLUDE_PATH.add(Paths.get("/usr/local"));
 			INCLUDE_PATH.add(Paths.get("/usr/local/include"));
 			break;
 		
 		case WINDOWS:
-			INCLUDE_PATH.add(Paths.get("C:\\Program Files\\syntaxc\\include"));
+			INCLUDE_PATH.add(Paths.get("C:\\Program Files\\syntaxc\\" + ver + "\\include"));
 			break;
 		
 		default:

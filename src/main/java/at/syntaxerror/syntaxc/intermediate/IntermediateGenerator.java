@@ -209,7 +209,16 @@ public class IntermediateGenerator {
 			List<Intermediate> ir = new ArrayList<>();
 			
 			Operand result = temporary(binop.getType());
-
+			
+			var exprLeft = binop.getLeft();
+			var exprRight = binop.getRight();
+			
+			if(exprLeft.getType().isPointerLike() || exprRight.getType().isPointerLike()) {
+				
+				
+				
+			}
+			
 			var left = processExpression(binop.getLeft());
 			left.ifLeftPresent(ir::addAll);
 

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import at.syntaxerror.syntaxc.builtin.BuiltinRegistry;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
@@ -209,6 +210,9 @@ public class ExpressionParser extends AbstractParser {
 			SymbolObject sym = getSymbolTable().findObject(name);
 			
 			if(sym == null) { // function does not exist
+				
+				BuiltinRegistry.findFunction(name);
+				
 				sym = SymbolObject.implicit(pos, name);
 				
 				warn(pos, Warning.IMPLICIT_FUNCTION, "Implicit declaration of function »%s«", name);
@@ -252,10 +256,11 @@ public class ExpressionParser extends AbstractParser {
 				// ptr[idx] is equivalent to (*(ptr+idx)) ; yields an lvalue
 				expr = newUnary(
 					pos,
-					addPointer(
+					newBinary(
 						pos,
 						expr,
-						index
+						index,
+						Punctuator.ADD
 					),
 					Punctuator.INDIRECTION,
 					exprType
@@ -1181,12 +1186,6 @@ public class ExpressionParser extends AbstractParser {
 					right
 				);
 
-			// pointer + offset
-			return addPointer(
-				op,
-				exprLeft,
-				exprRight
-			);
 		}
 		
 		else if(!left.isArithmetic() || !right.isArithmetic())
@@ -1248,8 +1247,6 @@ public class ExpressionParser extends AbstractParser {
 					right
 				);
 
-			// pointer - offset
-			return subtractPointer(op, exprLeft, exprRight);
 		}
 		
 		else if(!left.isArithmetic() || !right.isArithmetic())
@@ -1535,25 +1532,8 @@ public class ExpressionParser extends AbstractParser {
 			)
 		);
 	}
-	
-	private static BinaryExpressionNode subtractPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset) {
-		return addOrSubtractPointer(pos, pointer, offset, Punctuator.SUBTRACT, false);
-	}
-	
-	private static BinaryExpressionNode addPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset) {
-		boolean swap = false;
 
-		// convert into canonical form 'pointer + offset'
-		if(offset.getType().isPointerLike()) {
-			swap = true;
-			ExpressionNode temporary = pointer;
-			pointer = offset;
-			offset = temporary;
-		}
-		
-		return addOrSubtractPointer(pos, pointer, offset, Punctuator.ADD, swap);
-	}
-
+	@Deprecated
 	/* For an expression 'ptr+off' (where 'ptr' is a pointer and 'off' is an integer),
 	 * 'off' specifies the offset in number of elements (not bytes) and must
 	 * therefore be scaled accordingly ('off * sizeof(ptr)')
