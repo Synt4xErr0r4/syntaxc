@@ -86,6 +86,8 @@ public interface AssemblyGenerator {
 	
 	void member			(AssemblyTarget result, AssemblyTarget value, int offset, int bitOffset, int bitWidth);
 	
+	void arrayIndex		(AssemblyTarget result, AssemblyTarget target, AssemblyTarget index);
+	
 	void jump			(AssemblyTarget condition, String name);
 	void jump			(String name);
 	

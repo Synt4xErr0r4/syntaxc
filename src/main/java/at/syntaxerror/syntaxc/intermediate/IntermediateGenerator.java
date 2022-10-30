@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.intermediate.representation.AddIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.AddressOfIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.ArrayIndexIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.AssignIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseAndIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseNotIntermediate;
@@ -66,6 +67,7 @@ import at.syntaxerror.syntaxc.intermediate.representation.ShiftRightIntermediate
 import at.syntaxerror.syntaxc.intermediate.representation.SubtractIntermediate;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
@@ -492,6 +494,27 @@ public class IntermediateGenerator {
 			));
 
 			free(ir, target);
+			
+			return Pair.of(ir, result);
+		}
+		
+		else if(expression instanceof ArrayIndexExpressionNode idx) {
+			List<Intermediate> ir = new ArrayList<>();
+			
+			Operand result = temporary(idx.getType());
+
+			var target = processExpression(idx.getTarget());
+			target.ifLeftPresent(ir::addAll);
+
+			var index = processExpression(idx.getIndex());
+			index.ifLeftPresent(ir::addAll);
+			
+			ir.add(new ArrayIndexIntermediate(
+				pos,
+				result,
+				target.getRight(),
+				index.getRight()
+			));
 			
 			return Pair.of(ir, result);
 		}

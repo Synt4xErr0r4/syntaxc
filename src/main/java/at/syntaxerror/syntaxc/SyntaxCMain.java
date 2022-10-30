@@ -65,7 +65,9 @@ public class SyntaxCMain {
 		
 		if(Boolean.getBoolean("DEBUG"))
 			args = new String[] {
-				"/opt/syntaxc/test/test.c",
+				Boolean.getBoolean("DEBUG-WIN")
+					? System.getenv("APPDATA") + "\\SyntaxC\\test.c"
+					: "/opt/syntaxc/test/test.c",
 				"-o", "-",
 				"-fno-stdlib",
 				"-fno-long-double",

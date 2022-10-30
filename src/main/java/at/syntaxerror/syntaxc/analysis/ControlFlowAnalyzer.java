@@ -244,12 +244,16 @@ public class ControlFlowAnalyzer implements Logable {
 		
 		if(doesReturn) {
 			
+			addBlock(new CFGNode(
+				name,
+				List.of())
+			);
 			addBlock(CFGNode.EXIT);
 			
 			if(!skipLink)
 				linkInfo(previous, name);
 			
-			linkInfo(name, ".exit");
+			linkInfo(name, CFGNode.EXIT_NAME);
 		}
 		
 		linkInfos.forEach(info -> {
@@ -362,8 +366,11 @@ public class ControlFlowAnalyzer implements Logable {
 	@RequiredArgsConstructor
 	public static class CFGNode {
 		
-		public static final CFGNode ENTRY = new CFGNode(".entry", null);
-		public static final CFGNode EXIT = new CFGNode(".exit", null);
+		public static final String ENTRY_NAME = ".entry";
+		public static final String EXIT_NAME = ".exit";
+		
+		public static final CFGNode ENTRY = new CFGNode(ENTRY_NAME, null);
+		public static final CFGNode EXIT = new CFGNode(EXIT_NAME, null);
 		
 		public final String name;
 		public final List<Intermediate> code;

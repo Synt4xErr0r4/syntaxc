@@ -34,6 +34,7 @@ import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
@@ -253,17 +254,10 @@ public class ExpressionParser extends AbstractParser {
 				if(exprType.isIncomplete())
 					error(op, "Cannot get element of pointer to incomplete type »%s«", exprType);
 				
-				// ptr[idx] is equivalent to (*(ptr+idx)) ; yields an lvalue
-				expr = newUnary(
+				expr = new ArrayIndexExpressionNode(
 					pos,
-					newBinary(
-						pos,
-						expr,
-						index,
-						Punctuator.ADD
-					),
-					Punctuator.INDIRECTION,
-					exprType
+					expr,
+					index
 				);
 				continue;
 			}
@@ -431,42 +425,14 @@ public class ExpressionParser extends AbstractParser {
 			}
 			
 			if(equal("++", "--")) {
-				
-				Punctuator assignOp;
-				Punctuator binaryOp;
-				
-				if(equal("++")) {
-					assignOp = Punctuator.ADD;
-					binaryOp = Punctuator.SUBTRACT;
-				}
-				else {
-					assignOp = Punctuator.SUBTRACT;
-					binaryOp = Punctuator.ADD;
-				}
-				
-				Position pos = op.getPosition();
-				
-				// x++ is equivalent to ((x += 1) - 1)
-				// x-- is equivalent to ((x -= 1) + 1)
-				
-				NumberLiteralExpressionNode one = Constants.one(pos);
-				
-				expr = newCast( // cast to typeof x
-					pos,
-					newBinary( // (x += 1) - 1 or (x -= 1) + 1
-						pos,
-						newAssignment( // x += 1 or x -= 1
-							pos,
-							expr,
-							one,
-							assignOp
-						),
-						one,
-						binaryOp,
-						exprType
-					),
-					exprType
+				expr = newUnary(
+					op.getPosition(),
+					expr,
+					equal("++")
+						? Punctuator.INCREMENT
+						: Punctuator.DECREMENT
 				);
+				
 				continue;
 			}
 		}

@@ -155,8 +155,11 @@ public class ControlFlowGraphGenerator {
 			else code.add(rec("return;" + EOL));
 			
 			addBlock(
-				".exit",
-				makeDiamond(".exit", "EXIT")
+				CFGNode.EXIT_NAME,
+				makeDiamond(
+					CFGNode.EXIT_NAME,
+					"EXIT"
+				)
 			);
 			return;
 		}
@@ -212,8 +215,11 @@ public class ControlFlowGraphGenerator {
 		addLabel(name);
 		
 		addBlock(
-			".entry",
-			makeDiamond(".entry", "ENTRY")
+			CFGNode.ENTRY_NAME,
+			makeDiamond(
+				CFGNode.ENTRY_NAME,
+				"ENTRY"
+			)
 		);
 		
 		link(CFGNode.ENTRY, graph, null);

@@ -628,6 +628,11 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 	}
 	
 	@Override
+	public void arrayIndex(AssemblyTarget result, AssemblyTarget target, AssemblyTarget index) {
+		// TODO Auto-generated method stub
+	}
+	
+	@Override
 	public void jump(AssemblyTarget condition, String name) {
 		add(
 			x86.test(condition),
