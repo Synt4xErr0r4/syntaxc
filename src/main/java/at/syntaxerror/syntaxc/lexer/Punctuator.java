@@ -34,6 +34,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
+ * This enum contains all punctuators and operators defined in the ANSI C standard (§§ 6.1.5, 6.1.6)
+ * 
  * @author Thomas Kasper
  * 
  */

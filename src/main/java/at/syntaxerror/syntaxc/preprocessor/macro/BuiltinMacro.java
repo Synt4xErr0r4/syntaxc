@@ -40,15 +40,18 @@ import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 
 /**
+ * This class handles built-in macros and allows creation of such.
+ * 
  * @author Thomas Kasper
  * 
  */
 public record BuiltinMacro(String name, Function<Token, List<Token>> function, boolean constant) implements Macro {
 	
-	private static final Token DUMMY = Token.ofUnparseable(new Position(0, 0, 0, 0, 0, null), 0);
+	private static final Token DUMMY = Token.ofUnparseable(Position.dummy(), 0);
 	
 	private static final Map<String, BuiltinMacro> BUILTIN_MACROS = new HashMap<>();
 	
+	// the values for the __DATE__ and __TIME__ macros, initialized in the static block below
 	private static final String DATE, TIME;
 	
 	static {
@@ -73,26 +76,69 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 		TIME = "%02d:%02d:%02d".formatted(hour, minute, second);
 	}
 	
+	/**
+	 * Returns an unmodifiable view of all defined built-in macros.
+	 * The returned map also reflects changes made afterwards.
+	 * 
+	 * @return all defined built-in macros
+	 */
 	public static Map<String, BuiltinMacro> getBuiltinMacros() {
 		return Collections.unmodifiableMap(BUILTIN_MACROS);
 	}
 
+	/**
+	 * Defines a macro expanding to multiple tokens.<br>
+	 * Effectively equal to {@code #define name tokens}, where {@code tokens} is the result of invoking {@code function}.
+	 * 
+	 * @param name the name of the macro
+	 * @param function a function accepting the token representing the macro, returning a list of substituted tokens
+	 * @param constant whether the result of the function is constant
+	 */
 	public static void defineList(String name, Function<Token, List<Token>> function, boolean constant) {
 		BUILTIN_MACROS.put(name, new BuiltinMacro(name, function, constant));
 	}
-	
+
+	/**
+	 * Defines a macro expanding to multiple tokens.<br>
+	 * Effectively equal to {@code #define name tokens}, where {@code tokens} is the result of invoking {@code function}.
+	 * 
+	 * @param name the name of the macro
+	 * @param function a function accepting the token representing the macro, returning a list of tokens to be substituted
+	 */
 	public static void defineList(String name, Function<Token, List<Token>> function) {
 		defineList(name, function, false);
 	}
-	
+
+	/**
+	 * Defines a macro expanding to a single token.<br>
+	 * Effectively equal to {@code #define name token}, where {@code token} is the result of invoking {@code function}.
+	 * 
+	 * @param name the name of the macro
+	 * @param function a function accepting the token representing the macro, returning a single token to be substituted
+	 * @param constant whether the result of the function is constant
+	 */
 	public static void defineToken(String name, Function<Token, Token> function, boolean constant) {
 		defineList(name, self -> List.of(function.apply(self)), constant);
 	}
-	
+
+	/**
+	 * Defines a macro expanding to a single token.<br>
+	 * Effectively equal to {@code #define name token}, where {@code token} is the result of invoking {@code function}.
+	 * 
+	 * @param name the name of the macro
+	 * @param function a function accepting the token representing the macro, returning a single token to be substituted
+	 */
 	public static void defineToken(String name, Function<Token, Token> function) {
 		defineList(name, self -> List.of(function.apply(self)), false);
 	}
-	
+
+	/**
+	 * Defines a macro expanding to a string.<br>
+	 * Effectively equal to {@code #define name "value"}, where {@code "value"} is the result of invoking {@code function}.
+	 * 
+	 * @param name the name of the macro
+	 * @param function a function accepting the token representing the macro, returning the string to be substituted
+	 */
 	public static void defineString(String name, Function<Token, String> function) {
 		defineToken(
 			name,
@@ -108,23 +154,45 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 			false
 		);
 	}
-	
-	public static void defineString(String name, String constant) {
+
+	/**
+	 * Defines a macro expanding to a string.<br>
+	 * Effectively equal to {@code #define name "value"}.
+	 * 
+	 * @param name the name of the macro
+	 * @param value the string to be substituted
+	 */
+	public static void defineString(String name, String value) {
 		defineToken(
 			name,
 			self -> Token.ofString(
 				self.getPosition(),
-				constant,
+				value,
 				false
 			),
 			true
 		);
 	}
-	
+
+	/**
+	 * Defines a macro expanding to a signed integer.<br>
+	 * Effectively equal to {@code #define name value}, where {@code value} is the result of invoking {@code function}.
+	 * 
+	 * @param name the name of the macro
+	 * @param function a function accepting the token representing the macro, returning the number to be substituted
+	 */
 	public static void defineNumber(String name, Function<Token, Number> function) {
 		defineNumber(name, function, NumericValueType.SIGNED_INT);
 	}
-	
+
+	/**
+	 * Defines a macro expanding to a number of a given type.<br>
+	 * Effectively equal to {@code #define name ((type) value)}, where {@code value} is the result of invoking {@code function}.
+	 * 
+	 * @param name the name of the macro
+	 * @param function a function accepting the token representing the macro, returning the number to be substituted
+	 * @param type the type of the number
+	 */
 	public static void defineNumber(String name, Function<Token, Number> function, NumericValueType type) {
 		defineToken(
 			name,
@@ -132,41 +200,66 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 			false
 		);
 	}
-	
-	public static void defineNumber(String name, Number constant) {
-		defineNumber(name, constant, NumericValueType.SIGNED_INT);
+
+	/**
+	 * Defines a macro expanding to a signed integer.<br>
+	 * Effectively equal to {@code #define name value}.
+	 * 
+	 * @param name the name of the macro
+	 * @param value the number to be substituted
+	 */
+	public static void defineNumber(String name, Number value) {
+		defineNumber(name, value, NumericValueType.SIGNED_INT);
 	}
-	
-	public static void defineNumber(String name, Number constant, NumericValueType type) {
-		final Number value;
+
+	/**
+	 * Defines a macro expanding to a number of a given type.<br>
+	 * Effectively equal to {@code #define name ((type) value)}.
+	 * 
+	 * @param name the name of the macro
+	 * @param value the number to be substituted
+	 * @param type the type of the number
+	 */
+	public static void defineNumber(String name, Number value, NumericValueType type) {
+		final Number num;
 		
-		if(constant instanceof BigInteger || constant instanceof BigDecimal)
-			value = constant;
+		if(value instanceof BigInteger || value instanceof BigDecimal)
+			num = value;
 		
 		else if(type.isFloating())
-			value = BigDecimal.valueOf(constant.doubleValue());
+			num = BigDecimal.valueOf(value.doubleValue());
 		
-		else value = BigInteger.valueOf(constant.longValue());
+		else num = BigInteger.valueOf(value.longValue());
 		
 		defineToken(
 			name,
-			self -> makeNumberToken(self, value, type),
+			self -> makeNumberToken(self, num, type),
 			true
 		);
 	}
 	
-	private static Token makeNumberToken(Token self, Number num, NumericValueType type) {
-		if(num instanceof BigInteger bigint)
+	/**
+	 * Creates a numeric token of the given {@code type}, with the given
+	 * {@code value} at the position of the given {@code token},
+	 * effectively aiming to replace {@code token} with the new token.
+	 * 
+	 * @param token the token to be replaced
+	 * @param value the value of the new token
+	 * @param type the type of the new token
+	 * @return the new token
+	 */
+	private static Token makeNumberToken(Token token, Number value, NumericValueType type) {
+		if(value instanceof BigInteger bigint)
 			return Token.ofConstant(
-				self.getPosition(),
+				token.getPosition(),
 				type.mask(bigint),
 				type
 			).setRaw(bigint.toString());
 		
-		BigDecimal bigdec = (BigDecimal) num;
+		BigDecimal bigdec = (BigDecimal) value;
 		
 		return Token.ofConstant(
-			self.getPosition(),
+			token.getPosition(),
 			type.inRange(bigdec)
 				? bigdec
 				: bigdec.compareTo((BigDecimal) type.getMax()) > 0
@@ -176,6 +269,12 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 		).setRaw(bigdec.toEngineeringString());
 	}
 	
+	/**
+	 * Defines a macro expanding to the signed integer of value {@code 1}.<br>
+	 * Effectively equal to {@code #define name 1}.
+	 * 
+	 * @param name
+	 */
 	public static void define(String name) {
 		defineNumber(name, 1L);
 	}

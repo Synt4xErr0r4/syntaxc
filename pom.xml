@@ -5,7 +5,7 @@
 	<version>1.0.0</version>
 	
 	<name>SyntaxC</name>
-	<description>An ANSI-C compiler written in Java 18</description>
+	<description>An ANSI-C compiler written in Java 19</description>
 
 	<licenses>
 		<license>
@@ -41,7 +41,7 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
 				<configuration>
-					<release>18</release>
+					<release>19</release>
 					<compilerArgs>
 						--enable-preview
 					</compilerArgs>

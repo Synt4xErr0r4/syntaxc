@@ -22,26 +22,39 @@
  */
 package at.syntaxerror.syntaxc.builtin.impl;
 
-import java.util.List;
-
 import at.syntaxerror.syntaxc.builtin.BuiltinContext;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
-import at.syntaxerror.syntaxc.builtin.BuiltinResult;
+import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class BuiltinVaEnd implements BuiltinFunction {
+public class BuiltinVaEnd extends BuiltinFunction {
 
+	public BuiltinVaEnd() {
+		super("va_end");
+	}
+	
 	@Override
-	public BuiltinResult call(BuiltinContext context, List<ExpressionNode> arguments) {
+	public void populate(BuiltinContext context) {
+		if(!context.isInsideFunction())
+			context.error(Warning.SEM_NONE, "Cannot call »__builtin_va_end« outside of a function");
 		
+		ExpressionArgument expr = context.nextExpression();
 		
+		context.ensureClosed();
 		
-		return new BuiltinResult(List.of(), null, Type.VOID);
+		VariadicUtils.ensureVaListType(expr, expr.getType());
+		ExpressionNode.markUsed(expr.getExpression());
+		
+		FunctionType type = context.getEnclosingFunction();
+		
+		VariadicUtils.ensureVariadic(context, type, "__builtin_va_end");
+
+		args.add(expr);
 	}
 	
 }

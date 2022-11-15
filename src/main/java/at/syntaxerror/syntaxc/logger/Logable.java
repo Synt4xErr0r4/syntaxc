@@ -105,11 +105,6 @@ public interface Logable extends Positioned {
 	
 
 	default void error(Positioned position, Warning warning, String message, Object...args) {
-		if(warning == Warning.CONTINUE) {
-			Logger.dontTerminate = true;
-			warning = getDefaultWarning();
-		}
-		
 		Logger.log(LogLevel.ERROR, position, warning, message, args);
 	}
 
@@ -118,11 +113,6 @@ public interface Logable extends Positioned {
 	}
 
 	default void error(Warning warning, String message, Object...args) {
-		if(warning == Warning.CONTINUE) {
-			Logger.dontTerminate = true;
-			warning = getDefaultWarning();
-		}
-		
 		Logger.log(LogLevel.ERROR, getPosition(), warning, message, args);
 	}
 
@@ -137,6 +127,71 @@ public interface Logable extends Positioned {
 
 	default void error(Flag flag, String message, Object...args) {
 		Logger.error(flag, message, args);
+	}
+	
+
+	default void softError(Positioned position, Warning warning, String message, Object...args) {
+		if(!onBeforeSoftError())
+			return;
+		
+		Logger.logRecover(LogLevel.ERROR, position, warning, message, args);
+
+		onAfterSoftError();
+	}
+
+	default void softError(Positioned position, String message, Object...args) {
+		if(!onBeforeSoftError())
+			return;
+		
+		Logger.logRecover(LogLevel.ERROR, position, getDefaultWarning(), message, args);
+
+		onAfterSoftError();
+	}
+
+	default void softError(Warning warning, String message, Object...args) {
+		if(!onBeforeSoftError())
+			return;
+		
+		Logger.logRecover(LogLevel.ERROR, getPosition(), warning, message, args);
+
+		onAfterSoftError();
+	}
+
+	default void softError(String message, Object...args) {
+		if(!onBeforeSoftError())
+			return;
+		
+		Logger.logRecover(LogLevel.ERROR, getPosition(), getDefaultWarning(), message, args);
+
+		onAfterSoftError();
+	}
+
+	
+	default void softError(Positioned position, Flag flag, String message, Object...args) {
+		if(!onBeforeSoftError())
+			return;
+		
+		Logger.softError(position, flag, message, args);
+
+		onAfterSoftError();
+	}
+
+	default void softError(Flag flag, String message, Object...args) {
+		if(!onBeforeSoftError())
+			return;
+		
+		Logger.softError(flag, message, args);
+		
+		onAfterSoftError();
+	}
+	
+	
+	default boolean onBeforeSoftError() {
+		return true;
+	}
+	
+	default void onAfterSoftError() {
+		
 	}
 	
 	

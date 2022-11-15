@@ -22,8 +22,7 @@
  */
 package at.syntaxerror.syntaxc.symtab.global;
 
-import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
-
+import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.misc.Pair;
@@ -33,17 +32,18 @@ import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
  * @author Thomas Kasper
  * 
  */
-public record ListInitializer(List<ListInitializerEntry> initializers) implements GlobalVariableInitializer {
+public record ListInitializer(List<GlobalVariableInitializer> initializers) implements GlobalVariableInitializer {
 	
-	public static record ListInitializerEntry(int offset, GlobalVariableInitializer initializer) {
-		
-	}
-
 	@Override
 	public List<Pair<String, SyntaxTreeNode>> getChildren() {
-		return initializers.stream()
-			.map(entry -> child(Integer.toString(entry.offset()), entry.initializer()))
-			.toList();
+		List<Pair<String, SyntaxTreeNode>> list = new ArrayList<>();
+		
+		int i = 0;
+		
+		for(GlobalVariableInitializer init : initializers())
+			list.add(Pair.of(Integer.toString(i++), init));
+		
+		return list;
 	}
 	
 }

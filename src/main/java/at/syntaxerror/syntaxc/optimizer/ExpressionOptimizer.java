@@ -167,12 +167,12 @@ public class ExpressionOptimizer {
 				call.getFunctionType()
 			);
 		
-		else if(expr instanceof MemberAccessExpressionNode call)
+		else if(expr instanceof MemberAccessExpressionNode mem)
 			expr = new MemberAccessExpressionNode(
-				call.getPosition(),
-				optimize(call.getTarget()),
-				call.getMember(),
-				call.getType()
+				mem.getPosition(),
+				optimize(mem.getTarget()),
+				mem.getMember(),
+				mem.getType()
 			);
 		
 		return eval ? eval(expr) : expr;

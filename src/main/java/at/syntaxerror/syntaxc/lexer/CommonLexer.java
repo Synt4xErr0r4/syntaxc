@@ -33,6 +33,8 @@ import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.RequiredArgsConstructor;
 
 /**
+ * This class represents the lexer used for pre-processing and lexing C code
+ * 
  * @author Thomas Kasper
  * 
  */
@@ -190,7 +192,7 @@ public abstract class CommonLexer implements Logable {
 			case 'v': c = 0x0B; break; // vertical tab
 			
 			default:
-				error(Warning.CONTINUE, "Unrecognized escape sequence in %s", where);
+				softError("Unrecognized escape sequence in %s", where);
 				break;
 			}
 		}

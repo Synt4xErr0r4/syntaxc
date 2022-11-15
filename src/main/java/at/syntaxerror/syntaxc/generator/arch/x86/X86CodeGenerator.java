@@ -44,11 +44,13 @@ import at.syntaxerror.syntaxc.generator.asm.target.AssemblyLabel;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ConstantOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.GlobalOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndexOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ReturnValueOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.TemporaryOperand;
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.misc.AlignmentUtils;
 import at.syntaxerror.syntaxc.misc.StringUtils;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
@@ -169,6 +171,7 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 		
 		if(operand instanceof LocalOperand local) {
 			
+			return X86Register.RAX; // TODO
 		}
 		
 		if(operand instanceof ReturnValueOperand retval) {
@@ -210,6 +213,11 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 				}
 				
 			};	
+		}
+		
+		if(operand instanceof IndexOperand index) {
+			
+			return X86Register.RAX; // TODO
 		}
 		
 		Logger.error("Unrecognized operand");
@@ -275,13 +283,10 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 			if(size < 1)
 				throw new SyntaxCException("Illegal non-positive size for variable " + name);
 			
-			int align = 0;
+			int align = ArchitectureRegistry.getAlignment();
 			
-			if(size == 2 || size == 4 || size == 8)
-				align = size;
-			
-			else if(size > 8)
-				align = size <= 16 ? 16 : 32;
+			if(align < 0)
+				align = AlignmentUtils.align(size);
 			
 			if(align != 0)
 				asm(".align %d", align);
@@ -372,11 +377,8 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 		
 		outer:
 		while(size > 0) {
-			
-			asm(".");
-			
 			for(int sz : sizes)
-				if(sz >= size) {
+				if(size >= sz) {
 					
 					size -= sz;
 					
@@ -396,6 +398,28 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 	@Override
 	public void zero(int size) {
 		asm(".zero %d", size);
+	}
+	
+	public void memcpy(AssemblyTarget dst, AssemblyTarget src, int dstOffset, int srcOffset, int length) {
+		// if(!dst.isSD()) ;
+		// if(!src.isSI()) ;
+		
+		add(
+			x86.mov(X86Register.EDI, dst), // TODO
+			x86.mov(X86Register.ESI, src), // TODO
+			x86.mov(X86Register.ECX, length)
+		);
+		asm("rep movsb");
+	}
+	
+	public void memset(AssemblyTarget dst, int offset, int length, int value) {
+
+		add(
+			x86.mov(X86Register.EDI, dst), // TODO
+			x86.mov(X86Register.ECX, length),
+			x86.mov(X86Register.AL, value)
+		);
+		asm("rep stosb");
 	}
 	
 	private void switchArithmetic(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right,

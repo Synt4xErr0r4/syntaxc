@@ -44,7 +44,11 @@ public enum Flag implements NamedToggle {
 	UNSIGNED_CHAR		("unsigned-char",		"When enabled, §cchar§fs will be unsigned", false),
 	SYNTAX_TREE			("syntax-tree",			"Generates the syntax tree in DOT, PNG, or SVG format", false, "dot"),
 	CONTROL_FLOW_GRAPH	("control-flow-graph",	"Generates the control flow graph in DOT, PNG, or SVG format", false, "dot"),
-	CFG_VERBOSE			("cfg-verbose",			"Includes synthetic instruction in the control flow graph output", false)
+	CFG_VERBOSE			("cfg-verbose",			"Includes synthetic instruction in the control flow graph output", false),
+	ALIGN				("align",				"Specifies the alignment for global variables, must be a multiple of 4", false, "4"),
+	PACKED				("packed",				"Specifies whether structs should be as compact as possible", false),
+	VERBOSE				("verbose",				"Enables more verbose diagnostic messages"),
+	VERY_VERBOSE		("very-verbose",		"Enables very verbose diagnostic messages", false)
 	;
 	
 	private static final Map<String, Flag> FLAGS;

@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import at.syntaxerror.syntaxc.SyntaxCException;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.FunctionMetadata;
@@ -159,27 +158,15 @@ public abstract class CodeGenerator implements Logable {
 			return size;
 			
 		case ListInitializer listInit:
-		
+			
 			size = 0;
 			
-			for(var entry : listInit.initializers()) {
-				
-				int diff = entry.offset() - size;
-				
-				if(diff != 0) {
-					if(diff < 0)
-						throw new SyntaxCException("Illegal offset for list initializer entry resides inside previous sibling's data");
-					
-					asm.zero(diff);
-				}
-				
-				size += generateInit(asm, entry.initializer());
-			}
+			for(var entry : listInit.initializers())
+				size += generateInit(asm, entry);
 			
 			return size;
 			
 		case ZeroInitializer zeroInit:
-			
 			size = zeroInit.size();
 			
 			asm.zero(size);

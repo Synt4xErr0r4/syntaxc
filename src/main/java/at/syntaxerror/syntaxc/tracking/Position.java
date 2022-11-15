@@ -22,15 +22,32 @@
  */
 package at.syntaxerror.syntaxc.tracking;
 
+import java.util.Set;
+
 import at.syntaxerror.syntaxc.io.CharStream;
+import at.syntaxerror.syntaxc.preprocessor.macro.Macro;
 
 /**
+ * This class represents a code section inside of a file
+ * 
  * @author Thomas Kasper
  * 
  */
-public record Position(long bytenum, long position, long column, long line, long length, CharStream file) implements Positioned, Comparable<Position> {
+public record Position(long bytenum, long position, long column, long line, long length, CharStream file,
+		Set<Macro> expansions, Position expansionRoot) implements Positioned, Comparable<Position> {
 
-	public static final long ARGUMENT = Long.MIN_VALUE;
+	public static final long DUMMY = Long.MIN_VALUE;
+	public static final long ARGUMENT = Long.MIN_VALUE + 1;
+	
+	public static final Position DUMMY_POSITION = new Position(DUMMY, 0, 0, 0, 0, null, Set.of(), null);
+	
+	public static Position argument(long length) {
+		return new Position(ARGUMENT, 0, 0, 0, length, null, Set.of(), null);
+	}
+
+	public static Position dummy() {
+		return DUMMY_POSITION;
+	}
 	
 	/*
 	 * bytenum: the offset from the start of the file in bytes
@@ -46,6 +63,24 @@ public record Position(long bytenum, long position, long column, long line, long
 		return this;
 	}
 	
+	/**
+	 * Merges this and the {@code other} position into a single position, spanning across the range confined by both positions:
+	 * 
+	 * <code><pre>
+	 * 1. -----------------------
+	 * 2. -----AAAAA----BBB------
+	 * 3. -----CCCCCCCCCCCC------
+	 * </pre></code>
+	 * 
+	 * <ol>
+	 * <li> Dashes ({@code -}) represent code.</li>
+	 * <li> {@code A} and {@code B} represent this and the {@code other} position (order is interchangeable).</li>
+	 * <li> {@code C} represents the resulting position of this function.</li>
+	 * </ol> 
+	 * 
+	 * @param other the other position
+	 * @return the position spanning across the range confined by both positions
+	 */
 	public Position range(Position other) {
 		if(other == this)
 			return this;
@@ -59,10 +94,18 @@ public record Position(long bytenum, long position, long column, long line, long
 			column,
 			line,
 			other.position() + other.length() - bytenum,
-			file
+			file,
+			Set.of(),
+			null
 		);
 	}
 
+	/**
+	 * See {@link #range(Position)} for more information
+	 * 
+	 * @param other the other position
+	 * @return the position spanning across the range confined by both positions
+	 */
 	public Position range(Positioned other) {
 		return range(other.getPosition());
 	}

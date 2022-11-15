@@ -31,7 +31,6 @@ import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.misc.IncludePathRegistry;
-import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.tracking.Position;
 
@@ -113,7 +112,7 @@ public class IncludeDirective extends Directive {
 				else if(tok.is(TokenType.IDENTIFIER)) {
 					whitespace = false;
 					
-					List<Token> subst = substitute(true);
+					List<Token> subst = substitute(tok, true);
 					
 					if(!subst.isEmpty()) {
 						int i;
@@ -169,7 +168,7 @@ public class IncludeDirective extends Directive {
 			} while(true);
 			
 			if(tokens.isEmpty()) {
-				error(Warning.CONTINUE, "Missing file for »include« preprocessing directive");
+				softError("Missing file for »include« preprocessing directive");
 				return List.of();
 			}
 			

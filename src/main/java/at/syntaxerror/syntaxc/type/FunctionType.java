@@ -33,12 +33,17 @@ import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.Getter;
 
 /**
+ * This class represents a function type, e.g. {@code void my_func(int, long) }
+ * 
  * @author Thomas Kasper
  * 
  */
 @Getter
 public class FunctionType extends Type {
 
+	/**
+	 * Constant for an implicitly defined function, e.g. {@code int my_func()}
+	 */
 	public static final FunctionType IMPLICIT = new FunctionType(INT) {
 		
 		@Override
@@ -62,6 +67,11 @@ public class FunctionType extends Type {
 	private boolean variadic;  // functions with ellipsis in parameter list, e.g. void my_func(int i, ...)
 	private boolean kAndR;	   // functions declared using K&R syntax
 	
+	/**
+	 * Constructs a new function type with type given return type
+	 * 
+	 * @param returnType the return type
+	 */
 	public FunctionType(Type returnType) {
 		super(TypeKind.FUNCTION);
 		this.returnType = returnType;
@@ -69,18 +79,43 @@ public class FunctionType extends Type {
 		parameters = new ArrayList<>();
 	}
 	
+	/**
+	 * Returns an unmodifiable view of the function parameters
+	 * 
+	 * @return an unmodifiable view of the function parameters
+	 */
 	public List<Parameter> getParameters() {
 		return Collections.unmodifiableList(parameters);
 	}
 	
+	/**
+	 * Adds an parameter to the function
+	 * 
+	 * @param param the paramter to be added
+	 */
 	public void addParameter(Parameter param) {
 		parameters.add(param);
 	}
 	
+	/**
+	 * Marks this function as variadic, e.g. {@code void my_func(int, ...)}
+	 */
 	public void setVariadic() {
 		variadic = true;
 	}
-	
+
+	/**
+	 * Marks this function as declared using old K&R syntax, e.g.:
+	 * <code><pre>
+	 * void my_func(a, b, c)
+	 * int a;
+	 * long b;
+	 * char *c;
+	 * {
+	 *   /&ast; ... &ast;/
+	 * }
+	 * </pre></code>
+	 */
 	public void setKAndR() {
 		kAndR = true;
 	}
@@ -130,6 +165,12 @@ public class FunctionType extends Type {
 			+ suffix.substring(1);
 	}
 	
+	/**
+	 * This class represents the parameter of {@code FunctionType}
+	 * 
+	 * @author Thomas Kasper
+	 *
+	 */
 	public static record Parameter(Positioned pos, String name, Type type, Optional<Keyword> storageSpecs) implements Positioned {
 		
 		@Override

@@ -32,6 +32,8 @@ import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 
 /**
+ * This class represents the lexer used for lexing C code
+ * 
  * @author Thomas Kasper
  * 
  */

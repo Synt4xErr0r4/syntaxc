@@ -58,7 +58,7 @@ public class IfDirective extends Directive {
 	 * success && !alreadySucceeded => return current block
 	 * !success && alreadySucceeded => return empty block
 	 * !success && !alreadySucceeded => return next block (recursively; until one of the two options above apply)
-	 * success && alreadySucceeded => illegal state
+	 * success && alreadySucceeded => illegal state (would mean that two blocks within the same if-else statement were accepted)
 	 */
 	private List<Token> processBlock(boolean success) {
 		List<Token> result = processTokens(true, !success);

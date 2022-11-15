@@ -47,6 +47,7 @@ import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
+import lombok.Getter;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
 
@@ -68,6 +69,9 @@ public class Parser extends AbstractParser {
 	private ExpressionParser expressionParser;
 	private DeclarationParser declarationParser;
 	private StatementParser statementParser;
+	
+	@Getter
+	private FunctionType activeFunctionType;
 	
 	public Parser(List<Token> tokens) {
 		this.tokens = tokens;
@@ -215,16 +219,16 @@ public class Parser extends AbstractParser {
 			
 			enterScope();
 			
-			FunctionType funType = type.toFunction();
+			activeFunctionType = type.toFunction();
 			
-			if(funType.isKAndR()) {
-			
-				Set<String> parameterNames = funType
+			if(activeFunctionType.isKAndR()) {
+				
+				Set<String> parameterNames = activeFunctionType
 					.getParameters()
 					.stream()
 					.map(Parameter::name)
 					.collect(Collectors.toUnmodifiableSet());
-	
+				
 				Set<String> parameterNamesFound = new HashSet<>();
 				
 				while(!skip("{")) {
@@ -285,12 +289,30 @@ public class Parser extends AbstractParser {
 					}
 			
 			}
+			else {
+				for(Parameter param : activeFunctionType.getParameters()) {
+					String paramName = param.name();
+					
+					if(paramName == null)
+						error(param, "Illegal unnamed function parameter");
+					
+					Type paramType = param.type();
+					
+					if(paramType == null)
+						error(param, "Missing type for function parameter »%s«", paramName);
+
+					SymbolObject obj = SymbolObject.local(decl, paramName, paramType);
+					obj.setUnused(false);
+					
+					getSymbolTable().addObject(obj);
+				}
 			
-			else consume("{");
+				consume("{");
+			}
 
 			String name = decl.getName();
 			
-			CompoundStatementNode body = statementParser.nextFunctionBody(funType.getReturnType(), name);
+			CompoundStatementNode body = statementParser.nextFunctionBody(activeFunctionType.getReturnType(), name);
 			
 			var globalVariables = statementParser.getGlobalVariables();
 			
@@ -305,19 +327,19 @@ public class Parser extends AbstractParser {
 				SymbolObject obj = symtab.findObjectInScope(name);
 
 				if(!TypeUtils.isEqual(type, obj.getType())) {
-					error(decl, Warning.CONTINUE, "Incompatible types for »%s«", name);
+					softError(decl, "Incompatible types for »%s«", name);
 					note(obj, "Previously declared here");
 					terminate();
 				}
 				
 				if(!obj.isPrototype()) {
-					error(decl, Warning.CONTINUE, "Redefinition of »%s«", name);
+					softError(decl, "Redefinition of »%s«", name);
 					note(obj, "Previously defined here");
 					terminate();
 				}
 				
 				if(internal && obj.getFunctionData().linkage() == Linkage.EXTERNAL) {
-					error(decl, Warning.CONTINUE, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
+					softError(decl, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
 					note(obj, "Previously declared here");
 					terminate();
 				}
@@ -328,7 +350,7 @@ public class Parser extends AbstractParser {
 			SymbolObject obj = SymbolObject.function(
 				decl,
 				name,
-				funType,
+				activeFunctionType,
 				linkage,
 				statementParser.getReturnLabel()
 			);
@@ -336,6 +358,8 @@ public class Parser extends AbstractParser {
 			symtab.addObject(obj);
 			
 			nodes.add(new FunctionNode(obj, globalVariables, body));
+			
+			activeFunctionType = null;
 		}
 		else while(true) {
 			Initializer init = null;
@@ -388,13 +412,13 @@ public class Parser extends AbstractParser {
 			SymbolObject obj = symtab.findObjectInScope(name);
 			
 			if(obj.isTypedef() != state.typedef()) {
-				error(pos, Warning.CONTINUE, "Redefinition of »%s« as another type", name);
+				softError(pos, "Redefinition of »%s« as another type", name);
 				note(obj, "Previously declared here");
 				terminate();
 			}
 			
 			if(!TypeUtils.isEqual(type, obj.getType())) {
-				error(pos, Warning.CONTINUE, "Incompatible types for »%s«", name);
+				softError(pos, "Incompatible types for »%s«", name);
 				note(obj, "Previously declared here");
 				terminate();
 			}
@@ -403,7 +427,7 @@ public class Parser extends AbstractParser {
 				return null;
 			
 			if(obj.getVariableData().initializer() != null && hasInit) {
-				error(pos, Warning.CONTINUE, "Redefinition of »%s«", name);
+				softError(pos, "Redefinition of »%s«", name);
 				note(obj, "Previously declared here");
 				terminate();
 			}
@@ -412,7 +436,7 @@ public class Parser extends AbstractParser {
 				return null;
 			
 			if(state.internal() && obj.getLinkage() == Linkage.EXTERNAL) {
-				error(pos, Warning.CONTINUE, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
+				softError(pos, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
 				note(obj, "Previously declared here");
 				terminate();
 			}

@@ -29,14 +29,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import at.syntaxerror.syntaxc.builtin.BuiltinFunction.ExpressionArgument;
 import at.syntaxerror.syntaxc.intermediate.representation.AddIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.AddressOfIntermediate;
-import at.syntaxerror.syntaxc.intermediate.representation.ArrayIndexIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.AssignIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseAndIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseNotIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseOrIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseXorIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.BuiltinIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.CastIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.DivideIntermediate;
@@ -47,6 +48,8 @@ import at.syntaxerror.syntaxc.intermediate.representation.IndirectionIntermediat
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ConstantOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.GlobalOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndexOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndirectionOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ReturnValueOperand;
@@ -58,6 +61,8 @@ import at.syntaxerror.syntaxc.intermediate.representation.LessThanOrEqualInterme
 import at.syntaxerror.syntaxc.intermediate.representation.LogicalAndIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.LogicalOrIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.MemberIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.MemcpyIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.MemsetIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.MinusIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.ModuloIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.MultiplyIntermediate;
@@ -65,15 +70,19 @@ import at.syntaxerror.syntaxc.intermediate.representation.NotEqualIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.ShiftLeftIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.ShiftRightIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.SubtractIntermediate;
+import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.BuiltinExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.MemberAccessExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.MemcpyExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.MemsetExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.NumberLiteralExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
@@ -94,6 +103,61 @@ import at.syntaxerror.syntaxc.type.Type;
  */
 public class IntermediateGenerator {
 
+	private static final Map<Punctuator, BinaryConstructor> BINARY_OPERATIONS;
+	private static final Map<Punctuator, UnaryConstructor> UNARY_OPERATIONS;
+	
+	private static void binary(Punctuator punct, BinaryConstructor constructor) {
+		BINARY_OPERATIONS.put(punct, constructor);
+	}
+
+	private static void unary(Punctuator punct, UnaryConstructor constructor) {
+		UNARY_OPERATIONS.put(punct, constructor);
+	}
+	
+	static {
+		BINARY_OPERATIONS = new HashMap<>();
+		UNARY_OPERATIONS = new HashMap<>();
+		
+		// INDIRECTION and MULTIPLY have the same symbol (*)
+		binary(Punctuator.INDIRECTION,	MultiplyIntermediate::new);
+		binary(Punctuator.MULTIPLY,		MultiplyIntermediate::new);
+		binary(Punctuator.DIVIDE,		DivideIntermediate::new);
+		binary(Punctuator.MODULO,		ModuloIntermediate::new);
+		// PLUS and AND have the same symbol (+)
+		binary(Punctuator.ADD,			AddIntermediate::new);
+		binary(Punctuator.PLUS,			AddIntermediate::new);
+		// MINUS and SUBTRACT have the same symbol (-)
+		binary(Punctuator.SUBTRACT,		SubtractIntermediate::new);
+		binary(Punctuator.MINUS,		SubtractIntermediate::new);
+		binary(Punctuator.LSHIFT,		ShiftLeftIntermediate::new);
+		binary(Punctuator.RSHIFT,		ShiftRightIntermediate::new);
+		binary(Punctuator.LESS,			LessThanIntermediate::new);
+		binary(Punctuator.LESS_EQUAL,	LessThanOrEqualIntermediate::new);
+		binary(Punctuator.GREATER,		GreaterThanIntermediate::new);
+		binary(Punctuator.GREATER_EQUAL, GreaterThanOrEqualIntermediate::new);
+		binary(Punctuator.EQUAL,		EqualIntermediate::new);
+		binary(Punctuator.NOT_EQUAL,	NotEqualIntermediate::new);
+		// ADDRESS_OF and BITWISE_AND have the same symbol (&)
+		binary(Punctuator.BITWISE_AND,	BitwiseAndIntermediate::new);
+		binary(Punctuator.ADDRESS_OF,	BitwiseAndIntermediate::new);
+		binary(Punctuator.BITWISE_OR,	BitwiseOrIntermediate::new);
+		binary(Punctuator.BITWISE_XOR,	BitwiseXorIntermediate::new);
+		binary(Punctuator.LOGICAL_AND,	LogicalAndIntermediate::new);
+		binary(Punctuator.LOGICAL_OR,	LogicalOrIntermediate::new);
+
+		
+		unary(Punctuator.BITWISE_NOT,	BitwiseNotIntermediate::new);
+		// MINUS and SUBTRACT have the same symbol (-)
+		unary(Punctuator.MINUS,			MinusIntermediate::new);
+		unary(Punctuator.SUBTRACT,		MinusIntermediate::new);
+		// INDIRECTION and MULTIPLY have the same symbol (*)
+		unary(Punctuator.INDIRECTION,	IndirectionIntermediate::new);
+		unary(Punctuator.MULTIPLY,		IndirectionIntermediate::new);
+		// ADDRESS_OF and BITWISE_AND have the same symbol (&)
+		unary(Punctuator.ADDRESS_OF,	AddressOfIntermediate::new);
+		unary(Punctuator.BITWISE_AND,	AddressOfIntermediate::new);
+	}
+	
 	private static int conditionLabelId = 0;
 	
 	private final Map<SymbolObject, Operand> operands = new HashMap<>();
@@ -162,7 +226,7 @@ public class IntermediateGenerator {
 				ir.addAll(processStatements(compound.getStatements()));
 		
 			else if(statement instanceof ExpressionStatementNode expr) {
-				var result = processExpression(expr.getExpression());
+				var result = processExpression(expr.getExpression(), false, false);
 				
 				ir.addAll(result.getLeft());
 
@@ -176,7 +240,7 @@ public class IntermediateGenerator {
 				));
 
 			else if(statement instanceof JumpStatementNode jump) {
-				var condition = processExpression(jump.getCondition());
+				var condition = processExpression(jump.getCondition(), false);
 				
 				condition.ifLeftPresent(ir::addAll);
 				
@@ -203,113 +267,53 @@ public class IntermediateGenerator {
 		return ir;
 	}
 	
-	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression) {
+	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression, boolean lvalue) {
+		return processExpression(expression, true, false);
+	}
+	
+	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression, boolean needResult, boolean lvalue) {
 
 		Position pos = expression.getPosition();
 		
 		if(expression instanceof BinaryExpressionNode binop) {
 			List<Intermediate> ir = new ArrayList<>();
 			
-			Operand result = temporary(binop.getType());
+			Operand result = needResult
+				? temporary(binop.getType())
+				: null;
 			
 			var exprLeft = binop.getLeft();
 			var exprRight = binop.getRight();
 			
 			if(exprLeft.getType().isPointerLike() || exprRight.getType().isPointerLike()) {
 				
-				
+				// TODO
 				
 			}
 			
-			var left = processExpression(binop.getLeft());
+			Punctuator op = binop.getOperation();
+			
+			var left = processExpression(binop.getLeft(), lvalue || op == Punctuator.ASSIGN);
 			left.ifLeftPresent(ir::addAll);
 
-			var right = processExpression(binop.getRight());
+			var right = processExpression(binop.getRight(), lvalue);
 			right.ifLeftPresent(ir::addAll);
 			
 			var operandLeft = left.getRight();
 			var operandRight = right.getRight();
 			
-			switch(binop.getOperation()) {
-			case INDIRECTION: // INDIRECTION and MULTIPLY have the same symbol (*)
-			case MULTIPLY:
-				ir.add(new MultiplyIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case DIVIDE:
-				ir.add(new DivideIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case MODULO:
-				ir.add(new ModuloIntermediate(pos, result, operandLeft, operandRight));
-				break;
-
-			case PLUS: // PLUS and AND have the same symbol (+)
-			case ADD:
-				ir.add(new AddIntermediate(pos, result, operandLeft, operandRight));
-				break;
-
-			case MINUS: // MINUS and SUBTRACT have the same symbol (-)
-			case SUBTRACT:
-				ir.add(new SubtractIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case LSHIFT:
-				ir.add(new ShiftLeftIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case RSHIFT:
-				ir.add(new ShiftRightIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case LESS:
-				ir.add(new LessThanIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case LESS_EQUAL:
-				ir.add(new LessThanOrEqualIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case GREATER:
-				ir.add(new GreaterThanIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case GREATER_EQUAL:
-				ir.add(new GreaterThanOrEqualIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case EQUAL:
-				ir.add(new EqualIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case NOT_EQUAL:
-				ir.add(new NotEqualIntermediate(pos, result, operandLeft, operandRight));
-				break;
-
-			case ADDRESS_OF: // ADDRESS_OF and BITWISE_AND have the same symbol (&)
-			case BITWISE_AND:
-				ir.add(new BitwiseAndIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case BITWISE_OR:
-				ir.add(new BitwiseOrIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case BITWISE_XOR:
-				ir.add(new BitwiseXorIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case LOGICAL_AND:
-				ir.add(new LogicalAndIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
-			case LOGICAL_OR:
-				ir.add(new LogicalOrIntermediate(pos, result, operandLeft, operandRight));
-				break;
-				
+			BinaryConstructor constructor = BINARY_OPERATIONS.get(op);
+			
+			if(constructor != null)
+				ir.add(constructor.construct(pos, result, operandLeft, operandRight));
+			
+			else switch(op) {
 			case ASSIGN:
-				ir.add(new AssignIntermediate(pos, result, operandRight));
-				ir.add(new AssignIntermediate(pos, operandLeft, result));
+				if(needResult) {
+					ir.add(new AssignIntermediate(pos, result, operandRight));
+					ir.add(new AssignIntermediate(pos, operandLeft, result));
+				}
+				else ir.add(new AssignIntermediate(pos, operandLeft, operandRight));
 				break;
 			
 			case COMMA:
@@ -336,7 +340,7 @@ public class IntermediateGenerator {
 			var args = call.getParameters()
 				.stream()
 				.map(expr -> {
-					var arg = processExpression(expr);
+					var arg = processExpression(expr, false);
 
 					arg.ifLeftPresent(ir::addAll);
 					
@@ -344,7 +348,7 @@ public class IntermediateGenerator {
 				})
 				.toList();
 			
-			var function = processExpression(call.getTarget());
+			var function = processExpression(call.getTarget(), lvalue);
 			function.ifLeftPresent(ir::addAll);
 			
 			ir.add(new CallIntermediate(
@@ -370,7 +374,7 @@ public class IntermediateGenerator {
 			
 			Operand result = temporary(cast.getType());
 			
-			var target = processExpression(cast.getTarget());
+			var target = processExpression(cast.getTarget(), lvalue);
 			target.ifLeftPresent(ir::addAll);
 
 			ir.add(new CastIntermediate(
@@ -405,7 +409,7 @@ public class IntermediateGenerator {
 			
 			Operand result = temporary(cond.getType());
 			
-			var condition = processExpression(cond.getCondition());
+			var condition = processExpression(cond.getCondition(), lvalue);
 			condition.ifLeftPresent(ir::addAll);
 			
 			String labelFalse = ".IF" + conditionLabelId++;
@@ -420,7 +424,7 @@ public class IntermediateGenerator {
 
 			free(ir, condition);
 			
-			var whenTrue = processExpression(cond.getWhenTrue());
+			var whenTrue = processExpression(cond.getWhenTrue(), lvalue);
 			whenTrue.ifLeftPresent(ir::addAll);
 
 			// r = x;
@@ -444,7 +448,7 @@ public class IntermediateGenerator {
 				labelFalse
 			));
 
-			var whenFalse = processExpression(cond.getWhenTrue());
+			var whenFalse = processExpression(cond.getWhenTrue(), lvalue);
 			whenFalse.ifLeftPresent(ir::addAll);
 
 			free(ir, whenFalse);
@@ -465,12 +469,35 @@ public class IntermediateGenerator {
 		}
 		
 		else if(expression instanceof MemberAccessExpressionNode mem) {
+			
+			/* Intermediate representation for 's.m'
+			 * 
+			 * x86 implementation example:
+			 * 
+			 * lvalue: ('s.m = v')
+			 * 	 global:
+			 *   	mov ?WORD PTR s[rip+offsetof(struct s, m)], v 
+			 * 	local:
+			 * 		mov ?WORD PTR [rbp+local_offsetof(s)+offsetof(struct s, m)], v
+			 * 	derived:
+			 * 		mov rax, do_stuff(s)
+			 * 		mov ?WORD PTR [rax+offsetof(struct s, m)], v
+			 * 
+			 * rvalue: ('v = s.m')
+			 * 	 global:
+			 * 		mov ?, ?WORD PTR s[rip+offsetof(struct s, m)]
+			 * 	local:
+			 * 		mov ?, ?WORD PTR [rbp+local_offsetof(s)+offsetof(struct s, m)]
+			 * 	derived:
+			 * 		mov rax, do_stuff(s)
+			 * 		mov ?, ?WORD PTR [rax+offsetof(struct s, m)]
+			 * 
+			 * LocalOperand = [rbp+OFFSET]
+			 * GlobalOperand = NAME[rip]
+			 * TemporaryOperand = REGISTER
+			 */
+			
 			List<Intermediate> ir = new ArrayList<>();
-			
-			Operand result = temporary(mem.getType());
-			
-			var target = processExpression(mem.getTarget());
-			target.ifLeftPresent(ir::addAll);
 
 			String name = mem.getMember();
 			
@@ -479,6 +506,23 @@ public class IntermediateGenerator {
 				.getType()
 				.toStructLike()
 				.getMember(name);
+			
+			if(lvalue && !member.isBitfield()) {
+				var target = processExpression(mem.getTarget(), lvalue);
+				target.ifLeftPresent(ir::addAll);
+
+				int offset = member.getOffset();
+				
+				return Pair.of(
+					ir,
+					null // TODO
+				);
+			}
+			
+			Operand result = temporary(mem.getType());
+			
+			var target = processExpression(mem.getTarget(), lvalue);
+			target.ifLeftPresent(ir::addAll);
 			
 			ir.add(new MemberIntermediate(
 				pos,
@@ -501,22 +545,20 @@ public class IntermediateGenerator {
 		else if(expression instanceof ArrayIndexExpressionNode idx) {
 			List<Intermediate> ir = new ArrayList<>();
 			
-			Operand result = temporary(idx.getType());
-
-			var target = processExpression(idx.getTarget());
+			var target = processExpression(idx.getTarget(), lvalue);
 			target.ifLeftPresent(ir::addAll);
 
-			var index = processExpression(idx.getIndex());
+			var index = processExpression(idx.getIndex(), lvalue);
 			index.ifLeftPresent(ir::addAll);
 			
-			ir.add(new ArrayIndexIntermediate(
-				pos,
-				result,
-				target.getRight(),
-				index.getRight()
-			));
-			
-			return Pair.of(ir, result);
+			return Pair.of(
+				ir,
+				new IndexOperand(
+					target.getRight(),
+					index.getRight(),
+					idx.getType()
+				)
+			);
 		}
 		
 		else if(expression instanceof NumberLiteralExpressionNode lit)
@@ -527,35 +569,35 @@ public class IntermediateGenerator {
 		
 		else if(expression instanceof UnaryExpressionNode unop) {
 			List<Intermediate> ir = new ArrayList<>();
+
+			Punctuator op = unop.getOperation();
+			
+			// lvalue indirection
+			// INDIRECTION and MULTIPLY have the same symbol (*)
+			if(lvalue && unop.isLvalue() && (op == Punctuator.INDIRECTION || op == Punctuator.MULTIPLY)) {
+				var target = processExpression(unop.getTarget(), lvalue);
+				target.ifLeftPresent(ir::addAll);
+				
+				return Pair.of(
+					ir,
+					new IndirectionOperand(
+						target.getRight(),
+						unop.getType()
+					)
+				);
+			}
 			
 			Operand result = temporary(unop.getType());
 
-			var target = processExpression(unop.getTarget());
+			var target = processExpression(unop.getTarget(), lvalue);
 			target.ifLeftPresent(ir::addAll);
+
+			UnaryConstructor constructor = UNARY_OPERATIONS.get(op);
 			
-			switch(unop.getOperation()) {
-			case BITWISE_NOT:
-				ir.add(new BitwiseNotIntermediate(pos, result, target.getRight()));
-				break;
-
-			case MINUS: // MINUS and SUBTRACT have the same symbol (-)
-			case SUBTRACT:
-				ir.add(new MinusIntermediate(pos, result, target.getRight()));
-				break;
-
-			case INDIRECTION: // INDIRECTION and MULTIPLY have the same symbol (*)
-			case MULTIPLY:
-				ir.add(new IndirectionIntermediate(pos, result, target.getRight()));
-				break;
-
-			case ADDRESS_OF: // ADDRESS_OF and BITWISE_AND have the same symbol (&)
-			case BITWISE_AND:
-				ir.add(new AddressOfIntermediate(pos, result, target.getRight()));
-				break;
-				
-			default:
-				Logger.error(expression, "Unrecognized unary expression type");
-			}
+			if(constructor != null)
+				ir.add(constructor.construct(pos, result, target.getRight()));
+			
+			else Logger.error(expression, "Unrecognized unary expression type");
 
 			free(ir, target);
 
@@ -564,6 +606,73 @@ public class IntermediateGenerator {
 		
 		else if(expression instanceof VariableExpressionNode var)
 			return Pair.ofRight(variable(var.getVariable()));
+		
+		else if(expression instanceof MemsetExpressionNode memset) {
+			Operand target = variable(memset.getTarget());
+
+			List<Intermediate> ir = new ArrayList<>();
+			
+			ir.add(new MemsetIntermediate(
+				pos,
+				target,
+				memset.getOffset(),
+				memset.getLength(),
+				memset.getValue()
+			));
+			
+			free(ir, target);
+			
+			return Pair.ofLeft(ir);
+		}
+		
+		else if(expression instanceof MemcpyExpressionNode memcpy) {
+			Operand source = variable(memcpy.getSource());
+			Operand destination = variable(memcpy.getDestination());
+
+			List<Intermediate> ir = new ArrayList<>();
+			
+			ir.add(new MemcpyIntermediate(
+				pos,
+				source,
+				destination,
+				memcpy.getSourceOffset(),
+				memcpy.getDestinationOffset(),
+				memcpy.getLength()
+			));
+			
+			free(ir, source);
+			free(ir, destination);
+			
+			return Pair.ofLeft(ir);
+		}
+		
+		else if(expression instanceof BuiltinExpressionNode builtin) {
+			Operand result = needResult && !builtin.getType().isVoid()
+				? temporary(builtin.getType())
+				: null;
+			
+			List<Intermediate> ir = new ArrayList<>();
+			
+			List<Operand> operands = new ArrayList<>();
+			
+			builtin.getFunction().getArgs()
+				.forEach(arg -> {
+					if(arg instanceof ExpressionArgument expr) {
+						var processed = processExpression(expr.getExpression(), false);
+						
+						processed.ifLeftPresent(ir::addAll);
+						processed.ifRightPresent(operands::add);
+						processed.ifRightPresent(expr::setOperand);
+					}
+				});
+			
+			ir.add(new BuiltinIntermediate(pos, builtin.getFunction()));
+			
+			for(int i = operands.size() - 1; i >= 0; --i)
+				free(ir, operands.get(i));
+
+			return Pair.of(ir, result);
+		}
 		
 		Logger.error(expression, "Unrecognized expression type");
 		return null;

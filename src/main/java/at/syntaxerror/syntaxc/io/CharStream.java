@@ -227,11 +227,29 @@ public abstract class CharStream implements Logable, Closeable {
 	@Override
 	public Position getPosition() {
 		Mark mark = marks.peek();
-		return new Position(mark.bytenum(), mark.pos(), mark.col(), mark.line(), position - mark.pos(), this);
+		return new Position(
+			mark.bytenum(),
+			mark.pos(),
+			mark.col(),
+			mark.line(),
+			position - mark.pos(),
+			this,
+			Set.of(),
+			null
+		);
 	}
 	
 	public Position getCharPosition() {
-		return new Position(bytenum, position, column, line, 1, this);
+		return new Position(
+			bytenum,
+			position,
+			column,
+			line,
+			1,
+			this,
+			Set.of(),
+			null
+		);
 	}
 
 	private void encodingError(String message) {

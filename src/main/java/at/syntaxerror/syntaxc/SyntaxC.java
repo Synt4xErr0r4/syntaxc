@@ -63,12 +63,21 @@ import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.experimental.UtilityClass;
 
 /**
+ * This class is responsible for connecting all the various compilation steps and
+ * writing the result to the according output stream 
+ * 
  * @author Thomas Kasper
  * 
  */
 @UtilityClass
 public class SyntaxC {
 	
+	/**
+	 * This class contains information about the current version of SyntaxC
+	 * 
+	 * @author Thomas Kasper
+	 *
+	 */
 	@UtilityClass
 	public static class Version {
 		
@@ -80,7 +89,7 @@ public class SyntaxC {
 		
 	}
 	
-	public static boolean terminate;
+	public static boolean terminate; // true if the compilation should be terminated after the current stage has completed
 
 	public static boolean onlyAssemble;		// -c (don't link)
 	public static boolean onlyCompile;		// -S (don't assemble)
@@ -92,6 +101,14 @@ public class SyntaxC {
 	public static String inputFileName;
 	public static String outputFileName;
 
+	/**
+	 * Compiles the given stream of characters into the output format
+	 * specified by {@link #onlyAssemble}, {@link #onlyCompile}, and
+	 * {@link #onlyPreprocess}. Also generates a {@link #syntaxTree attributed syntax tree}
+	 * and {@link #controlFlowGraph control flow graph}, if requested.
+	 * 
+	 * @param input the input file contents
+	 */
 	public static void compile(CharStream input) {
 		Architecture architecture = ArchitectureRegistry.getArchitecture();
 		
@@ -163,7 +180,13 @@ public class SyntaxC {
 			}
 			
 			else if(token.is(TokenType.CHARACTER))
-				postprocessed.add(Token.ofConstant(token.getPosition(), token.getInteger(), NumericValueType.SIGNED_INT));
+				postprocessed.add(
+					Token.ofConstant(
+						token.getPosition(),
+						token.getInteger(),
+						NumericValueType.SIGNED_INT
+					)
+				);
 			
 			else postprocessed.add(token);
 		}
@@ -233,8 +256,8 @@ public class SyntaxC {
 		
 		for(SymbolObject sym : symbols) {
 			
-			// skip function prototypes
-			if(sym.isPrototype())
+			// skip function prototypes and typedefs
+			if(sym.isPrototype() || sym.isTypedef())
 				continue;
 			
 			codeGen.generateObject(sym);
@@ -307,6 +330,16 @@ public class SyntaxC {
 		return result;
 	}
 	
+	/**
+	 * Creates a file with the name and the file name extension.
+	 * The file is guaranteed to not exist yet, which is accomplished
+	 * by inserting periods followed by a number inbetween the name
+	 * and the extension
+	 * 
+	 * @param name the file name
+	 * @param ext the file name extension
+	 * @return the unique, non-existent file
+	 */
 	public static File uniqueFile(String name, String ext) {
 		if(name.equals("-"))
 			name = inputFileName + ".stdout";
@@ -321,6 +354,15 @@ public class SyntaxC {
 		return file;
 	}
 	
+	/**
+	 * Creates an output stream from a given file path.
+	 * Parent directories are created if they don't exist yet.
+	 * Existing file contents are truncated.
+	 * 
+	 * @param parser
+	 * @param file
+	 * @return
+	 */
 	public static OutputStream createStream(OptionParser parser, String file) {
 		try {
 			Path path = Paths.get(file);
@@ -337,6 +379,14 @@ public class SyntaxC {
 		}
 	}
 	
+	/**
+	 * Constructs the output stream for the {@link #outputFileName output file}.
+	 * If the {@link #outputFileName} is a single dash ({@code -}), the output
+	 * stream is identical to the standard console output stream (stdout).
+	 * 
+	 * @param extension the file name extension of the output file
+	 * @return the output stream
+	 */
 	private static OutputStream constructOutput(String extension) {
 		if(outputFileName.equals("-"))
 			return AnsiPipe.getStdout();
@@ -347,11 +397,19 @@ public class SyntaxC {
 		);
 	}
 	
+	/**
+	 * Shows an error message and terminates the application
+	 * 
+	 * @param e the occured exception
+	 */
 	private static void outputFailed(Exception e) {
 		Logger.error("Failed to write to output file: %s", e.getMessage());
 		System.exit(1);
 	}
 
+	/**
+	 * Terminates the application, if previously requested
+	 */
 	private static void checkTerminationState() {
 		if(terminate)
 			System.exit(1);

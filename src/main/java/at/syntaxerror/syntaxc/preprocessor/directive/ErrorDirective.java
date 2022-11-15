@@ -56,7 +56,7 @@ public class ErrorDirective extends Directive {
 				nonWhitespace = true;
 		}
 		
-		error(
+		softError(
 			nonWhitespace
 				? pos.range(tokens.get(tokens.size() - 1))
 				: pos,
@@ -66,7 +66,7 @@ public class ErrorDirective extends Directive {
 				.reduce(String::concat)
 				.map(String::strip)
 				.filter(s -> !s.isBlank())
-				.orElse("Error directive encountered")
+				.orElse("#error directive encountered")
 		);
 	}
 

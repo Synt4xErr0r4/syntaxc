@@ -30,7 +30,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Intermediate representation of (un-)conditional jumps
+ * Intermediate representation of function calls ('fun(a, b, c)')
  * 
  * @author Thomas Kasper
  * 

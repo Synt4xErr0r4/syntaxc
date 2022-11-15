@@ -23,11 +23,18 @@
 package at.syntaxerror.syntaxc.tracking;
 
 /**
+ * This interface is used for classes which are capable of tracking their position in the code
+ * 
  * @author Thomas Kasper
  * 
  */
 public interface Positioned {
 
+	/**
+	 * Returns the position of this object
+	 * 
+	 * @return the position of this object
+	 */
 	Position getPosition();
 	
 }

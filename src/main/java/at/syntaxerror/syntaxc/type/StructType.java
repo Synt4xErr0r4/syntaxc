@@ -26,6 +26,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
+import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.misc.AlignmentUtils;
+import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.AccessLevel;
@@ -60,7 +64,8 @@ public class StructType extends Type {
 	private final boolean anonymous;
 	
 	private boolean incomplete = true;
-	private boolean packed;
+	private boolean packed; // currently not implemented
+	private boolean inherited;
 	
 	private List<Member> members = new ArrayList<>();
 	
@@ -74,8 +79,17 @@ public class StructType extends Type {
 		this.name = anonymous ? getAnonymousName() : name;
 	}
 	
+	public StructType asInherited() {
+		StructType cloned = (StructType) clone();
+		
+		cloned.inherited = true;
+		
+		return cloned;
+	}
+	
 	public void setComplete() {
 		incomplete = false;
+		inherited = false;
 	}
 	
 	public void setPacked() {
@@ -87,69 +101,199 @@ public class StructType extends Type {
 	}
 	
 	public void addMember(Positioned pos, String name, Type type, boolean bitfield, int bitWidth) {
-		setComplete();
+		if(type.isIncomplete())
+			incomplete = true;
+
+		// only 'int', 'signed int', and 'unsigned int' are eligible for bitfields
+		if(bitfield && !type.isInteger())
+			Logger.softError(pos, "Illegal bitfield struct/union member of type »%s«", type);
 		
-		int align;
-		int offset;
+		if(bitfield && bitWidth == 0 && name != null)
+			Logger.softError(pos, "Bitfield with width 0 must not have a name");
+		
+		/*
+		 * Calculation of the offset and alignment:
+		 * 
+		 * - the offset for union members is always 0
+		 * 
+		 * - '-fpacked' disables alignment for struct members
+		 *   - multiple bitfields can reside within the same byte
+		 * 
+		 * - '-falign' does NOT affect members, but the overall size of the structure/union 
+		 *   - zero bytes/bits are 'appended' to the struct to achive the alignment
+		 *   - the default alignment is equal to 'sizeof(unsigned long int)'
+		 */
+		
+		final boolean packed = Flag.PACKED.isEnabled() || isPacked();
+		
+		int padding = 0;
+		int offset = 0;
 		int bitOffset = 0;
+		int size;
+		int align;
 		
-		if(previous == null)
-			align = offset = 0;
+		if(bitfield)
+			size = Math.ceilDiv(bitWidth, 8);
 		
-		else {
-			align = 0;
+		else size = type.sizeof();
+		
+		align = packed ? 0 : AlignmentUtils.align(size);
+		
+		if(!isUnion() && previous != null) {
+
+			boolean prevBit = previous.isBitfield();
 			
-			if(bitfield && previous.type.isBitfield()) {
+			if(prevBit) {
+				bitOffset = previous.bitOffset + previous.bitWidth;
+				offset = previous.offset + (bitOffset >> 3);
+				bitOffset &= 7;
+				
+				if(bitfield) {
+					size = Math.ceilDiv(bitOffset + bitWidth, 8);
+					
+					if(!packed)
+						align = AlignmentUtils.align(size);
+				}
+				else {
+					offset += Math.ceilDiv(bitOffset, 8); // account for partial bytes
+					bitOffset = 0;
+				}
+			}
+			else offset = previous.offset + previous.sizeof();
+			
+			if(packed && bitfield && prevBit) {
+				
 				if(previous.bitWidth == 0) {
 					bitOffset = 0;
 					offset = previous.offset + 1;
 				}
-				else {
-					bitOffset = previous.bitOffset + previous.bitWidth;
-					offset = previous.offset + (bitOffset >> 3);
-					bitOffset &= 7;
-				}
+				
 			}
-			else offset = isUnion()
-				? 0
-				: previous.offset + previous.type.sizeof();
+			
+			else if(!packed) {
+
+				int pad = offset % align;
+				
+				if(pad != 0)
+					padding = align - pad;
+				
+				offset += padding;
+				
+			}
+			
 		}
 		
 		members.add(previous = new Member(
-			align,
+			padding,
 			offset,
 			pos.getPosition(),
 			name,
 			bitfield
-				? type.asBitfield()
+				? type.asBitfield() // mark type as bitfield
 				: type,
 			bitOffset,
 			bitWidth
 		));
+		
+		this.size = offset + size;
+		
+		/**
+		 * align struct to byte/word/... boundary (unless -fpacked is present)
+		 */
+		if(!packed) {
+			align = ArchitectureRegistry.getAlignment();
+			
+			if(align < 0)
+				align = Type.ULONG.sizeof();
+			
+			int pad = this.size % align;
+			
+			if(pad != 0)
+				this.size += align - pad;
+		}
 	}
 	
 	public void addAnonymousMember(Positioned pos, Type type, boolean bitfield, int bitWidth) {
 		addMember(pos, null, type, bitfield, bitWidth);
 	}
-	
-	
+
+	/**
+	 * Searches the member associated with a given name.
+	 * The search is also performed on nested structures/unions.
+	 * Returns {@code null} if the member does not exist.
+	 * 
+	 * @param name the member's name
+	 * @return the member
+	 */
 	public Member getMember(String name) {
-		for(Member member : members)
-			if(member.getName() == null) { // anonymous member
-				Type type = member.getType();
-				
-				if(type.isStructLike()) { // anonymous struct/union
-					member = type.toStructLike().getMember(name);
-					
-					if(member != null)
-						return member;
-				}
-				
-			}
-			else if(name.equals(member.getName()))
+		for(Member member : members) {
+			String memName = member.getName();
+			
+			// name is null for anonymous members
+			if(memName != null && memName.equals(name))
 				return member;
+			
+			Type type = member.getType();
+			
+			if(type.isStructLike()) { // nested struct/union, search recursively
+				member = type.toStructLike().getMember(name);
+				
+				if(member != null)
+					return member;
+			}
+		}
 		
 		return null;
+	}
+	
+	/**
+	 * Finds the offset of a given member.
+	 * The search is also performed on nested structures/unions.
+	 * Returns {@code -1} if the member
+	 * does not exist, {@code -2} if the member is a bitfield.
+	 * 
+	 * @param name the member's name
+	 * @return the member's offset
+	 */
+	public int offsetof(String name) {
+		for(Member member : members) {
+			String memName = member.getName();
+			
+			int base = member.getOffset();
+			
+			// name is null for anonymous members
+			if(memName != null) {
+				if(memName.equals(name)) {
+					if(member.isBitfield())
+						return -2;
+					
+					return base;
+				}
+				
+				continue;
+			}
+			
+			// only check recursively if struct/union is unnamed
+			
+			Type type = member.getType();
+			
+			if(type.isStructLike()) { // nested struct/union, search recursively
+				StructType struct = type.toStructLike();
+				
+				if(struct.isInherited()) // only search in structs/unions defined within the parent struct/union
+					continue;
+				
+				int mem = struct.offsetof(name);
+				
+				if(mem == -2)
+					return -2;
+				
+				if(mem != -1)
+					return base + mem;
+			}
+		}
+		
+		return -1;
 	}
 	
 	@Override
@@ -158,6 +302,7 @@ public class StructType extends Type {
 		
 		structType.incomplete = incomplete;
 		structType.packed = packed;
+		structType.inherited = inherited;
 		structType.members = members;
 		structType.previous = previous;
 		
@@ -174,7 +319,7 @@ public class StructType extends Type {
 	@ToString(exclude = "position")
 	public static class Member implements Positioned { 
 
-		private final int align;
+		private final int padding;
 		private final int offset;
 		private final Position position;
 		private final String name;
@@ -184,6 +329,12 @@ public class StructType extends Type {
 		
 		public boolean isBitfield() {
 			return type.isBitfield();
+		}
+		
+		public int sizeof() {
+			return isBitfield()
+				? Math.ceilDiv(bitWidth, 8)
+				: type.sizeof();
 		}
 		
 	}

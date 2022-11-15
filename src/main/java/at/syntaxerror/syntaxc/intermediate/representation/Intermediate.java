@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
@@ -75,7 +76,7 @@ public abstract class Intermediate implements Positioned {
 		
 		@Override
 		public String toString() {
-			return "// synthetic: free _%d".formatted(operand.id);
+			return "/*synthetic: free _%d*/".formatted(operand.id);
 		}
 		
 	}
@@ -99,6 +100,60 @@ public abstract class Intermediate implements Positioned {
 		
 		default List<Intermediate> free() {
 			return List.of();
+		}
+		
+	}
+	
+	/**
+	 * operand representing an index into an array
+	 * 
+	 * @author Thomas Kasper
+	 */
+	@RequiredArgsConstructor
+	@Getter
+	public static class IndexOperand implements Operand {
+		
+		private final Operand target;
+		private final Operand index;
+		private final Type type;
+		
+		@Override
+		public List<Intermediate> free() {
+			List<Intermediate> freed = new ArrayList<>();
+			
+			freed.addAll(target.free());
+			freed.addAll(index.free());
+			
+			return freed;
+		}
+		
+		@Override
+		public String toString() {
+			return "%s[%s]".formatted(target, index);
+		}
+		
+	}
+	
+	/**
+	 * operand representing dereferencing of a pointer
+	 * 
+	 * @author Thomas Kasper
+	 */
+	@RequiredArgsConstructor
+	@Getter
+	public static class IndirectionOperand implements Operand {
+		
+		private final Operand target;
+		private final Type type;
+		
+		@Override
+		public List<Intermediate> free() {
+			return target.free();
+		}
+		
+		@Override
+		public String toString() {
+			return "*%s".formatted(target);
 		}
 		
 	}

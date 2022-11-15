@@ -34,19 +34,36 @@ import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.Getter;
 
 /**
+ * This class represents an enumerator type, e.g. <code>enum { A, B, C }</code>
+ * 
  * @author Thomas Kasper
  * 
  */
 public class EnumType extends Type {
 
+	/**
+	 * Creates a new enum type without a name
+	 * 
+	 * @return the new enum type
+	 */
 	public static EnumType forAnonymousEnum() {
 		return forEnum(getAnonymousName());
 	}
 
+	/**
+	 * Creates a new enum type with a name
+	 * 
+	 * @param name the name of the enum
+	 * @return the new enum type
+	 */
 	public static EnumType forEnum(String name) {
 		return new EnumType(name);
 	}
 
+	/**
+	 * the list of types which an enumeration constant may have.
+	 * Smaller types are preferred over larger types.
+	 */
 	private static final NumericValueType[] ENUM_TYPES = {
 		NumericValueType.SIGNED_INT,
 		NumericValueType.UNSIGNED_INT,
@@ -72,22 +89,46 @@ public class EnumType extends Type {
 		this.name = name;
 	}
 	
+	/**
+	 * Marks the enum as complete
+	 */
 	public void setComplete() {
 		incomplete = false;
 	}
 	
+	/**
+	 * Returns the type of an enumeration constant
+	 * 
+	 * @return the type of an enumeration constant
+	 */
 	public NumericValueType getNumericType() {
 		return ENUM_TYPES[numericType];
 	}
 	
+	/**
+	 * Returns an unmodifiable view of all enumeration constants
+	 * 
+	 * @return an unmodifiable view of all enumeration constants
+	 */
 	public Map<String, Enumerator> getEnumerators() {
 		return Collections.unmodifiableMap(enumerators);
 	}
 	
+	/**
+	 * Returns the type of an enumeration constant, including potential type qualifiers
+	 * 
+	 * @return the type of an enumeration constant
+	 */
 	public NumberType asNumberType() {
 		return (NumberType) getNumericType().asType().inheritQualifiers(this);
 	}
 	
+	/**
+	 * Adds a new enumeration constant to the enum, with its value
+	 * set to previous constant's value increased by one
+	 * 
+	 * @param name the name of the constant
+	 */
 	public void addEnumerator(Token name) {
 		if(previous == null)
 			addEnumerator(name, BigInteger.ZERO, true);
@@ -99,10 +140,23 @@ public class EnumType extends Type {
 		);
 	}
 	
+	/**
+	 * Adds a new enumeration constant with a given value
+	 * 
+	 * @param name the name of the constant
+	 * @param value the value of the constant
+	 */
 	public void addEnumerator(Token name, BigInteger value) {
 		addEnumerator(name, value, true);
 	}
-	
+
+	/**
+	 * Adds a new enumeration constant with a given value
+	 * 
+	 * @param name the name of the constant
+	 * @param value the value of the constant
+	 * @param resize whether the type should be resized in case of an overflow
+	 */
 	private void addEnumerator(Token name, BigInteger value, boolean resize) {
 		setComplete();
 		
@@ -120,6 +174,12 @@ public class EnumType extends Type {
 		enumerators.put(previous.getName(), previous);
 	}
 	
+	/**
+	 * Returns the value of an enumeration constant
+	 * 
+	 * @param name the name of the enumeration constant
+	 * @return the value of an enumeration constant
+	 */
 	public BigInteger getValue(String name) {
 		return enumerators.containsKey(name)
 			? enumerators.get(name).value()
@@ -143,6 +203,12 @@ public class EnumType extends Type {
 		return toStringQualifiers() + "enum " + name;
 	}
 	
+	/**
+	 * This class represents an enumerator of an {@link EnumType}
+	 * 
+	 * @author Thomas Kasper
+	 *
+	 */
 	public static record Enumerator(Token name, BigInteger value) implements Positioned {
 		
 		@Override

@@ -61,7 +61,7 @@ public class LineDirective extends Directive {
 			
 			do {
 				if(tok.is(TokenType.IDENTIFIER))
-					tokens.addAll(substitute(true));
+					tokens.addAll(substitute(tok, true));
 				
 				else tokens.add(tok);
 				

@@ -51,7 +51,7 @@ public class VariableExpressionNode extends ExpressionNode {
 
 	private final Position position;
 	private final SymbolObject variable;
-
+	
 	@Override
 	public boolean isLvalue() {
 		if(variable.isVariable() && getType().isStructLike())
@@ -93,7 +93,7 @@ public class VariableExpressionNode extends ExpressionNode {
 					) + '"'
 				)
 			);
-			
+		
 		return children;
 	}
 

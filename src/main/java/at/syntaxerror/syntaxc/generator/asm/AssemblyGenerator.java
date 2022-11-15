@@ -55,6 +55,9 @@ public interface AssemblyGenerator {
 	void constant(BigInteger value, int size);
 	void zero(int size);
 	
+	void memcpy			(AssemblyTarget dst, AssemblyTarget src, int dstOffset, int srcOffset, int length);
+	void memset			(AssemblyTarget dst, int offset, int length, int value);
+	
 	void add			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
 	void subtract		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
 	void multiply		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);

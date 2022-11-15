@@ -125,17 +125,6 @@ public class TypeUtils {
 		return Type.INT;
 	}
 	
-	public static Type toComposite(Type a, Type b) {
-		if(a == b)
-			return a;
-
-		// enums, structs, and unions must pass the identify check above
-		if(a.getKind() != b.getKind() || a.isEnum() || a.isStructLike())
-			return null;
-		
-		return null;
-	}
-	
 	public static boolean isEqual(Type a, Type b) {
 		if(a == b)
 			return true;

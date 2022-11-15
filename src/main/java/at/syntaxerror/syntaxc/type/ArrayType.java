@@ -25,16 +25,27 @@ package at.syntaxerror.syntaxc.type;
 import lombok.Getter;
 
 /**
+ * This class represents an array type, e.g. {@code int[42]}
+ * 
  * @author Thomas Kasper
  * 
  */
 @Getter
 public class ArrayType extends PointerLikeType {
 
+	/**
+	 * Length value indicating that the length is not known
+	 */
 	public static final int SIZE_UNKNOWN = -1;
 	
 	private int length;
 	
+	/**
+	 * Constructs a new array type of the given length for the given base type
+	 * 
+	 * @param base the base type
+	 * @param length the length, or {@link #SIZE_UNKNOWN}
+	 */
 	protected ArrayType(Type base, int length) {
 		super(TypeKind.ARRAY, base);
 		
@@ -48,6 +59,13 @@ public class ArrayType extends PointerLikeType {
 		return length == SIZE_UNKNOWN;
 	}
 	
+	/**
+	 * Sets the length of the array.
+	 * If {@link length} is less than {@code 0},
+	 * it is assumed that the length is unknown
+	 * 
+	 * @param length the length of the array
+	 */
 	public void setLength(int length) {
 		if(length < 0)
 			length = SIZE_UNKNOWN;

@@ -28,7 +28,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Intermediate representation of (un-)conditional jumps
+ * Intermediate representation of divisions ('a/b')
  * 
  * @author Thomas Kasper
  * 

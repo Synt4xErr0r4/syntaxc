@@ -46,4 +46,44 @@ public abstract class ExpressionNode extends Node {
 		return super.getLeafName().replaceFirst("Expression$", "");
 	}
 
+	/**
+	 * Marks every symbol within the syntax tree of the expression as used
+	 * 
+	 * @param expr the expression
+	 */
+	public static void markUsed(ExpressionNode expr) {
+		if(expr instanceof ArrayIndexExpressionNode index) {
+			markUsed(index.getTarget());
+			markUsed(index.getIndex());
+		}
+		
+		else if(expr instanceof BinaryExpressionNode bin) {
+			markUsed(bin.getLeft());
+			markUsed(bin.getRight());
+		}
+		
+		else if(expr instanceof CallExpressionNode call) {
+			markUsed(call.getTarget());
+			call.getParameters().forEach(ExpressionNode::markUsed);
+		}
+		
+		else if(expr instanceof CastExpressionNode cast)
+			markUsed(cast.getTarget());
+		
+		else if(expr instanceof ConditionalExpressionNode cond) {
+			markUsed(cond.getCondition());
+			markUsed(cond.getWhenTrue());
+			markUsed(cond.getWhenFalse());
+		}
+		
+		else if(expr instanceof UnaryExpressionNode unary)
+			markUsed(unary.getTarget());
+		
+		else if(expr instanceof MemberAccessExpressionNode mem)
+			markUsed(mem.getTarget());
+		
+		else if(expr instanceof VariableExpressionNode var)
+			var.getVariable().setUnused(false);
+	}
+
 }

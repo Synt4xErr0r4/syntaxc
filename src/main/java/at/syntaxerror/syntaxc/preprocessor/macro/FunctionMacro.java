@@ -31,7 +31,6 @@ import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.preprocessor.PreLexer;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -98,9 +97,8 @@ public record FunctionMacro(Token name, LinkedHashMap<String, Token> args, List<
 		Token concatenated = lexer.nextToken();
 		
 		if(lexer.next() != -1) {
-			error(
+			softError(
 				self,
-				Warning.CONTINUE,
 				"Concatenating »%s« and »%s« does not produce a valid preprocessing token",
 				first.getRaw(),
 				second.getRaw()

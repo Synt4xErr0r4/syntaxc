@@ -40,7 +40,6 @@ import lombok.Setter;
 @Getter
 public enum Warning implements NamedToggle {
 	NONE,
-	CONTINUE, // for errors that should not terminate the compilation process yet, but waits until the next phase starts
 	
 	/**
 	 * ===== PREPROCESSING =====
@@ -94,6 +93,7 @@ public enum Warning implements NamedToggle {
 	USELESS					("useless-declaration",		"Warns when a declaration does not have a declarator or struct/union name"),
 	MISSING_BRACES			("missing-braces",			"Warns when braces are missing around an initializer"),
 	SCALAR_BRACES			("scalar-braces",			"Warns when braces are present around an scalar initializer"),
+	STRING_INITIALIZER		("string-initializer",		"Warns when a string initializer overflows the array"),
 	INITIALIZER				("initializer",				"Warns when an initializer contains too many values"),
 	INITIALIZER_OVERFLOW	("initializer-overflow",	"Warns when an initializer value (integer or floating number) overflows"),
 	RETURN_VOID				("return-void",				"Warns when a §creturn §fstatement returns nothing inside a non-void function"),
@@ -104,7 +104,8 @@ public enum Warning implements NamedToggle {
 	UNUSED_VALUE			("unused-value",			"Warns when the value of an expression is not used"),
 	UNUSED					("unused",					"Warns when a variable is declared, but not used"),
 	UNINITIALIZED			("uninitialized",			"Warns when a variable might not have been initialized yet"),
-	
+	VARARGS					("varargs",					"Warns when »§c__builtin_va_start§f« is not used with the last function parameter"),
+	EMPTY_DECLARATION		("empty-declaration",		"Warns when a struct member declares an unnamed »§cenum§f«"),
 	
 	/**
 	 * ===== OPTIMIZATION =====

@@ -28,6 +28,8 @@ import java.util.stream.Stream;
 import lombok.Getter;
 
 /**
+ * This enum contains all keywords defined in the ANSI C standard (§ 6.1.1)
+ * 
  * @author Thomas Kasper
  * 
  */

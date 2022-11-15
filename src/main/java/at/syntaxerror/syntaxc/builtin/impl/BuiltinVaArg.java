@@ -22,26 +22,43 @@
  */
 package at.syntaxerror.syntaxc.builtin.impl;
 
-import java.util.List;
-
 import at.syntaxerror.syntaxc.builtin.BuiltinContext;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
-import at.syntaxerror.syntaxc.builtin.BuiltinResult;
+import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class BuiltinVaArg implements BuiltinFunction {
+public class BuiltinVaArg extends BuiltinFunction {
 
+	public BuiltinVaArg() {
+		super("va_arg");
+	}
+	
 	@Override
-	public BuiltinResult call(BuiltinContext context, List<ExpressionNode> arguments) {
+	public void populate(BuiltinContext context) {
+		if(!context.isInsideFunction())
+			context.error(Warning.SEM_NONE, "Cannot call »__builtin_va_arg« outside of a function");
 		
+		ExpressionArgument expr = context.nextExpression();
+		TypeArgument type = context.nextType();
 		
+		context.ensureClosed();
 		
-		return new BuiltinResult(List.of(), null, Type.VOID);
+		VariadicUtils.ensureVaListType(expr, expr.getType());
+		ExpressionNode.markUsed(expr.getExpression());
+		
+		FunctionType fun = context.getEnclosingFunction();
+		
+		VariadicUtils.ensureVariadic(context, fun, "__builtin_va_arg");
+
+		returnType = type.type();
+		
+		args.add(expr);
+		args.add(type);
 	}
 	
 }

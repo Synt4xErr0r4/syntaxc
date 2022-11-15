@@ -26,6 +26,7 @@ import java.util.List;
 
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.tracking.Positioned;
 
 /**
  * @author Thomas Kasper
@@ -35,12 +36,12 @@ public interface SubstitutionHelperView {
 
 	SubstitutionHelper getSubstitution();
 
-	default List<Token> substitute() {
-		return substitute(false);
+	default List<Token> substitute(Positioned pos) {
+		return substitute(pos, false);
 	}
 	
-	default List<Token> substitute(boolean sameLine) {
-		return getSubstitution().substitute(sameLine);
+	default List<Token> substitute(Positioned pos, boolean sameLine) {
+		return getSubstitution().substitute(pos, sameLine);
 	}
 	
 	default Pair<Boolean, List<Token>> substitute(Token current, List<Token> tokens, boolean restrict) {

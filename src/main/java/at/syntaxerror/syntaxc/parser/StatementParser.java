@@ -290,7 +290,7 @@ public class StatementParser extends AbstractParser {
 					warn(pos, Warning.RETURN_VALUE, "Unexpected value for »return« inside function returning »void«");
 				
 				else statements.add(new ExpressionStatementNode(
-					expressionParser.checkAssignment(
+					expressionParser.getChecker().checkAssignment(
 						Token.ofPunctuator(pos, Punctuator.ASSIGN),
 						returnValueField,
 						returnValue,

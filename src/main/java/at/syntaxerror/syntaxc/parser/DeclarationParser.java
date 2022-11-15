@@ -312,7 +312,7 @@ public class DeclarationParser extends AbstractParser {
 			if(structTag != null) {
 				
 				if(structTag.getType().isUnion() == union) {
-					type = structTag.getType().toStructLike();
+					type = structTag.getType().toStructLike().asInherited();
 					inherited = true;
 				}
 				else error(pos, "Declared »%s« as another type", tag);
@@ -351,45 +351,60 @@ public class DeclarationParser extends AbstractParser {
 					
 					Positioned memberPos = null;
 					
-					Type memberType;
+					Type memberType = null;
 					
-					if(!equal(":")) {
-						memberPos = declarator = nextDeclarator();
-						
-						memberType = declarator.merge(baseType);
-					}
-
-					else {
-						next();
-						
+					if(equal(";")) { // unnamed struct/union/enum
 						memberPos = current;
-						
 						memberType = baseType;
 						
-						do {
-							if(baseType.isInteger()) {
-								
-								NumericValueType valType = baseType.toNumber().getNumericType();
-								
-								if(valType == NumericValueType.SIGNED_INT || valType == NumericValueType.UNSIGNED_INT)
-									break;
-								
-							}
+						boolean isStruct = memberType.isStructLike();
+						
+						if(memberType.isEnum() || (isStruct && memberType.toStructLike().isInherited()))
+							warn(memberPos, Warning.EMPTY_DECLARATION, "Declaration declares nothing");
+						
+						else if(!isStruct)
+							softError(memberPos, "Expected name for declaration");
+					}
+					else {
+						if(!equal(":")) {
+							memberPos = declarator = nextDeclarator();
 							
-							error(memberPos, "Expected »int« or »unsigned int« for bit-field");
+							memberType = declarator.merge(baseType);
 						}
-						while(false);
-
-						BigInteger value = parser.nextIntegerConstantExpression();
-						
-						if(value.compareTo(BigInteger.ZERO) < 0)
-							error(memberPos, "Illegal negative width for bit-field");
-						
-						if(value.compareTo(BigInteger.valueOf(NumericValueType.UNSIGNED_INT.getSize() * 8)) > 0)
-							error(memberPos, "Width for bit-field is too big for its type");
-						
-						bitfield = true;
-						bitWidth = value.intValue();
+	
+						if(equal(":")) {
+							next();
+							
+							if(memberPos == null)
+								memberPos = current;
+							
+							memberType = baseType;
+							
+							do {
+								if(baseType.isInteger()) {
+									
+									NumericValueType valType = baseType.toNumber().getNumericType();
+									
+									if(valType == NumericValueType.SIGNED_INT || valType == NumericValueType.UNSIGNED_INT)
+										break;
+									
+								}
+								
+								error(memberPos, "Expected »int« or »unsigned int« for bit-field");
+							}
+							while(false);
+	
+							BigInteger value = parser.nextIntegerConstantExpression();
+							
+							if(value.compareTo(BigInteger.ZERO) < 0)
+								error(memberPos, "Illegal negative width for bit-field");
+							
+							if(value.compareTo(BigInteger.valueOf(NumericValueType.UNSIGNED_INT.getSize() * 8)) > 0)
+								error(memberPos, "Width for bit-field is too big for its type");
+							
+							bitfield = true;
+							bitWidth = value.intValue();
+						}
 					}
 					
 					if(memberType.isFunction())
@@ -399,8 +414,9 @@ public class DeclarationParser extends AbstractParser {
 						error(memberPos, "Illegal incomplete type for »%s« member", name);
 					
 					if(declarator == null)
-						type.addAnonymousMember(memberPos, baseType, bitfield, bitWidth);
-					else type.addMember(memberPos, declarator.getName(), baseType, bitfield, bitWidth);
+						type.addAnonymousMember(memberPos, memberType, bitfield, bitWidth);
+					
+					else type.addMember(memberPos, declarator.getName(), memberType, bitfield, bitWidth);
 					
 					consume(",", ";");
 					
@@ -413,6 +429,8 @@ public class DeclarationParser extends AbstractParser {
 		}
 		else if(tag == null)
 			error(pos, "Expected declaration list for %s", name);
+		
+		else type = type.asInherited();
 		
 		return type;
 	}
@@ -433,9 +451,9 @@ public class DeclarationParser extends AbstractParser {
 			if(enumTag != null) {
 				
 				if(enumTag.getType().isEnum())
-					error(pos, Warning.CONTINUE, "Redeclaration of »enum %s«", tag);
+					softError(pos, "Redeclaration of »enum %s«", tag);
 				
-				else error(pos, Warning.CONTINUE, "Declared »enum %s« as another type", tag);
+				else softError(pos, "Declared »enum %s« as another type", tag);
 				
 				note(enumTag, "Previously declared here");
 				terminate();
@@ -807,7 +825,7 @@ public class DeclarationParser extends AbstractParser {
 				getSymbolTable()
 					.findObject(current.getString())
 			).map(SymbolObject::isTypedef)
-			.orElse(false);
+				.orElse(false);
 		
 		return false;
 	}

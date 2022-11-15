@@ -27,6 +27,8 @@ import at.syntaxerror.syntaxc.lexer.CommonLexer;
 import at.syntaxerror.syntaxc.lexer.Token;
 
 /**
+ * This class represents the lexer used for pre-processing
+ * 
  * @author Thomas Kasper
  * 
  */

@@ -20,25 +20,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.builtin;
+package at.syntaxerror.syntaxc.intermediate;
 
-import java.util.List;
-
-import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
-import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
+import at.syntaxerror.syntaxc.tracking.Position;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public record BuiltinResult(List<StatementNode> statements, Object value, Type type) {
+public interface UnaryConstructor {
 
-	public boolean hasStatements() {
-		return !statements().isEmpty();
-	}
-	
-	public boolean hasReturnValue() {
-		return !type().isVoid();
-	}
+	Intermediate construct(Position position, Operand result, Operand target);
 	
 }

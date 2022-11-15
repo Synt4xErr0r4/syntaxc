@@ -25,6 +25,7 @@ package at.syntaxerror.syntaxc.logger;
 import at.syntaxerror.syntaxc.SyntaxC;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.preprocessor.macro.Macro;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.NonNull;
@@ -74,9 +75,9 @@ public class Logger {
 
 	/* when true, calling log(...) with LogLevel.ERROR will not terminate the compilation process.
 	 * Termination takes instead place before the next compilation phase starts */
-	public static boolean dontTerminate = false;
+	public static boolean recoverNextError = false;
 	
-	public static void log(@NonNull LogLevel level, Positioned pos, Warning warning, String message, Object...args) {
+	private static void logImpl(@NonNull LogLevel level, Positioned pos, Warning warning, boolean recover, String message, Object...args) {
 		if(warning == null)
 			warning = Warning.NONE;
 		
@@ -209,21 +210,53 @@ public class Logger {
 	    
 	    System.out.println();
 	    
-	    if(position != null && position.file() != null) {
-	    	Position parent = position.file().getIncludedFrom();
+	    if(Flag.VERBOSE.isEnabled() && position != null && level != LogLevel.NOTE) {
+	    	var expansions = position.expansions();
+	    	var file = position.file();
 	    	
-	    	if(parent != null)
-	    		note(parent, "Included from here");
+		    if(expansions != null && !expansions.isEmpty()) {
+		    	if(Flag.VERY_VERBOSE.isEnabled()) {
+		    		for(Macro macro : expansions)
+			    		if(macro != null)
+			    			note(macro, "In expansion of »%s«", macro.getName());
+		    	}
+		    	
+	    		else {
+	    			var it = expansions.iterator();
+	    			Macro macro;
+	    			
+	    			do macro = it.next();
+	    			while(it.hasNext());
+	    			
+	    			note(macro, "In expansion of »%s«", macro.getName());
+	    		}
+		    }
+		    
+		    if(file != null) {
+		    	Position parent = file.getIncludedFrom();
+		    	
+		    	if(parent != null)
+		    		note(parent, "Included from here");
+		    }
 	    }
 	    
 		if(level == LogLevel.ERROR) {
-			if(dontTerminate || warning == Warning.CONTINUE) {
+			if(recoverNextError || recover) {
 				SyntaxC.terminate = true;
-				dontTerminate = false;
+				recoverNextError = false;
 			}
 				
 			else System.exit(1);
 		}
+	}
+	
+	public static void logRecover(@NonNull LogLevel level, Positioned pos, Warning warning, String message, Object...args) {
+		logImpl(level, pos, warning, true, message, args);
+	}
+	
+
+	public static void log(@NonNull LogLevel level, Positioned pos, Warning warning, String message, Object...args) {
+		logImpl(level, pos, warning, false, message, args);
 	}
 
 	public static void log(LogLevel level, Positioned position, String message, Object...args) {
@@ -244,15 +277,15 @@ public class Logger {
 	}
 	
 	public static void note(Positioned position, String message, Object...args) {
-		log(LogLevel.NOTE, position, null, message, args);
+		log(LogLevel.NOTE, position, message, args);
 	}
 
 	public static void note(Warning warning, String message, Object...args) {
-		log(LogLevel.NOTE, null, warning, message, args);
+		log(LogLevel.NOTE, warning, message, args);
 	}
 	
 	public static void note(String message, Object...args) {
-		log(LogLevel.NOTE, null, null, message, args);
+		log(LogLevel.NOTE, message, args);
 	}
 	
 
@@ -261,15 +294,15 @@ public class Logger {
 	}
 	
 	public static void info(Positioned position, String message, Object...args) {
-		log(LogLevel.INFO, position, null, message, args);
+		log(LogLevel.INFO, position, message, args);
 	}
 
 	public static void info(Warning warning, String message, Object...args) {
-		log(LogLevel.INFO, null, warning, message, args);
+		log(LogLevel.INFO, warning, message, args);
 	}
 	
 	public static void info(String message, Object...args) {
-		log(LogLevel.INFO, null, null, message, args);
+		log(LogLevel.INFO, message, args);
 	}
 	
 
@@ -278,15 +311,15 @@ public class Logger {
 	}
 	
 	public static void warn(Positioned position, String message, Object...args) {
-		log(LogLevel.WARN, position, null, message, args);
+		log(LogLevel.WARN, position, message, args);
 	}
 
 	public static void warn(Warning warning, String message, Object...args) {
-		log(LogLevel.WARN, null, warning, message, args);
+		log(LogLevel.WARN, warning, message, args);
 	}
 	
 	public static void warn(String message, Object...args) {
-		log(LogLevel.WARN, null, null, message, args);
+		log(LogLevel.WARN, message, args);
 	}
 	
 
@@ -295,29 +328,62 @@ public class Logger {
 	}
 	
 	public static void error(Positioned position, String message, Object...args) {
-		log(LogLevel.ERROR, position, null, message, args);
+		log(LogLevel.ERROR, position, message, args);
 	}
 
 	public static void error(Warning warning, String message, Object...args) {
-		log(LogLevel.ERROR, null, warning, message, args);
+		log(LogLevel.ERROR, warning, message, args);
 	}
 	
 	public static void error(String message, Object...args) {
-		log(LogLevel.ERROR, null, null, message, args);
+		log(LogLevel.ERROR, message, args);
 	}
 
 	
 	public static void error(Positioned position, Flag flag, String message, Object...args) {
+		log(LogLevel.ERROR, position, message + formatFlag(flag), args);
+	}
+
+	public static void error(Flag flag, String message, Object...args) {
+		error(null, flag, message, args);
+	}
+	
+
+	public static void softError(Positioned position, Warning warning, String message, Object...args) {
+		logRecover(LogLevel.ERROR, position, warning, message, args);
+	}
+	
+	public static void softError(Positioned position, String message, Object...args) {
+		logRecover(LogLevel.ERROR, position, null, message, args);
+	}
+
+	public static void softError(Warning warning, String message, Object...args) {
+		logRecover(LogLevel.ERROR, null, warning, message, args);
+	}
+	
+	public static void softError(String message, Object...args) {
+		logRecover(LogLevel.ERROR, null, null, message, args);
+	}
+
+	
+	public static void softError(Positioned position, Flag flag, String message, Object...args) {
+		logRecover(LogLevel.ERROR, position, null, message + formatFlag(flag), args);
+	}
+
+	public static void softError(Flag flag, String message, Object...args) {
+		softError(null, flag, message, args);
+	}
+	
+	private static String formatFlag(Flag flag) {
+		if(flag == null)
+			return "";
+
 		String name = flag.getName();
 		
 		if(!flag.isEnabled())
 			name = "no-" + name;
 		
-		log(LogLevel.ERROR, position, null, message + " §8[§a-f" + name + "§8]", args);
-	}
-
-	public static void error(Flag flag, String message, Object...args) {
-		error(null, flag, message, args);
+		return " §8[§a-f" + name + "§8]";
 	}
 	
 }

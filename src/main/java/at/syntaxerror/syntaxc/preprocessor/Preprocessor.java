@@ -24,6 +24,7 @@ package at.syntaxerror.syntaxc.preprocessor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,6 +41,7 @@ import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.preprocessor.directive.Directive;
 import at.syntaxerror.syntaxc.preprocessor.directive.Directives;
 import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
+import at.syntaxerror.syntaxc.preprocessor.macro.FunctionMacro;
 import at.syntaxerror.syntaxc.preprocessor.macro.Macro;
 import at.syntaxerror.syntaxc.preprocessor.macro.SubstitutionHelper;
 import at.syntaxerror.syntaxc.preprocessor.macro.SubstitutionHelperView;
@@ -56,6 +58,29 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 	private static final Map<String, Macro> PREDEFINED_MACROS = new HashMap<>();
 	
 	private static final Set<String> BUILTIN = BuiltinMacro.getBuiltinMacros().keySet();
+	
+	static {
+		/*
+		 * Defines a macro to disable/remove GCC attributes (such as '__attribute__((packed))').
+		 * 
+		 * effectively equal to:
+		 * 
+		 * 	#define __attribute__(attr)
+		 */
+		PREDEFINED_MACROS.put(
+			"__attribute__",
+			new FunctionMacro(
+				Token.ofIdentifier(Position.dummy(), "__attribute__"),
+				new LinkedHashMap<>(
+					Map.of(
+						"attr",
+						Token.ofIdentifier(Position.dummy(), "attr")
+					)
+				),
+				List.of()
+			)
+		);
+	}
 	
 	private final @Getter CharStream input;
 	private final @Getter PreLexer lexer;
@@ -106,7 +131,7 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 		if(tok == null)
 			return marks.peek();
 		
-		else return marks.peek().range(tok);
+		return marks.peek().range(tok);
 	}
 	
 	@Override
@@ -138,7 +163,7 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 		Position pos = macro.getPosition();
 		
 		if(name.equals("defined")) {
-			error(pos, Warning.CONTINUE, "»defined« cannot be used a macro name");
+			softError(pos, "»defined« cannot be used a macro name");
 			return;
 		}
 		
@@ -253,7 +278,7 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 				
 				if(!tok.is(TokenType.IDENTIFIER)) {
 					if(!skip)
-						error(tok, Warning.CONTINUE, "Expected identifier for preprocessing directive");
+						softError(tok, "Expected identifier for preprocessing directive");
 					
 					skipTrailing(false);
 					unmark();
@@ -283,7 +308,7 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 				
 				if(!skip) {
 					if(tok.is(TokenType.IDENTIFIER)) // substitute macro, don't preserve whitespace
-						tokens.addAll(substitute());
+						tokens.addAll(substitute(tok));
 					
 					else tokens.add(tok);
 				}

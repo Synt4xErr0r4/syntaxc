@@ -23,6 +23,8 @@
 package at.syntaxerror.syntaxc;
 
 /**
+ * This class represents the standard exception raised by SyntaxC
+ * 
  * @author Thomas Kasper
  * 
  */
@@ -30,29 +32,35 @@ package at.syntaxerror.syntaxc;
 public class SyntaxCException extends RuntimeException {
 
 	/**
-	 * 
+	 * Constructs a new SyntaxCException
 	 */
 	public SyntaxCException() {
 		super();
 	}
 
 	/**
-	 * @param message
+	 * Constructs a new SyntaxCException with a message
+	 * 
+	 * @param message the message
 	 */
 	public SyntaxCException(String message) {
 		super(message);
 	}
 
 	/**
-	 * @param cause
+	 * Constructs a new SyntaxCException with a cause
+	 * 
+	 * @param cause the cause
 	 */
 	public SyntaxCException(Throwable cause) {
 		super(cause);
 	}
 
 	/**
-	 * @param message
-	 * @param cause
+	 * Constructs a new SyntaxCException with a message and cause
+	 * 
+	 * @param message the message
+	 * @param cause the cause
 	 */
 	public SyntaxCException(String message, Throwable cause) {
 		super(message, cause);

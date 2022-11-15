@@ -30,19 +30,57 @@ import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 
 /**
+ * This class represents a macro used by the pre-processor
+ * 
  * @author Thomas Kasper
  * 
  */
 public interface Macro extends Positioned {
 	
+	/**
+	 * Returns the name of the macro
+	 * 
+	 * @return the name of the macro
+	 */
 	String getName();
 	
+	/**
+	 * Returns whether the macro designates a function
+	 * 
+	 * @return whether the macro designates a function
+	 */
 	boolean isFunction();
+	
+	/**
+	 * Returns the number of arguments for the function-like macro
+	 * 
+	 * @return the number of arguments for the function-like macro
+	 */
 	int getArgCount();
 	
+	/**
+	 * Returns the arguments for this macro, if it is a function-like macro
+	 * 
+	 * @return the arguments for this macro
+	 */
 	LinkedHashMap<String, Token> getArgs();
+	
+	/**
+	 * Returns the substitution list defined for this macro
+	 * 
+	 * @return the substitution list defined for this macro
+	 */
 	List<Token> getBody();
 	
+	/**
+	 * Substitutes the token {@code self} with the subsitution list defined for this macro,
+	 * optionally accepting {@code args} if this macro is function-like.
+	 * 
+	 * @param preprocessor the preprocessor
+	 * @param self the token to be substituted
+	 * @param args the (optional) function call arguments
+	 * @return the resulting tokens
+	 */
 	List<Token> substitute(Preprocessor preprocessor, Token self, List<List<Token>> args);
 	
 }

@@ -28,33 +28,43 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Intermediate representation of (un-)conditional jumps
+ * Intermediate representation of memory copies
  * 
  * @author Thomas Kasper
  * 
  */
 @RequiredArgsConstructor
 @Getter
-public class ArrayIndexIntermediate extends Intermediate {
+public class MemcpyIntermediate extends Intermediate {
 
 	private final Position position;
 
-	private final Operand result;
-	private final Operand target;
-	private final Operand index;
+	private final Operand source;
+	private final Operand destination;
+	private final int sourceOffset;
+	private final int destinationOffset;
+	private final int length;
 
 	@Override
 	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.arrayIndex(
-			assemblyGenerator.target(result),
-			assemblyGenerator.target(target),
-			assemblyGenerator.target(index)
+		assemblyGenerator.memcpy(
+			assemblyGenerator.target(destination),
+			assemblyGenerator.target(source),
+			destinationOffset,
+			sourceOffset,
+			length
 		);
 	}
 	
 	@Override
 	public String toString() {
-		return "%s = %s[%s]".formatted(result, target, index);
+		return "/*synthetic*/ memcpy((void *) %s + %d, (void *) %s + %d, %d)".formatted(
+			destination,
+			destinationOffset,
+			source,
+			sourceOffset,
+			length
+		);
 	}
 	
 }

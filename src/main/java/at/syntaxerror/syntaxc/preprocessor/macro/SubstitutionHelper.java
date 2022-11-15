@@ -32,6 +32,7 @@ import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.preprocessor.PreprocessorView;
+import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Delegate;
@@ -158,9 +159,10 @@ public class SubstitutionHelper implements PreprocessorView, Logable {
 		if(macro != null)
 			rescanned.forEach(tok -> tok.inExpansionOf(macro));
 		
-		return found
-			? rescan(rescanned, restrict, macro)
-			: rescanned;
+		if(found)
+			rescanned = rescan(rescanned, restrict, macro);
+		
+		return rescanned;
 	}
 	
 	private List<Token> substituteFunction(Macro macro) {
@@ -221,7 +223,7 @@ public class SubstitutionHelper implements PreprocessorView, Logable {
 		return macro.substitute(preprocessor, self, args);
 	}
 	
-	public List<Token> substitute(boolean sameLine) {
+	public List<Token> substitute(Positioned pos, boolean sameLine) {
 		counter.found = false;
 		counter.sameLine = sameLine;
 		
@@ -248,7 +250,12 @@ public class SubstitutionHelper implements PreprocessorView, Logable {
 		
 		// § 6.8.3.4 Rescanning and further replacement
 		
-		return rescan(replacement, false, macro);
+		List<Token> result = rescan(replacement, false, macro);
+		
+		for(int i = 0; i < result.size(); ++i)
+			result.set(i, result.get(i).atPosition(pos));
+		
+		return result;
 	}
 
 	public Pair<Boolean, List<Token>> substitute(Token current, List<Token> tokens, boolean restrict) {
@@ -259,7 +266,7 @@ public class SubstitutionHelper implements PreprocessorView, Logable {
 		
 		counter = new Counter(counter, avail, false, restrict, counter.sameLine);
 		
-		List<Token> result = substitute(counter.sameLine);
+		List<Token> result = substitute(current, counter.sameLine);
 		
 		List<Token> section = inserted.subList(0, counter.available);
 		

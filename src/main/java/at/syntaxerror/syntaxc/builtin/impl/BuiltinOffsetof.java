@@ -22,26 +22,46 @@
  */
 package at.syntaxerror.syntaxc.builtin.impl;
 
-import java.util.List;
+import java.math.BigInteger;
 
 import at.syntaxerror.syntaxc.builtin.BuiltinContext;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
-import at.syntaxerror.syntaxc.builtin.BuiltinResult;
-import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.type.StructType;
 import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class BuiltinOffsetof implements BuiltinFunction {
+public class BuiltinOffsetof extends BuiltinFunction {
 
+	public BuiltinOffsetof() {
+		super("offsetof");
+	}
+	
 	@Override
-	public BuiltinResult call(BuiltinContext context, List<ExpressionNode> arguments) {
+	public void populate(BuiltinContext context) {
+		Type type = context.nextType().type();
+		String name = context.nextIdentifier().identifier().getString();
 		
+		context.ensureClosed();
 		
+		if(!type.isStructLike())
+			context.error(context, "Expected structure or union for offsetof");
 		
-		return new BuiltinResult(List.of(), null, Type.VOID);
+		StructType struct = type.toStructLike();
+		
+		int offset = struct.offsetof(name);
+		
+		if(offset == -1)
+			context.error(context, "No member named »%s« in »%s«", name, type);
+
+		if(offset == -2)
+			context.error(context, "Cannot get offset of bitfield »%s« in »%s«", name, type);
+		
+		inline = true;
+		returnType = Type.INT;
+		returnValue = BigInteger.valueOf(offset);
 	}
 	
 }

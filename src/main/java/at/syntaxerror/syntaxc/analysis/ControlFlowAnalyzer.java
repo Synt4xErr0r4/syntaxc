@@ -343,7 +343,7 @@ public class ControlFlowAnalyzer implements Logable {
 				foundUnknownLabel = true;
 				
 				for(JumpIntermediate pos : entry.getValue())
-					error(pos, Warning.CONTINUE, "Unknown label »%s«", label);
+					softError(pos, "Unknown label »%s«", label);
 			}
 		}
 		

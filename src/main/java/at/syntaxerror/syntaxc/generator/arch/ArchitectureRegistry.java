@@ -57,6 +57,9 @@ public class ArchitectureRegistry {
 	
 	@Getter @Setter
 	private static ByteOrder endianness = SystemUtils.getByteOrder();
+
+	@Getter @Setter
+	private static int alignment = -1;
 	
 	static {
 		register(new X86Architecture());

@@ -31,6 +31,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.UtilityClass;
 
 /**
+ * This class is used to gather information about the current machine's specifications
+ * 
  * @author Thomas Kasper
  * 
  */

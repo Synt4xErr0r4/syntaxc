@@ -227,7 +227,7 @@ public class Type {
 		return arrayOf(ArrayType.SIZE_UNKNOWN);
 	}
 
-	// 'type[expression]'
+	// '*' unary operator
 	public Type dereference() {
 		return toPointerLike().getBase();
 	}

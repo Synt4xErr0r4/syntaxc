@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import at.syntaxerror.syntaxc.builtin.BuiltinContext;
+import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
 import at.syntaxerror.syntaxc.builtin.BuiltinRegistry;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
@@ -36,6 +38,7 @@ import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.BuiltinExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
@@ -56,6 +59,7 @@ import at.syntaxerror.syntaxc.type.StructType;
 import at.syntaxerror.syntaxc.type.StructType.Member;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -67,6 +71,9 @@ public class ExpressionParser extends AbstractParser {
 	
 	private final AbstractParser parser;
 	private final DeclarationParser declarationParser;
+	
+	private final @Getter AssignmentHelper assignmentHelper = new AssignmentHelper();
+	private final @Getter ExpressionChecker checker = new ExpressionChecker();
 	
 	@Override
 	protected void sync() {
@@ -144,10 +151,10 @@ public class ExpressionParser extends AbstractParser {
 			}
 			
 			if(optional("(")) // function call, but function is not declared
-				error(ident, "Implicit declaration of function »%s«", ident.getString());
+				error(ident, Warning.SEM_NONE, "Implicit declaration of function »%s«", ident.getString());
 			
 			// variable is not declared
-			error(ident, "Undefined variable »%s«", ident.getString());
+			error(ident, Warning.SEM_NONE, "Undefined variable »%s«", ident.getString());
 		}
 
 		// string literal
@@ -190,6 +197,36 @@ public class ExpressionParser extends AbstractParser {
 		return null;
 	}
 	
+	private ExpressionNode nextBuiltin(Token tok) {
+		Position pos = tok.getPosition();
+		String name = tok.getString();
+		
+		BuiltinFunction fun = BuiltinRegistry.newFunction(name);
+		
+		FunctionType enclosing = null;
+		
+		if(parser instanceof Parser cParser)
+			enclosing = cParser.getActiveFunctionType();
+		
+		BuiltinContext ctx = new BuiltinContext(enclosing, this, tok.getPosition());
+
+		next(); // skip name
+		next(); // skip '('
+		
+		fun.populate(ctx);
+		
+		ctx.ensureClosed();
+		
+		if(fun.isInline())
+			return new NumberLiteralExpressionNode(
+				pos,
+				fun.getReturnValue(),
+				fun.getReturnType()
+			);
+		
+		return new BuiltinExpressionNode(pos, fun);
+	}
+	
 	/*
 	 * § 6.3.2 Postfix operators
 	 * 
@@ -212,7 +249,8 @@ public class ExpressionParser extends AbstractParser {
 			
 			if(sym == null) { // function does not exist
 				
-				BuiltinRegistry.findFunction(name);
+				if(BuiltinRegistry.isBuiltin(name))
+					return nextBuiltin(fnName);
 				
 				sym = SymbolObject.implicit(pos, name);
 				
@@ -575,7 +613,7 @@ public class ExpressionParser extends AbstractParser {
 			// '++x' is equivalent to 'x += 1'
 			// '--x' is equivalent to 'x -= 1'
 			
-			return newAssignment(
+			return assignmentHelper.newAssignment(
 				op.getPosition(),
 				expr,
 				Constants.one(op),
@@ -686,9 +724,9 @@ public class ExpressionParser extends AbstractParser {
 			ExpressionNode exprRight = nextCast();
 			
 			if(op.is("%"))
-				exprLeft = checkModulo(op, exprLeft, exprRight);
+				exprLeft = checker.checkModulo(op, exprLeft, exprRight);
 			
-			else exprLeft = checkArithmetic(
+			else exprLeft = checker.checkArithmetic(
 				op,
 				exprLeft,
 				exprRight,
@@ -716,9 +754,9 @@ public class ExpressionParser extends AbstractParser {
 			ExpressionNode exprRight = nextMultiplicative();
 			
 			if(op.is("-"))
-				exprLeft = checkSubtraction(op, exprLeft, exprRight);
+				exprLeft = checker.checkSubtraction(op, exprLeft, exprRight);
 			
-			else exprLeft = checkAddition(op, exprLeft, exprRight);
+			else exprLeft = checker.checkAddition(op, exprLeft, exprRight);
 		}
 		
 		return exprLeft;
@@ -743,11 +781,11 @@ public class ExpressionParser extends AbstractParser {
 		
 		while(optional("<", ">", "<=", ">=")) {
 			Token op = current;
-
+			
 			next();
 			ExpressionNode exprRight = nextShift();
 			
-			exprLeft = checkComparison(op, exprLeft, exprRight);
+			exprLeft = checker.checkComparison(op, exprLeft, exprRight);
 		}
 		
 		return exprLeft;
@@ -767,7 +805,7 @@ public class ExpressionParser extends AbstractParser {
 			next();
 			ExpressionNode exprRight = nextRelational();
 			
-			exprLeft = checkComparison(op, exprLeft, exprRight);
+			exprLeft = checker.checkComparison(op, exprLeft, exprRight);
 		}
 		
 		return exprLeft;
@@ -948,42 +986,42 @@ public class ExpressionParser extends AbstractParser {
 				error(op, "Cannot assign value to storage qualified as »const«");
 			
 			if(op.is("="))
-				return checkAssignment(op, exprLeft, exprRight, false);
+				return checker.checkAssignment(op, exprLeft, exprRight, false);
 			
 			op = Token.ofPunctuator(op.getPosition(), ASSIGN_TO_BINARY.get(op.getPunctuator()));
 			
 			BinaryExpressionNode assign;
 			
 			if(op.is("%"))
-				assign = checkModulo(op, exprLeft, exprRight);
+				assign = checker.checkModulo(op, exprLeft, exprRight);
 			
 			else if(op.is("/"))
-				assign = checkArithmetic(op, exprLeft, exprRight, "division");
+				assign = checker.checkArithmetic(op, exprLeft, exprRight, "division");
 			
 			else if(op.is("*"))
-				assign = checkArithmetic(op, exprLeft, exprRight, "multiplication");
+				assign = checker.checkArithmetic(op, exprLeft, exprRight, "multiplication");
 			
 			else if(op.is("<<", ">>"))
-				assign = checkBitwise(op, exprLeft, exprRight, "bitwise shift");
+				assign = checker.checkBitwise(op, exprLeft, exprRight, "bitwise shift");
 			
 			else if(op.is("&"))
-				assign = checkBitwise(op, exprLeft, exprRight, "bitwise AND");
+				assign = checker.checkBitwise(op, exprLeft, exprRight, "bitwise AND");
 
 			else if(op.is("^"))
-				assign = checkBitwise(op, exprLeft, exprRight, "bitwise XOR");
+				assign = checker.checkBitwise(op, exprLeft, exprRight, "bitwise XOR");
 			
 			else if(op.is("|"))
-				assign = checkBitwise(op, exprLeft, exprRight, "bitwise OR");
+				assign = checker.checkBitwise(op, exprLeft, exprRight, "bitwise OR");
 
 			else if(op.is("+")) {
-				assign = checkAddition(op, exprLeft, exprRight);
+				assign = checker.checkAddition(op, exprLeft, exprRight);
 				
 				if(exprRight.getType().isPointerLike())
 					error(op, "Unexpected pointer on right-hand side of compound assignment");
 			}
 
 			else if(op.is("-")) {
-				assign = checkSubtraction(op, exprLeft, exprRight);
+				assign = checker.checkSubtraction(op, exprLeft, exprRight);
 
 				if(exprRight.getType().isPointerLike())
 					error(op, "Unexpected pointer on right-hand side of compound assignment");
@@ -992,7 +1030,7 @@ public class ExpressionParser extends AbstractParser {
 			// unreachable
 			else throw new RuntimeException();
 			
-			return newAssignment(
+			return assignmentHelper.newAssignment(
 				op,
 				assign.getLeft(),
 				assign.getRight(),
@@ -1044,294 +1082,6 @@ public class ExpressionParser extends AbstractParser {
 		return ConstantExpressionEvaluator.evalAddress(nextConstantExpression());
 	}
 	
-	public boolean isNullPointer(ExpressionNode expr) {
-		return ConstantExpressionEvaluator.isConstant(expr)
-			&& ConstantExpressionEvaluator.evalInteger(expr).compareTo(BigInteger.ZERO) == 0;
-	}
-	
-	public BinaryExpressionNode checkBitwise(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, String name) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		if(!(left.isInteger() && right.isInteger()))
-			error(
-				op,
-				"Expected integer operands for %s (got »%s« and »%s«)",
-				name,
-				left,
-				right
-			);
-		
-		return newBinary(
-			op,
-			newPromote(exprLeft),
-			newPromote(exprRight),
-			op.getPunctuator()
-		);
-	}
-	
-	public BinaryExpressionNode checkLogical(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, String name) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		if(!(left.isScalar() && right.isScalar()))
-			error(
-				op,
-				"Expected number or pointer operands for %s (got »%s« and »%s«)",
-				name,
-				left,
-				right
-			);
-		
-		return newBinary(
-			op,
-			exprLeft,
-			exprRight,
-			op.getPunctuator(),
-			Type.INT
-		);
-	}
-	
-	public BinaryExpressionNode checkArithmetic(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, String name) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		if(!(left.isArithmetic() && right.isArithmetic()))
-			error(
-				op,
-				"Expected number operands for %s (got »%s« and »%s«)",
-				name,
-				left,
-				right
-			);
-		
-		Punctuator punct = op.getPunctuator();
-		
-		if(punct == Punctuator.POINTER || punct == Punctuator.INDIRECTION)
-			punct = Punctuator.MULTIPLY;
-		
-		return newArithmetic(
-			op,
-			exprLeft,
-			exprRight,
-			punct
-		);
-	}
-	
-	public BinaryExpressionNode checkModulo(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		if(!(left.isInteger() && right.isInteger()))
-			error(
-				op,
-				"Expected integer operands for modulo (got »%s« and »%s«)",
-				left,
-				right
-			);
-
-		return newArithmetic(
-			op,
-			exprLeft,
-			exprRight,
-			op.getPunctuator()
-		);
-	}
-	
-	public BinaryExpressionNode checkAddition(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		if(left.isPointerLike() || right.isPointerLike()) { // pointer + offset
-			
-			if(!left.isInteger() && !right.isInteger())
-				error(
-					op,
-					"Expected pointer and integer operands for addition (got »%s« and »%s«)",
-					left,
-					right
-				);
-
-		}
-		
-		else if(!left.isArithmetic() || !right.isArithmetic())
-			error(
-				op,
-				"Expected number or pointer operands for addition (got »%s« and »%s«)",
-				left,
-				right
-			);
-		
-		return newArithmetic( // x + y
-			op,
-			exprLeft,
-			exprRight,
-			Punctuator.ADD
-		);
-	}
-	
-	public BinaryExpressionNode checkSubtraction(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		if(left.isPointerLike()) {
-		
-			if(right.isPointerLike()) { // pointer - pointer
-				if(!TypeUtils.isEqual(left, right))
-					error(
-						op,
-						"Expected compatible pointer operands for subtraction (got »%s« and »%s«)",
-						left,
-						right
-					);
-
-				Type type = NumericValueType.PTRDIFF.asType();
-				
-				return newBinary( // ((char *) x - (char *) y) / sizeof *x
-					op,
-					newBinary( // (char *) x - (char *) y
-						op,
-						exprLeft,
-						exprRight,
-						Punctuator.SUBTRACT,
-						type
-					),
-					newNumber( // sizeof *x
-						op.getPosition(),
-						BigInteger.valueOf(left.dereference().sizeof()),
-						type
-					),
-					Punctuator.DIVIDE
-				);
-			}
-			
-			else if(!right.isInteger())
-				error(
-					op,
-					"Expected pointer and integer operands for subtraction (got »%s« and »%s«)",
-					left,
-					right
-				);
-
-		}
-		
-		else if(!left.isArithmetic() || !right.isArithmetic())
-			error(
-				op,
-				"Expected number or pointer operands for addition (got »%s« and »%s«)",
-				left,
-				right
-			);
-
-		return newArithmetic( // x - y
-			op,
-			exprLeft,
-			exprRight,
-			Punctuator.SUBTRACT
-		);
-	}
-	
-	public BinaryExpressionNode checkComparison(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		if(left.isPointerLike() || right.isPointerLike()) {
-			
-			if(!(left.isPointerLike() && right.isPointerLike()))
-				error(
-					op,
-					"Expected pointer operands for comparison (got »%s« and »%s«)",
-					left,
-					right
-				);
-			
-			if(!TypeUtils.isVoidPointer(left)
-				&& !TypeUtils.isVoidPointer(right)
-				&& !TypeUtils.isEqual(left, right))
-				warn(Warning.INCOMPATIBLE_POINTERS, "Comparison of different pointer types");
-			
-			return newBinary(
-				op,
-				exprLeft,
-				exprRight,
-				op.getPunctuator(),
-				Type.INT
-			);
-		}
-		
-		else if(!(left.isArithmetic() && right.isArithmetic()))
-			error(
-				op,
-				"Expected number operands for relational operator (got »%s« and »%s«)",
-				left,
-				right
-			);
-		
-		return newArithmetic( // perform usual arithmetic conversion
-			op,
-			exprLeft,
-			exprRight,
-			op.getPunctuator(),
-			Type.INT
-		);
-	}
-	
-	public BinaryExpressionNode checkAssignment(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, boolean isReturn) {
-		Type left = exprLeft.getType();
-		Type right = exprRight.getType();
-		
-		do {
-			if(left.isArray())
-				error(op, "Cannot assign to array type");
-			
-			if(left.isArithmetic() && right.isArithmetic())
-				break;
-			
-			if(left.isPointer() && right.isPointer()) {
-	
-				Type lbase = left.dereference();
-				Type rbase = right.dereference();
-				
-				if(!lbase.isConst() && rbase.isConst())
-					error(
-						op,
-						"%s discards »const« qualifier from target type",
-						isReturn ? "»return«" : "Assignment"
-					);
-				
-				if(!lbase.isVolatile() && rbase.isVolatile())
-					error(
-						op,
-						"%s discards »volatile« qualifier from target type",
-						isReturn ? "»return«" : "Assignment"
-					);
-				
-				if(TypeUtils.isVoidPointer(left) || TypeUtils.isVoidPointer(right) || isNullPointer(exprRight))
-					break;
-				
-			}
-			
-			if(TypeUtils.isEqual(left, right))
-				break;
-			
-			error(
-				op,
-				"Incompatible types for %s (got »%s« and »%s«)",
-				isReturn ? "»return«" : "assignment",
-				left,
-				right
-			);
-		} while(false);
-		
-		return newBinary(
-			op,
-			exprLeft,
-			exprRight,
-			Punctuator.ASSIGN,
-			left.unqualified()
-		);
-	}
-	
 	// helper function for bitwise operations (<<, >>, &, ^, |)
 	private ExpressionNode nextBitwise(Supplier<ExpressionNode> next, String name, Object...ops) {
 		ExpressionNode exprLeft = next.get();
@@ -1342,7 +1092,7 @@ public class ExpressionParser extends AbstractParser {
 			next();
 			ExpressionNode exprRight = next.get();
 			
-			exprLeft = checkBitwise(op, exprLeft, exprRight, name);
+			exprLeft = checker.checkBitwise(op, exprLeft, exprRight, name);
 		}
 		
 		return exprLeft;
@@ -1358,23 +1108,23 @@ public class ExpressionParser extends AbstractParser {
 			next();
 			ExpressionNode exprRight = next.get();
 			
-			exprLeft = checkLogical(op, exprLeft, exprRight, name);
+			exprLeft = checker.checkLogical(op, exprLeft, exprRight, name);
 		}
 		
 		return exprLeft;
 	}
 	
-	private static NumberLiteralExpressionNode newNumber(Positioned pos, Number value, Type type) {
+	protected static NumberLiteralExpressionNode newNumber(Positioned pos, Number value, Type type) {
 		return new NumberLiteralExpressionNode(pos.getPosition(), value, type);
 	}
 	
-	private static ExpressionNode newPromote(ExpressionNode expr) {
+	protected static ExpressionNode newPromote(ExpressionNode expr) {
 		Type promoted = TypeUtils.promoteInteger(expr.getType());
 		
 		return newCast(expr, expr, promoted);
 	}
 	
-	private static ExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
+	protected static ExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
 		Type current = expr.getType();
 		
 		if(TypeUtils.isEqual(current, type))
@@ -1383,19 +1133,19 @@ public class ExpressionParser extends AbstractParser {
 		return new CastExpressionNode(pos.getPosition(), expr, type);
 	}
 	
-	private static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op) {
+	protected static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op) {
 		return newUnary(pos, expr, op, expr.getType());
 	}
 
-	private static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op, Type type) {
+	protected static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op, Type type) {
 		return new UnaryExpressionNode(pos.getPosition(), expr, op, type);
 	}
 
-	private static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
+	protected static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
 		return newArithmetic(pos, left, right, op, null);
 	}
 
-	private static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
+	protected static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
 		Type lType = left.getType();
 		Type rType = right.getType();
 		
@@ -1407,105 +1157,30 @@ public class ExpressionParser extends AbstractParser {
 		return newBinary(pos, left, right, op, Objects.requireNonNullElse(type, usual));
 	}
 
-	private static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
+	protected static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
 		return newBinary(pos, left, right, op, left.getType());
 	}
 
-	private static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
+	protected static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
 		return new BinaryExpressionNode(pos.getPosition(), left, right, op, type);
 	}
 
-	private static BinaryExpressionNode newComma(Positioned pos, ExpressionNode left, ExpressionNode right) {
+	protected static BinaryExpressionNode newComma(Positioned pos, ExpressionNode left, ExpressionNode right) {
 		return newBinary(pos, left, right, Punctuator.COMMA, right.getType());
 	}
 	
-	private ExpressionNode newAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {
-		if(left instanceof VariableExpressionNode)
-			return newSimpleAssignment(pos, left, right, operation);
-		
-		return newComplexAssignment(pos, left, right, operation);
-	}
-	
-	// An assignment 'x op= y' is equivalent to 'x = x op y' if 'x' has no side effects
-	private ExpressionNode newSimpleAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operator) {
-		Type leftType = left.getType();
-		
-		if(left instanceof VariableExpressionNode var && var.getVariable().isLocalVariable())
-			var.getVariable().setInitialized(true);
-		
-		return newBinary( // x = x op y
-			pos,
-			left,
-			newBinary( // x op y
-				pos,
-				left,
-				right,
-				operator
-			),
-			Punctuator.ASSIGN,
-			leftType.unqualified()
-		);
-	}
-	
-	// An assignment 'x op= y' is equivalent to 'z = &x, *z = *z op y' if 'x' has side effects
-	private ExpressionNode newComplexAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {
-		Type leftType = left.getType();
-		Type leftAddr = leftType.addressOf();
-		
-		SymbolObject sym = SymbolObject.temporary(
-			pos.getPosition(),
-			leftAddr
-		);
-		
-		// z (temporary variable)
-		VariableExpressionNode var = new VariableExpressionNode(
-			pos.getPosition(),
-			sym
-		);
-		
-		UnaryExpressionNode deref = newUnary( // *z
-			pos,
-			var,
-			Punctuator.INDIRECTION,
-			leftType
-		);
-		
-		return newComma( // z = &x, *z = *z op y
-			pos,
-			newBinary( // z = &x
-				pos,
-				var,
-				newUnary( // &x
-					pos,
-					left,
-					Punctuator.ADDRESS_OF,
-					leftAddr
-				),
-				Punctuator.ASSIGN,
-				leftAddr.unqualified()
-			),
-			newBinary( // *z = *z op y
-				pos,
-				deref,
-				newBinary( // *z op y
-					pos,
-					deref,
-					right,
-					operation
-				),
-				Punctuator.ASSIGN,
-				leftType.unqualified()
-			)
-		);
+	public static boolean isNullPointer(ExpressionNode expr) {
+		return ConstantExpressionEvaluator.isConstant(expr)
+			&& ConstantExpressionEvaluator.evalInteger(expr).compareTo(BigInteger.ZERO) == 0;
 	}
 
-	@Deprecated
 	/* For an expression 'ptr+off' (where 'ptr' is a pointer and 'off' is an integer),
 	 * 'off' specifies the offset in number of elements (not bytes) and must
 	 * therefore be scaled accordingly ('off * sizeof(ptr)')
 	 * 
 	 * when 'swap' is true, ptr and off are swapped (changes order of evaluation)
 	 */
+	@Deprecated
 	private static BinaryExpressionNode addOrSubtractPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset, Punctuator op, boolean swap) {
 		Type offsetType = NumericValueType.SIZE.asType();
 		

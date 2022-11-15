@@ -22,16 +22,99 @@
  */
 package at.syntaxerror.syntaxc.builtin;
 
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.builtin.BuiltinFunction.ExpressionArgument;
+import at.syntaxerror.syntaxc.builtin.BuiltinFunction.IdentifierArgument;
+import at.syntaxerror.syntaxc.builtin.BuiltinFunction.TypeArgument;
+import at.syntaxerror.syntaxc.lexer.Token;
+import at.syntaxerror.syntaxc.lexer.TokenType;
+import at.syntaxerror.syntaxc.logger.Logable;
+import at.syntaxerror.syntaxc.parser.ExpressionParser;
+import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
+import at.syntaxerror.syntaxc.type.FunctionType;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Delegate;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public record BuiltinContext(SymbolObject enclosingFunction) {
+@RequiredArgsConstructor
+public class BuiltinContext implements Logable {
 
+	@Getter
+	private final FunctionType enclosingFunction;
+	
+	@Delegate(types = Logable.class, excludes = Positioned.class)
+	private final ExpressionParser expr;
+	
+	@Getter
+	private final Position position;
+	
+	private int consumed = 0;
+	private boolean closed = false;
+	
 	public boolean isInsideFunction() {
-		return enclosingFunction() != null;
+		return getEnclosingFunction() != null;
+	}
+	
+	private void ensureNotExhausted() {
+		if(!closed && consumed++ == 0)
+			return;
+
+		expr.consume(",");
+	}
+	
+	/**
+	 * Ensures that the function call was terminated with a closing parenthesis ')'
+	 */
+	public void ensureClosed() {
+		if(closed)
+			return;
+		
+		closed = true;
+		
+		expr.expect(")");
+	}
+	
+	/**
+	 * Treats the next function call argument as an expression and returns it
+	 * 
+	 * @return the next function argument as an expression
+	 */
+	public ExpressionArgument nextExpression() {
+		ensureNotExhausted();
+		
+		ExpressionNode node = expr.nextAssignment();
+		expr.next();
+		
+		return new ExpressionArgument(node);
+	}
+
+	/**
+	 * Treats the next function call argument as a type name and returns it
+	 * 
+	 * @return the next function argument as a type name
+	 */
+	public TypeArgument nextType() {
+		ensureNotExhausted();
+		return new TypeArgument(expr.getPosition(), expr.nextTypeName());
+	}
+
+	/**
+	 * Treats the next function call argument as an identifier and returns it
+	 * 
+	 * @return the next function argument as an identifier
+	 */
+	public IdentifierArgument nextIdentifier() {
+		ensureNotExhausted();
+		
+		Token tok = expr.expect(TokenType.IDENTIFIER);
+		expr.next();
+		
+		return new IdentifierArgument(tok);
 	}
 	
 }

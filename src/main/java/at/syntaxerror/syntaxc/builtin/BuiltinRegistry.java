@@ -24,6 +24,7 @@ package at.syntaxerror.syntaxc.builtin;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import lombok.experimental.UtilityClass;
 
@@ -43,13 +44,27 @@ public class BuiltinRegistry {
 	 * - void __builtin_va_end(va_list ap);
 	 */
 
-	private static final Map<String, BuiltinFunction> BUILTIN = new HashMap<>();
-	
-	public static BuiltinFunction findFunction(String name) {
-		return BUILTIN.get(name);
+	private static final Map<String, Supplier<BuiltinFunction>> BUILTIN = new HashMap<>();
+
+	static {
+		BuiltinKind.init();
 	}
 	
-	public static void register(String name, BuiltinFunction function) {
+	public static boolean isBuiltin(String name) {
+		if(!name.startsWith("__builtin_"))
+			return false;
+		
+		return BUILTIN.containsKey(name.substring(10));
+	}
+	
+	public static BuiltinFunction newFunction(String name) {
+		if(!name.startsWith("__builtin_"))
+			return null;
+		
+		return BUILTIN.get(name.substring(10)).get();
+	}
+	
+	public static void register(String name, Supplier<BuiltinFunction> function) {
 		BUILTIN.put(name, function);
 	}
 	

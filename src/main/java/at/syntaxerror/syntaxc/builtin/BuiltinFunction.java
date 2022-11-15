@@ -22,16 +22,119 @@
  */
 package at.syntaxerror.syntaxc.builtin;
 
+import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
+
+import java.util.ArrayList;
 import java.util.List;
 
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
+import at.syntaxerror.syntaxc.lexer.Token;
+import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
+import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
+import at.syntaxerror.syntaxc.type.Type;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public interface BuiltinFunction {
+@RequiredArgsConstructor
+@Getter
+public abstract class BuiltinFunction {
 
-	BuiltinResult call(BuiltinContext context, List<ExpressionNode> arguments);
+	private final String name;
+	
+	protected final List<BuiltinArgument> args = new ArrayList<>();
+	
+	protected Type returnType = Type.VOID;
+	protected Number returnValue = null;
+	protected boolean inline = false;
+	
+	public abstract void populate(BuiltinContext context);
+	
+	public static interface BuiltinArgument extends Positioned, SyntaxTreeNode {
+		
+	}
+	
+	@RequiredArgsConstructor
+	@Getter
+	public static class ExpressionArgument implements BuiltinArgument {
+		
+		private final ExpressionNode expression;
+		
+		@Setter
+		private Operand operand;
+		
+		public Type getType() {
+			return expression.getType();
+		}
+		
+		@Override
+		public Position getPosition() {
+			return expression.getPosition();
+		}
+		
+		@Override
+		public String toString() {
+			return operand == null
+				? "<null>"
+				: operand.toString();
+		}
+		
+		@Override
+		public List<Pair<String, SyntaxTreeNode>> getChildren() {
+			return List.of(
+				child("expression", expression)
+			);
+		}
+		
+	}
+
+	public static record TypeArgument(Position position, Type type) implements BuiltinArgument {
+		
+		@Override
+		public Position getPosition() {
+			return position;
+		}
+		
+		@Override
+		public String toString() {
+			return type.toString();
+		}
+		
+		@Override
+		public List<Pair<String, SyntaxTreeNode>> getChildren() {
+			return List.of(
+				child("type", type)
+			);
+		}
+		
+	}
+
+	public static record IdentifierArgument(Token identifier) implements BuiltinArgument {
+		
+		@Override
+		public Position getPosition() {
+			return identifier.getPosition();
+		}
+		
+		@Override
+		public String toString() {
+			return identifier.getString();
+		}
+		
+		@Override
+		public List<Pair<String, SyntaxTreeNode>> getChildren() {
+			return List.of(
+				child("identifier", identifier.getString())
+			);
+		}
+		
+	}
 	
 }

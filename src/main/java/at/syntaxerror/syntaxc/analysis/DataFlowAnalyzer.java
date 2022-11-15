@@ -97,7 +97,7 @@ public class DataFlowAnalyzer implements Logable {
 	private void scanInitializedSingle(StatementNode stmt, BranchList branches) {
 		
 		if(stmt instanceof ExpressionStatementNode node) {
-			if(!scanInitialized(node.getExpression(), branches))
+			if(!scanInitialized(node.getExpression(), branches) && !node.getExpression().getType().isVoid())
 				warn(node, Warning.UNUSED_VALUE, "Result of expression is unused");
 		}
 		

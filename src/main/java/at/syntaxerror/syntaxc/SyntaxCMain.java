@@ -54,6 +54,8 @@ import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
 import at.syntaxerror.syntaxc.tracking.Position;
 
 /**
+ * This class represents the entry point of the compiler
+ * 
  * @author Thomas Kasper
  * 
  */
@@ -74,7 +76,9 @@ public class SyntaxCMain {
 				"-fsyntax-tree=svg",
 				"-fcontrol-flow-graph=svg",
 				"-fcfg-verbose",
-				"-S"
+				"-S",
+				"-fpacked",
+				"-Wall"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -116,9 +120,9 @@ public class SyntaxCMain {
 		if(result.has("doc")) {
 			String arg = result.get("doc").get(0);
 			
-			Option option = parser.get(arg);
+			Option option = parser.get(arg); // recognize option name, e.g. 'version'
 			
-			if(option == null && arg.length() == 1)
+			if(option == null && arg.length() == 1) // recognize mnemonic, e.g. 'v'
 				option = parser.get(arg.charAt(0));
 			
 			if(option == null)
@@ -131,6 +135,10 @@ public class SyntaxCMain {
 		/*		========================
 		 * 			COMPILATION MODE
 		 * 		========================
+		 * 
+		 * -S only produces assembly code
+		 * -c only produces an unlinked object file
+		 * -E only produces pre-processed C code
 		 */
 		
 		SyntaxC.onlyCompile = result.has('S');
@@ -151,20 +159,26 @@ public class SyntaxCMain {
 		 * 		===================
 		 */
 		
+		// architecture/machine settings
 		result.get('m').forEach(CLIHandler::machine);
 		
+		// enable/disable warnings
 		result.get('W').forEach(CLIHandler::warning);
 		
+		// enable/disable flags
 		result.get('f').forEach(CLIHandler::flag);
 		
+		// enable/disable optimizations
 		result.get('O').forEach(CLIHandler::optimize);
 		
+		// (un)define macros
 		result.get('D').forEach(CLIHandler::define);
 		result.get('U').forEach(CLIHandler::undef);
 		
 		if(Flag.NO_STDLIB.isEnabled())
 			IncludePathRegistry.clear();
 		
+		// include path
 		result.get('I').forEach(IncludePathRegistry::add);
 		
 		if(result.has("version")) {
@@ -213,21 +227,48 @@ public class SyntaxCMain {
 					+ getGraphExtension(Flag.CONTROL_FLOW_GRAPH)
 			);
 		
+		if(Flag.ALIGN.isEnabled())
+			try {
+				int alignment = Integer.parseInt(Flag.ALIGN.getValue());
+				
+				if((alignment & 3) != 0 || alignment < 0)
+					throw new IllegalArgumentException();
+
+				ArchitectureRegistry.setAlignment(alignment);
+			} catch (Exception e) {
+				parser.showUsage("Illegal alignment specified");
+			}
+		
 		SyntaxC.inputFileName = file;
 		
 		SyntaxC.compile(input);
 	}
 	
-	@SuppressWarnings("preview")
+	/**
+	 * Returns the file name extension for the requested graph, depending
+	 * on the value of the flag.
+	 * Supported extensions are {@code svg}, {@code png} and {@code dot}
+	 * 
+	 * @param flag the flag of the requested graph
+	 * @return the file name extension
+	 */
 	private static String getGraphExtension(Flag flag) {
 		return switch(flag.getValue().toLowerCase()) {
 		case "svg" -> "svg";
 		case "png" -> "png";
-		case null -> "dot";
 		default -> "dot";
 		};
 	}
 	
+	/**
+	 * Splits a string at the first occurence of a specified delimiter and
+	 * returns the two parts as a pair. If the string does not contain the
+	 * delimiter, the pair contains the original string and {@code null}
+	 * 
+	 * @param value
+	 * @param delimiter
+	 * @return
+	 */
 	private static Pair<String, String> split(String value, char delimiter) {
 		int index = value.indexOf(delimiter);
 		
@@ -289,7 +330,9 @@ public class SyntaxCMain {
 			else {
 				value = value.strip();
 				
-				Position pos = new Position(Position.ARGUMENT, 0, 0, 0, value.length(), null);
+				// generate tokens from input
+				
+				Position pos = Position.argument(value.length());
 				
 				PreLexer lexer = new PreLexer(CharStream.fromString(value, pos));
 				
@@ -391,7 +434,7 @@ public class SyntaxCMain {
 				Logger.warn("Unrecognized warning: %s", arg);
 				return;
 			}
-			
+
 			group.setEnabled(state);
 		}
 
