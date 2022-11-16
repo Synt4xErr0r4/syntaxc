@@ -25,10 +25,7 @@ package at.syntaxerror.syntaxc.parser;
 import static at.syntaxerror.syntaxc.parser.ExpressionParser.isNullPointer;
 import static at.syntaxerror.syntaxc.parser.ExpressionParser.newArithmetic;
 import static at.syntaxerror.syntaxc.parser.ExpressionParser.newBinary;
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newNumber;
 import static at.syntaxerror.syntaxc.parser.ExpressionParser.newPromote;
-
-import java.math.BigInteger;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
@@ -162,6 +159,15 @@ public class ExpressionChecker implements Logable {
 					right
 				);
 
+			return newBinary(
+				op,
+				exprLeft,
+				exprRight,
+				Punctuator.ADD,
+				left.isPointerLike()
+					? left
+					: right
+			);
 		}
 		
 		else if(!left.isArithmetic() || !right.isArithmetic())
@@ -187,7 +193,7 @@ public class ExpressionChecker implements Logable {
 		if(left.isPointerLike()) {
 		
 			if(right.isPointerLike()) { // pointer - pointer
-				if(!TypeUtils.isEqual(left, right))
+				if(!TypeUtils.isCompatible(left, right))
 					error(
 						op,
 						"Expected compatible pointer operands for subtraction (got »%s« and »%s«)",
@@ -195,23 +201,12 @@ public class ExpressionChecker implements Logable {
 						right
 					);
 
-				Type type = NumericValueType.PTRDIFF.asType();
-				
-				return newBinary( // ((char *) x - (char *) y) / sizeof *x
+				return newBinary(
 					op,
-					newBinary( // (char *) x - (char *) y
-						op,
-						exprLeft,
-						exprRight,
-						Punctuator.SUBTRACT,
-						type
-					),
-					newNumber( // sizeof *x
-						op.getPosition(),
-						BigInteger.valueOf(left.dereference().sizeof()),
-						type
-					),
-					Punctuator.DIVIDE
+					exprLeft,
+					exprRight,
+					Punctuator.SUBTRACT,
+					NumericValueType.PTRDIFF.asType()
 				);
 			}
 			
@@ -222,7 +217,14 @@ public class ExpressionChecker implements Logable {
 					left,
 					right
 				);
-
+			
+			return newBinary(
+				op,
+				exprLeft,
+				exprRight,
+				Punctuator.SUBTRACT,
+				exprLeft.getType()
+			);
 		}
 		
 		else if(!left.isArithmetic() || !right.isArithmetic())
@@ -255,9 +257,11 @@ public class ExpressionChecker implements Logable {
 					right
 				);
 			
+			System.out.println(left + " / " + right);
+			
 			if(!TypeUtils.isVoidPointer(left)
 				&& !TypeUtils.isVoidPointer(right)
-				&& !TypeUtils.isEqual(left, right))
+				&& !TypeUtils.isCompatible(left, right))
 				warn(Warning.INCOMPATIBLE_POINTERS, "Comparison of different pointer types");
 			
 			return newBinary(
@@ -321,7 +325,7 @@ public class ExpressionChecker implements Logable {
 				
 			}
 			
-			if(TypeUtils.isEqual(left, right))
+			if(TypeUtils.isCompatible(left, right))
 				break;
 			
 			error(

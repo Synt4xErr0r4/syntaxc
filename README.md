@@ -1,6 +1,6 @@
 # SyntaxC
 
-An ANSI-C (C89, C90) compiler written in Java 18.
+An ANSI-C (C89, C90) compiler written in Java 19.
 
 ## Motivation and Goals
 

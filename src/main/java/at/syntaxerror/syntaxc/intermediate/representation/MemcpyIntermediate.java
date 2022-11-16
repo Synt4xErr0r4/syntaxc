@@ -57,14 +57,26 @@ public class MemcpyIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
-		return "/*synthetic*/ memcpy((void *) %s + %d, (void *) %s + %d, %d)".formatted(
-			destination,
-			destinationOffset,
-			source,
-			sourceOffset,
+	public String toStringInternal() {
+		return "/*synthetic*/ memcpy((void *) %s, (void *) %s, %d)".formatted(
+			getTargetString(
+				destination,
+				destinationOffset
+			),
+			getTargetString(
+				source,
+				sourceOffset
+			),
 			length
 		);
+	}
+	
+	protected static String getTargetString(Operand target, int offset) {
+		return offset == 0
+			? target.toString()
+			: offset > 0
+				? target + "+" + offset
+				: target + "-" + -offset;
 	}
 	
 }

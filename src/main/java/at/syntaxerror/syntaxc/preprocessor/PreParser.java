@@ -234,9 +234,7 @@ public class PreParser extends ExpressionParser implements Logable {
 		next();
 		
 		try {
-			ExpressionNode expr = nextExpression();
-			
-			return ConstantExpressionEvaluator.evalInteger(expr)
+			return nextIntegerConstantExpression()
 				.compareTo(BigInteger.ZERO) != 0;
 		} catch (AbortException e) {
 			return false;

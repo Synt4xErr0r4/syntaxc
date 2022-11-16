@@ -50,7 +50,18 @@ public abstract class Intermediate implements Positioned {
 	 * 
 	 * @return the C-like code
 	 */
-	public abstract String toString();
+	@Override
+	public final String toString() {
+		String strval = toStringInternal();
+		
+		// remove discard operator from string representation
+		if(strval.startsWith("<discard> = "))
+			return strval.substring(12);
+		
+		return strval;
+	}
+	
+	protected abstract String toStringInternal();
 	
 	/**
 	 * not actually a intermediate representation, but signales to the code generator that
@@ -75,7 +86,7 @@ public abstract class Intermediate implements Positioned {
 		}
 		
 		@Override
-		public String toString() {
+		public String toStringInternal() {
 			return "/*synthetic: free _%d*/".formatted(operand.id);
 		}
 		
@@ -100,6 +111,26 @@ public abstract class Intermediate implements Positioned {
 		
 		default List<Intermediate> free() {
 			return List.of();
+		}
+		
+	}
+	
+	/**
+	 * operand telling the code generator that the result of an operation should be discarded  
+	 * 
+	 * @author Thomas Kasper
+	 */
+	@Getter
+	public static class DiscardOperand implements Operand {
+		
+		@Override
+		public Type getType() {
+			return Type.VOID;
+		}
+		
+		@Override
+		public String toString() {
+			return "<discard>";
 		}
 		
 	}

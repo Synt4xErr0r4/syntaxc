@@ -58,6 +58,7 @@ public class FunctionNode extends SymbolNode {
 			child(
 				"declarations",
 				declarations.stream()
+					.filter(sym -> !sym.isSyntaxTreeIgnore())
 					.map(sym -> new TreeListNode(
 						List.of(
 							child("name", sym.getDebugName()),

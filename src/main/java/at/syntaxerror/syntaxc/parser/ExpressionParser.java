@@ -163,7 +163,8 @@ public class ExpressionParser extends AbstractParser {
 			
 			SymbolObject var = SymbolObject.string(
 				current.getPosition(),
-				getSymbolTable().getStringTable().add(value, current.isWide())
+				getSymbolTable().getStringTable()
+					.add(value, current.isWide())
 			);
 			
 			getSymbolTable().addObject(var);
@@ -893,7 +894,7 @@ public class ExpressionParser extends AbstractParser {
 					break;
 				}
 				
-				if(TypeUtils.isEqual(whenTrue, whenFalse)) {
+				if(TypeUtils.isCompatible(whenTrue, whenFalse)) {
 					if(whenTrue.isPointerLike())
 						result = TypeUtils.inheritPointerQualifiers(whenTrue, whenFalse);
 					
@@ -1127,7 +1128,7 @@ public class ExpressionParser extends AbstractParser {
 	protected static ExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
 		Type current = expr.getType();
 		
-		if(TypeUtils.isEqual(current, type))
+		if(TypeUtils.isCompatible(current, type))
 			return expr;
 		
 		return new CastExpressionNode(pos.getPosition(), expr, type);
@@ -1172,54 +1173,6 @@ public class ExpressionParser extends AbstractParser {
 	public static boolean isNullPointer(ExpressionNode expr) {
 		return ConstantExpressionEvaluator.isConstant(expr)
 			&& ConstantExpressionEvaluator.evalInteger(expr).compareTo(BigInteger.ZERO) == 0;
-	}
-
-	/* For an expression 'ptr+off' (where 'ptr' is a pointer and 'off' is an integer),
-	 * 'off' specifies the offset in number of elements (not bytes) and must
-	 * therefore be scaled accordingly ('off * sizeof(ptr)')
-	 * 
-	 * when 'swap' is true, ptr and off are swapped (changes order of evaluation)
-	 */
-	@Deprecated
-	private static BinaryExpressionNode addOrSubtractPointer(Positioned pos, ExpressionNode pointer, ExpressionNode offset, Punctuator op, boolean swap) {
-		Type offsetType = NumericValueType.SIZE.asType();
-		
-		// offset * sizeof(pointer)
-		ExpressionNode scaledOffset = newBinary(
-			pos,
-			offset,
-			newNumber(
-				pos,
-				BigInteger.valueOf(
-					pointer.getType()
-						.toPointerLike()
-						.getBase()
-						.sizeof()
-				),
-				offsetType
-			),
-			Punctuator.MULTIPLY,
-			offsetType
-		);
-		
-		ExpressionNode a, b;
-		
-		if(swap) { // offset + pointer
-			a = scaledOffset;
-			b = pointer;
-		}
-		else { // pointer + offset
-			a = pointer;
-			b = scaledOffset;
-		}
-		
-		return newBinary(
-			pos,
-			a,
-			b,
-			op,
-			pointer.getType()
-		);
 	}
 	
 }

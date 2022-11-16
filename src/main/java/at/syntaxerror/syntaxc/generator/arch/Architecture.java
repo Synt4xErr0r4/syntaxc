@@ -52,7 +52,7 @@ public abstract class Architecture {
 	@Getter
 	private final String[] names;
 	
-	private final String syntax;
+	private String syntax;
 	
 	public Architecture(@NonNull String name, String...more) {
 		names = new String[1 + more.length];
@@ -78,6 +78,7 @@ public abstract class Architecture {
 		if(!getSyntaxes().contains(syntax))
 			return false;
 		
+		this.syntax = syntax;
 		return true;
 	}
 	

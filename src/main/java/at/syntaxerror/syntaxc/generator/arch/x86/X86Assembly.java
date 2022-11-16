@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -146,8 +147,11 @@ public class X86Assembly {
 					if(obj instanceof X86Register)
 						return "%" + obj;
 					
-					if(obj instanceof Number)
+					if(obj instanceof Integer)
 						return "$" + obj;
+					
+					if(obj instanceof AssemblyInteger asm)
+						return "$" + toString(asm);
 					
 				}
 				
@@ -156,7 +160,11 @@ public class X86Assembly {
 				
 				return obj.toString();
 			})
-			.toList();
+			.collect(
+				ArrayList::new,
+				ArrayList::add,
+				ArrayList::addAll
+			);
 		
 		if(!intelSyntax) // AT&T syntax reverses instruction operands
 			Collections.reverse(strArgs);

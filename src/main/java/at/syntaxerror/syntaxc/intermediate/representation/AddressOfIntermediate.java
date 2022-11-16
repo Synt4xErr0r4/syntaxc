@@ -51,7 +51,7 @@ public class AddressOfIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
+	public String toStringInternal() {
 		return "%s = &%s;".formatted(target, value);
 	}
 	

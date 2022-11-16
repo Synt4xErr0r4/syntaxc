@@ -261,7 +261,7 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 		
 		int size = object.getType().sizeof();
 		
-		String name = object.getName();
+		String name = object.getFullName();
 		
 		setSegment(
 			function || readOnly

@@ -55,10 +55,12 @@ public class MemsetIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
-		return "/*synthetic*/ memset((void *) %s + %d, %d, %d)".formatted(
-			target,
-			offset,
+	public String toStringInternal() {
+		return "/*synthetic*/ memset((void *) %s, %d, %d)".formatted(
+			MemcpyIntermediate.getTargetString(
+				target,
+				offset
+			),
 			value,
 			length
 		);

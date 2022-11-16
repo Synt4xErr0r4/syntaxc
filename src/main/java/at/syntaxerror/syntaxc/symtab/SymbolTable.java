@@ -113,5 +113,9 @@ public class SymbolTable {
 	public boolean hasTag(String name) {
 		return tags.has(name);
 	}
+
+	public void removeObject(SymbolObject obj) {
+		objects.remove(obj);
+	}
 	
 }

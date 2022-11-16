@@ -28,33 +28,33 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Intermediate representation of logical OR ('a||b')
+ * Intermediate representation of addition ('a+b')
  * 
  * @author Thomas Kasper
  * 
  */
 @RequiredArgsConstructor
 @Getter
-public class LogicalOrIntermediate extends Intermediate {
+public class ArrayIndexIntermediate extends Intermediate {
 
 	private final Position position;
-
+	
 	private final Operand result;
-	private final Operand left;
-	private final Operand right;
-
+	private final Operand target;
+	private final Operand index;
+	
 	@Override
 	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.logicalOr(
+		assemblyGenerator.arrayIndex(
 			assemblyGenerator.target(result),
-			assemblyGenerator.target(left),
-			assemblyGenerator.target(right)
+			assemblyGenerator.target(target),
+			assemblyGenerator.target(index)
 		);
 	}
 	
 	@Override
 	public String toStringInternal() {
-		return "%s = %s || %s;".formatted(result, left, right);
+		return "%s = %s[%s];".formatted(result, target, index);
 	}
 	
 }

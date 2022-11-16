@@ -81,4 +81,9 @@ public class Scope<T extends Symbol> {
 		return true;
 	}
 
+	public void remove(T obj) {
+		if(!symbols.remove(obj.getName(), obj) && parent != null)
+			parent.remove(obj);
+	}
+
 }

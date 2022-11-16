@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.intermediate;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction.ExpressionArgument;
 import at.syntaxerror.syntaxc.intermediate.representation.AddIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.AddressOfIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.ArrayIndexIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.AssignIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseAndIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BitwiseNotIntermediate;
@@ -94,6 +96,8 @@ import at.syntaxerror.syntaxc.parser.node.statement.LabeledStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.StructType;
 import at.syntaxerror.syntaxc.type.Type;
 
@@ -166,7 +170,7 @@ public class IntermediateGenerator {
 		return operands.computeIfAbsent(
 			object,
 			x -> {
-				String name = object.getName();
+				String name = object.getFullName();
 				Type type = object.getType();
 				
 				if(object.isReturnValue())
@@ -205,6 +209,12 @@ public class IntermediateGenerator {
 		return new TemporaryOperand(type);
 	}
 	
+	private Operand result(Type type, IRContext context) {
+		return context.needResult() && !type.isVoid()
+			? temporary(type)
+			: null;
+	}
+	
 	private void free(List<Intermediate> ir, Operand operand) {
 		if(operand != null)
 			ir.addAll(operand.free());
@@ -225,8 +235,14 @@ public class IntermediateGenerator {
 			if(statement instanceof CompoundStatementNode compound)
 				ir.addAll(processStatements(compound.getStatements()));
 		
-			else if(statement instanceof ExpressionStatementNode expr) {
-				var result = processExpression(expr.getExpression(), false, false);
+			else if(statement instanceof ExpressionStatementNode stmt) {
+				ExpressionNode child = stmt.getExpression();
+				
+				var result = processExpression(
+					child,
+					IRContext.defaults(child)
+						.withoutResult()
+				);
 				
 				ir.addAll(result.getLeft());
 
@@ -240,7 +256,7 @@ public class IntermediateGenerator {
 				));
 
 			else if(statement instanceof JumpStatementNode jump) {
-				var condition = processExpression(jump.getCondition(), false);
+				var condition = processExpression(jump.getCondition());
 				
 				condition.ifLeftPresent(ir::addAll);
 				
@@ -266,291 +282,53 @@ public class IntermediateGenerator {
 		
 		return ir;
 	}
-	
-	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression, boolean lvalue) {
-		return processExpression(expression, true, false);
+
+	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression) {
+		return processExpression(expression, null);
 	}
-	
-	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression, boolean needResult, boolean lvalue) {
 
-		Position pos = expression.getPosition();
+	@SuppressWarnings("preview")
+	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression, IRContext ctx) {
+		if(ctx == null)
+			ctx = IRContext.defaults(expression);
 		
-		if(expression instanceof BinaryExpressionNode binop) {
-			List<Intermediate> ir = new ArrayList<>();
-			
-			Operand result = needResult
-				? temporary(binop.getType())
-				: null;
-			
-			var exprLeft = binop.getLeft();
-			var exprRight = binop.getRight();
-			
-			if(exprLeft.getType().isPointerLike() || exprRight.getType().isPointerLike()) {
-				
-				// TODO
-				
-			}
-			
-			Punctuator op = binop.getOperation();
-			
-			var left = processExpression(binop.getLeft(), lvalue || op == Punctuator.ASSIGN);
-			left.ifLeftPresent(ir::addAll);
-
-			var right = processExpression(binop.getRight(), lvalue);
-			right.ifLeftPresent(ir::addAll);
-			
-			var operandLeft = left.getRight();
-			var operandRight = right.getRight();
-			
-			BinaryConstructor constructor = BINARY_OPERATIONS.get(op);
-			
-			if(constructor != null)
-				ir.add(constructor.construct(pos, result, operandLeft, operandRight));
-			
-			else switch(op) {
-			case ASSIGN:
-				if(needResult) {
-					ir.add(new AssignIntermediate(pos, result, operandRight));
-					ir.add(new AssignIntermediate(pos, operandLeft, result));
-				}
-				else ir.add(new AssignIntermediate(pos, operandLeft, operandRight));
-				break;
-			
-			case COMMA:
-				ir.add(new AssignIntermediate(pos, result, operandRight));
-				break;
-				
-			default:
-				Logger.error(expression, "Unrecognized binary expression type");
-			}
-
-			free(ir, right);
-			free(ir, left);
-
-			return Pair.of(ir, result);
-		}
+		ExpressionProcessorHandle<?> proc = switch(expression) {
+		case ArrayIndexExpressionNode idx ->	handle(idx, this::processArrayIndexExpression);
+		case BinaryExpressionNode bin ->		handle(bin, this::processBinaryExpression);
+		case BuiltinExpressionNode blt ->		handle(blt, this::processBuiltinExpression);
+		case CallExpressionNode cll ->			handle(cll, this::processCallExpression);
+		case CastExpressionNode cst ->			handle(cst, this::processCastExpression);
+		case ConditionalExpressionNode cnd ->	handle(cnd, this::processConditionalExpression);
+		case MemberAccessExpressionNode mem ->	handle(mem, this::processMemberAccessExpression);
+		case MemcpyExpressionNode cpy ->		handle(cpy, this::processMemcpyExpression);
+		case MemsetExpressionNode set ->		handle(set, this::processMemsetExpression);
+		case NumberLiteralExpressionNode lit ->	handle(lit, this::processNumberLiteralExpression);
+		case UnaryExpressionNode uny ->			handle(uny, this::processUnaryExpression);
+		case VariableExpressionNode var ->		handle(var, this::processVariableExpression);
+		default -> null;
+		};
 		
-		else if(expression instanceof CallExpressionNode call) {
-			List<Intermediate> ir = new ArrayList<>();
-			
-			Operand result = call.getType().isVoid()
-				? null
-				: temporary(call.getType());
-			
-			var args = call.getParameters()
-				.stream()
-				.map(expr -> {
-					var arg = processExpression(expr, false);
-
-					arg.ifLeftPresent(ir::addAll);
-					
-					return arg.getRight();
-				})
-				.toList();
-			
-			var function = processExpression(call.getTarget(), lvalue);
-			function.ifLeftPresent(ir::addAll);
-			
-			ir.add(new CallIntermediate(
-				pos,
-				result,
-				function.getRight(),
-				args
-			));
-			
-			free(ir, function);
-			
-			// free arguments in reverse order to avoid any stack push/pop-order problems
-			args.stream()
-				.collect(Collectors.toCollection(LinkedList::new))
-				.descendingIterator()
-				.forEachRemaining(arg -> free(ir, arg));
-			
-			return Pair.of(ir, result);
-		}
+		if(proc == null)
+			Logger.error(expression, "Unrecognized expression type");
 		
-		else if(expression instanceof CastExpressionNode cast) {
-			List<Intermediate> ir = new ArrayList<>();
-			
-			Operand result = temporary(cast.getType());
-			
-			var target = processExpression(cast.getTarget(), lvalue);
-			target.ifLeftPresent(ir::addAll);
+		return proc.process(ctx);
+	}
 
-			ir.add(new CastIntermediate(
-				pos,
-				result,
-				target.getRight(),
-				cast.getType().isFloating(),
-				cast.getTarget().getType().isFloating()
-			));
-			
-			free(ir, target);
-			
-			return Pair.of(ir, result);
-		}
+	private Pair<List<Intermediate>, Operand> processArrayIndexExpression(ArrayIndexExpressionNode idx, IRContext context) {
+		List<Intermediate> ir = new ArrayList<>();
 		
-		else if(expression instanceof ConditionalExpressionNode cond) {
-			
-			/*
-			 * Convert 'r = c ? x : y' into
-			 * 
-			 *     if(c)
-			 *         goto .false;
-			 *     r = x;
-			 *     goto .end;
-			 * .false: 
-			 *     r = y;
-			 * .end:
-			 *     ;
-			 */
-			
-			List<Intermediate> ir = new ArrayList<>();
-			
-			Operand result = temporary(cond.getType());
-			
-			var condition = processExpression(cond.getCondition(), lvalue);
-			condition.ifLeftPresent(ir::addAll);
-			
-			String labelFalse = ".IF" + conditionLabelId++;
-			String labelEnd = ".IF" + conditionLabelId++;
-
-			// if(c) goto .false;
-			ir.add(new JumpIntermediate(
-				pos,
-				condition.getRight(),
-				labelFalse
-			));
-
-			free(ir, condition);
-			
-			var whenTrue = processExpression(cond.getWhenTrue(), lvalue);
-			whenTrue.ifLeftPresent(ir::addAll);
-
-			// r = x;
-			ir.add(new AssignIntermediate(
-				pos,
-				result,
-				whenTrue.getRight()
-			));
-
-			free(ir, whenTrue);
-
-			// goto .end;
-			ir.add(new JumpIntermediate(
-				pos,
-				labelEnd
-			));
-
-			// .false:
-			ir.add(new LabelIntermediate(
-				pos,
-				labelFalse
-			));
-
-			var whenFalse = processExpression(cond.getWhenTrue(), lvalue);
-			whenFalse.ifLeftPresent(ir::addAll);
-
-			free(ir, whenFalse);
-
-			// r = y;
-			ir.add(new AssignIntermediate(
-				pos,
-				result,
-				whenFalse.getRight()
-			));
-			
-			// .end: ;
-			ir.add(new LabelIntermediate(
-				pos,labelEnd
-			));
-			
-			return Pair.of(ir, result);
-		}
+		Operand result = result(idx.getType(), context);
 		
-		else if(expression instanceof MemberAccessExpressionNode mem) {
-			
-			/* Intermediate representation for 's.m'
-			 * 
-			 * x86 implementation example:
-			 * 
-			 * lvalue: ('s.m = v')
-			 * 	 global:
-			 *   	mov ?WORD PTR s[rip+offsetof(struct s, m)], v 
-			 * 	local:
-			 * 		mov ?WORD PTR [rbp+local_offsetof(s)+offsetof(struct s, m)], v
-			 * 	derived:
-			 * 		mov rax, do_stuff(s)
-			 * 		mov ?WORD PTR [rax+offsetof(struct s, m)], v
-			 * 
-			 * rvalue: ('v = s.m')
-			 * 	 global:
-			 * 		mov ?, ?WORD PTR s[rip+offsetof(struct s, m)]
-			 * 	local:
-			 * 		mov ?, ?WORD PTR [rbp+local_offsetof(s)+offsetof(struct s, m)]
-			 * 	derived:
-			 * 		mov rax, do_stuff(s)
-			 * 		mov ?, ?WORD PTR [rax+offsetof(struct s, m)]
-			 * 
-			 * LocalOperand = [rbp+OFFSET]
-			 * GlobalOperand = NAME[rip]
-			 * TemporaryOperand = REGISTER
-			 */
-			
-			List<Intermediate> ir = new ArrayList<>();
-
-			String name = mem.getMember();
-			
-			StructType.Member member = mem
-				.getTarget()
-				.getType()
-				.toStructLike()
-				.getMember(name);
-			
-			if(lvalue && !member.isBitfield()) {
-				var target = processExpression(mem.getTarget(), lvalue);
-				target.ifLeftPresent(ir::addAll);
-
-				int offset = member.getOffset();
-				
-				return Pair.of(
-					ir,
-					null // TODO
-				);
-			}
-			
-			Operand result = temporary(mem.getType());
-			
-			var target = processExpression(mem.getTarget(), lvalue);
-			target.ifLeftPresent(ir::addAll);
-			
-			ir.add(new MemberIntermediate(
-				pos,
-				result,
-				target.getRight(),
-				local(
-					name,
-					member.getOffset(),
-					member.getType()
-				),
-				member.getBitOffset(),
-				member.getBitWidth()
-			));
-
-			free(ir, target);
-			
-			return Pair.of(ir, result);
-		}
+		boolean lvalue = context.lvalue();
+		context = context.reset();
 		
-		else if(expression instanceof ArrayIndexExpressionNode idx) {
-			List<Intermediate> ir = new ArrayList<>();
-			
-			var target = processExpression(idx.getTarget(), lvalue);
-			target.ifLeftPresent(ir::addAll);
+		var target = processExpression(idx.getTarget(), context);
+		target.ifLeftPresent(ir::addAll);
 
-			var index = processExpression(idx.getIndex(), lvalue);
-			index.ifLeftPresent(ir::addAll);
-			
+		var index = processExpression(idx.getIndex(), context);
+		index.ifLeftPresent(ir::addAll);
+		
+		if(lvalue)
 			return Pair.of(
 				ir,
 				new IndexOperand(
@@ -559,123 +337,625 @@ public class IntermediateGenerator {
 					idx.getType()
 				)
 			);
+		
+		ir.add(new ArrayIndexIntermediate(
+			context.position(),
+			result,
+			target.getRight(),
+			index.getRight()
+		));
+
+		free(ir, index);
+		free(ir, target);
+		
+		return Pair.of(ir, result);
+	}
+
+	/*
+	 * Special cases for binary operations on pointers:
+	 * 
+	 * - 'pointer - pointer':
+	 *   
+	 *   Returns the number of elements between those two pointers, e.g.:
+	 *   
+	 *     int *array = ...;
+	 *     int n = &array[7] - &array[4];
+	 *   
+	 *   'n' now has the value '3', since there are three integer elements
+	 *   between '&array[4]' (inclusive) and '&array[7]' (exclusive). This
+	 *   is, however, NOT equal to the number of bytes, which would be 12
+	 *   (assuming an 'int' takes 4 bytes). Therefore, the result of the
+	 *   subtraction is internally divided by the size of the pointer's
+	 *   base type. Given two pointers 'x' and 'y' of the base type 'type_t',
+	 *   the subtraction 'x - y' is converted into the following:
+	 *   
+	 *     ((char *) x - (char *) y) / sizeof(type_t)
+	 *   
+	 * - 'pointer - integer', 'pointer + integer', and 'integer + pointer':
+	 *   
+	 *   Moves the pointer a given number of elements backwards/forwards:
+	 *   
+	 *     int *array = ...;
+	 *     int *elem = &array[7] - 4;
+	 *   
+	 *   'elem' is now a pointer to the 4th element (index 3) of the array.
+	 *   The internal calculation is performed similarly to the pointer-
+	 *   pointer subtraction: the offset is multiplied by the size of the
+	 *   array's base type. Given a pointer 'x' of the base type 'type_t'
+	 *   and an offset 'i', the additions 'i + x' and 'x + i', and the
+	 *   subtraction 'x - i' are converted into the following:
+	 *   
+	 *     i * sizeof(type_t) + ((char *) x
+	 *     ((char *) x + i * sizeof(type_t)
+	 *     ((char *) x - i * sizeof(type_t)
+	 *   
+	 */
+	private Pair<List<Intermediate>, Operand> processBinaryPointerExpression(BinaryExpressionNode binop, IRContext context) {
+		List<Intermediate> ir = new ArrayList<>();
+		
+		Operand result = result(binop.getType(), context);
+
+		context = context.reset();
+		
+		Punctuator op = binop.getOperation();
+
+		var exprLeft = binop.getLeft();
+		var exprRight = binop.getRight();
+		
+		Type typeLeft = exprLeft.getType();
+		Type typeRight = exprRight.getType();
+		
+		Position pos = context.position();
+		
+		boolean swap = false;
+		ExpressionNode exprPtr = exprLeft;
+		ExpressionNode exprOff = exprRight;
+		
+		switch(op) {
+		case ADD:
+			if(swap = typeRight.isPointerLike()) {
+				exprPtr = exprRight;
+				exprOff = exprLeft;
+			}
+			break;
+			
+		case SUBTRACT:
+			if(typeLeft.isPointerLike() && typeRight.isPointerLike()) {
+				var left = processExpression(exprLeft, context);
+				var right = processExpression(exprRight, context);
+				
+				left.ifLeftPresent(ir::addAll);
+				right.ifLeftPresent(ir::addAll);
+				
+				Operand diff = temporary(NumericValueType.PTRDIFF.asType());
+				
+				// _1 = x - y
+				ir.add(new SubtractIntermediate(
+					pos,
+					diff,
+					left.getRight(),
+					right.getRight()
+				));
+				
+				free(ir, right);
+				free(ir, left);
+				
+				// _2 = _1 / sizeof(type_t)
+				ir.add(new DivideIntermediate(
+					pos,
+					result,
+					diff,
+					constant(
+						BigInteger.valueOf(typeLeft.sizeof()),
+						diff.getType()
+					)
+				));
+				
+				return Pair.of(ir, result);
+			}
+			break;
+			
+		default:
+			Logger.error(binop, "Illegal binary expression on pointer type");
 		}
 		
-		else if(expression instanceof NumberLiteralExpressionNode lit)
-			return Pair.ofRight(constant(
-				lit.getLiteral(),
-				lit.getType()
-			));
+		if(!exprOff.getType().isInteger())
+			Logger.error(exprOff, "Illegal type for pointer offset");
+
+		var ptr = processExpression(exprPtr, context);
+
+		Operand pointer = ptr.getRight();
+		Operand offset;
 		
-		else if(expression instanceof UnaryExpressionNode unop) {
-			List<Intermediate> ir = new ArrayList<>();
+		// pointer + offset: evaluate pointer first
+		if(!swap)
+			ptr.ifLeftPresent(ir::addAll);
+		
+		int sizeof = exprPtr.getType().dereference().sizeof();
 
-			Punctuator op = unop.getOperation();
+		if(exprOff instanceof NumberLiteralExpressionNode lit)
+			// evaluate constant expression
+			offset = constant(
+				((BigInteger) lit.getLiteral())
+					.multiply(BigInteger.valueOf(sizeof)),
+				lit.getType()
+			);
+		
+		else {
+			var off = processExpression(exprOff);
+			off.ifLeftPresent(ir::addAll);
+
+			offset = temporary(NumericValueType.PTRDIFF.asType());
 			
-			// lvalue indirection
-			// INDIRECTION and MULTIPLY have the same symbol (*)
-			if(lvalue && unop.isLvalue() && (op == Punctuator.INDIRECTION || op == Punctuator.MULTIPLY)) {
-				var target = processExpression(unop.getTarget(), lvalue);
-				target.ifLeftPresent(ir::addAll);
-				
-				return Pair.of(
-					ir,
-					new IndirectionOperand(
-						target.getRight(),
-						unop.getType()
-					)
-				);
+			// offset * sizeof(type_t)
+			ir.add(new MultiplyIntermediate(
+				pos,
+				offset,
+				off.getRight(),
+				constant(BigInteger.valueOf(sizeof), typeRight)
+			));
+		}
+		
+		// offset + pointer: evaluate offset first
+		if(swap)
+			ptr.ifLeftPresent(ir::addAll);
+		
+		// pointer + offset * sizeof(type_t)
+		ir.add(new AddIntermediate(pos, result, pointer, offset));
+
+		free(ir, pointer);
+		free(ir, offset);
+		
+		return Pair.of(ir, result);
+	}
+	
+	private Pair<List<Intermediate>, Operand> processBinaryExpression(BinaryExpressionNode binop, IRContext context) {
+		Position pos = context.position();
+		
+		var exprLeft = binop.getLeft();
+		var exprRight = binop.getRight();
+
+		Punctuator op = binop.getOperation();
+		
+		switch(op) {
+		case ADD:
+		case PLUS:
+		case SUBTRACT:
+		case MINUS:
+			if(exprLeft.getType().isPointerLike() || exprRight.getType().isPointerLike())
+				return processBinaryPointerExpression(binop, context.asRvalue());
+			
+		default:
+			break;
+		}
+		
+		List<Intermediate> ir = new ArrayList<>();
+		
+		Operand result = op == Punctuator.COMMA
+			? null
+			: result(binop.getType(), context);
+
+		boolean needResult = context.needResult();
+		context = context.reset();
+		
+		var left = processExpression(
+			binop.getLeft(),
+			op == Punctuator.ASSIGN
+				? context.asLvalue()
+				: context
+		);
+		left.ifLeftPresent(ir::addAll);
+
+		var right = processExpression(binop.getRight(), context);
+		right.ifLeftPresent(ir::addAll);
+		
+		var operandLeft = left.getRight();
+		var operandRight = right.getRight();
+		
+		BinaryConstructor constructor = BINARY_OPERATIONS.get(op);
+		
+		if(constructor != null)
+			ir.add(constructor.construct(pos, result, operandLeft, operandRight));
+		
+		else switch(op) {
+		case ASSIGN:
+			if(needResult) {
+				ir.add(new AssignIntermediate(pos, result, operandRight));
+				ir.add(new AssignIntermediate(pos, operandLeft, result));
 			}
+			else ir.add(new AssignIntermediate(pos, operandLeft, operandRight));
+			break;
+		
+		case COMMA:
+			result = operandRight;
+			break;
 			
-			Operand result = temporary(unop.getType());
+		default:
+			Logger.error(binop, "Unrecognized binary expression type");
+		}
 
-			var target = processExpression(unop.getTarget(), lvalue);
+		free(ir, right);
+		free(ir, left);
+
+		return Pair.of(ir, result);
+	}
+
+	private Pair<List<Intermediate>, Operand> processBuiltinExpression(BuiltinExpressionNode builtin, IRContext context) {
+		Operand result = result(builtin.getType(), context);
+		
+		List<Intermediate> ir = new ArrayList<>();
+		
+		List<Operand> operands = new ArrayList<>();
+		
+		builtin.getFunction().getArgs()
+			.forEach(arg -> {
+				if(arg instanceof ExpressionArgument expr) {
+					var processed = processExpression(expr.getExpression());
+					
+					processed.ifLeftPresent(ir::addAll);
+					processed.ifRightPresent(operands::add);
+					processed.ifRightPresent(expr::setOperand);
+				}
+			});
+		
+		ir.add(new BuiltinIntermediate(
+			context.position(),
+			builtin.getFunction()
+		));
+		
+		operands.stream()
+			.collect(Collectors.toCollection(LinkedList::new))
+			.descendingIterator()
+			.forEachRemaining(arg -> free(ir, arg));
+
+		return Pair.of(ir, result);
+	}
+
+	private Pair<List<Intermediate>, Operand> processCallExpression(CallExpressionNode call, IRContext context) {
+		List<Intermediate> ir = new ArrayList<>();
+		
+		Operand result = result(call.getType(), context);
+		
+		var args = call.getParameters()
+			.stream()
+			.map(expr -> {
+				var arg = processExpression(expr);
+
+				arg.ifLeftPresent(ir::addAll);
+				
+				return arg.getRight();
+			})
+			.toList();
+		
+		var function = processExpression(call.getTarget(), context.reset());
+		function.ifLeftPresent(ir::addAll);
+		
+		ir.add(new CallIntermediate(
+			context.position(),
+			result,
+			function.getRight(),
+			args
+		));
+		
+		free(ir, function);
+		
+		// free arguments in reverse order to avoid any stack push/pop-order problems
+		args.stream()
+			.collect(Collectors.toCollection(LinkedList::new))
+			.descendingIterator()
+			.forEachRemaining(arg -> free(ir, arg));
+		
+		return Pair.of(ir, result);
+	}
+
+	private Pair<List<Intermediate>, Operand> processCastExpression(CastExpressionNode cast, IRContext context) {
+		List<Intermediate> ir = new ArrayList<>();
+		
+		Operand result = result(cast.getType(), context);
+		
+		var target = processExpression(cast.getTarget(), context.reset());
+		target.ifLeftPresent(ir::addAll);
+
+		ir.add(new CastIntermediate(
+			context.position(),
+			result,
+			target.getRight(),
+			cast.getType().isFloating(),
+			cast.getTarget().getType().isFloating()
+		));
+		
+		free(ir, target);
+		
+		return Pair.of(ir, result);
+	}
+
+	private Pair<List<Intermediate>, Operand> processConditionalExpression(ConditionalExpressionNode cond, IRContext context) {
+		
+		/*
+		 * Convert 'r = c ? x : y' into
+		 * 
+		 *     if(c)
+		 *         goto .false;
+		 *     r = x;
+		 *     goto .end;
+		 * .false: 
+		 *     r = y;
+		 * .end:
+		 *     ;
+		 */
+		
+		Position pos = context.position();
+		
+		List<Intermediate> ir = new ArrayList<>();
+		
+		Operand result = result(cond.getType(), context);
+		context = context.reset();
+		
+		var condition = processExpression(cond.getCondition(), context);
+		condition.ifLeftPresent(ir::addAll);
+		
+		String labelFalse = ".IF" + conditionLabelId++;
+		String labelEnd = ".IF" + conditionLabelId++;
+
+		// if(c) goto .false;
+		ir.add(new JumpIntermediate(
+			pos,
+			condition.getRight(),
+			labelFalse
+		));
+
+		free(ir, condition);
+		
+		var whenTrue = processExpression(cond.getWhenTrue(), context);
+		whenTrue.ifLeftPresent(ir::addAll);
+
+		// r = x;
+		ir.add(new AssignIntermediate(
+			pos,
+			result,
+			whenTrue.getRight()
+		));
+
+		free(ir, whenTrue);
+
+		// goto .end;
+		ir.add(new JumpIntermediate(
+			pos,
+			labelEnd
+		));
+
+		// .false:
+		ir.add(new LabelIntermediate(
+			pos,
+			labelFalse
+		));
+
+		var whenFalse = processExpression(cond.getWhenTrue(), context);
+		whenFalse.ifLeftPresent(ir::addAll);
+
+		// r = y;
+		ir.add(new AssignIntermediate(
+			pos,
+			result,
+			whenFalse.getRight()
+		));
+
+		free(ir, whenFalse);
+		
+		// .end: ;
+		ir.add(new LabelIntermediate(
+			pos,
+			labelEnd
+		));
+		
+		return Pair.of(ir, result);
+	}
+
+	private Pair<List<Intermediate>, Operand> processMemberAccessExpression(MemberAccessExpressionNode mem, IRContext context) {
+		
+		/* Intermediate representation for 's.m'
+		 * 
+		 * x86 implementation example:
+		 * 
+		 * lvalue: ('s.m = v')
+		 * 	 global:
+		 *   	mov ?WORD PTR s[rip+offsetof(struct s, m)], v 
+		 * 	local:
+		 * 		mov ?WORD PTR [rbp+local_offsetof(s)+offsetof(struct s, m)], v
+		 * 	derived:
+		 * 		mov rax, do_stuff(s)
+		 * 		mov ?WORD PTR [rax+offsetof(struct s, m)], v
+		 * 
+		 * rvalue: ('v = s.m')
+		 * 	 global:
+		 * 		mov ?, ?WORD PTR s[rip+offsetof(struct s, m)]
+		 * 	local:
+		 * 		mov ?, ?WORD PTR [rbp+local_offsetof(s)+offsetof(struct s, m)]
+		 * 	derived:
+		 * 		mov rax, do_stuff(s)
+		 * 		mov ?, ?WORD PTR [rax+offsetof(struct s, m)]
+		 * 
+		 * LocalOperand = [rbp+OFFSET]
+		 * GlobalOperand = NAME[rip]
+		 * TemporaryOperand = REGISTER
+		 */
+		
+		List<Intermediate> ir = new ArrayList<>();
+
+		String name = mem.getMember();
+		
+		StructType.Member member = mem
+			.getTarget()
+			.getType()
+			.toStructLike()
+			.getMember(name);
+		
+		if(context.lvalue() && !member.isBitfield()) {
+			var target = processExpression(mem.getTarget(), context.reset());
 			target.ifLeftPresent(ir::addAll);
 
-			UnaryConstructor constructor = UNARY_OPERATIONS.get(op);
-			
-			if(constructor != null)
-				ir.add(constructor.construct(pos, result, target.getRight()));
-			
-			else Logger.error(expression, "Unrecognized unary expression type");
+			int offset = member.getOffset();
 
 			free(ir, target);
-
-			return Pair.of(ir, result);
+			
+			return Pair.of(
+				ir,
+				null // TODO
+			);
 		}
 		
-		else if(expression instanceof VariableExpressionNode var)
-			return Pair.ofRight(variable(var.getVariable()));
+		Operand result = result(mem.getType(), context);
 		
-		else if(expression instanceof MemsetExpressionNode memset) {
-			Operand target = variable(memset.getTarget());
+		var target = processExpression(mem.getTarget(), context.reset());
+		target.ifLeftPresent(ir::addAll);
+		
+		ir.add(new MemberIntermediate(
+			context.position(),
+			result,
+			target.getRight(),
+			local(
+				name,
+				member.getOffset(),
+				member.getType()
+			),
+			member.getBitOffset(),
+			member.getBitWidth()
+		));
 
-			List<Intermediate> ir = new ArrayList<>();
+		free(ir, target);
+		
+		return Pair.of(ir, result);
+	}
+
+	private Pair<List<Intermediate>, Operand> processMemcpyExpression(MemcpyExpressionNode memcpy, IRContext context) {
+		Operand source = variable(memcpy.getSource());
+		Operand destination = variable(memcpy.getDestination());
+
+		List<Intermediate> ir = new ArrayList<>();
+		
+		ir.add(new MemcpyIntermediate(
+			context.position(),
+			source,
+			destination,
+			memcpy.getSourceOffset(),
+			memcpy.getDestinationOffset(),
+			memcpy.getLength()
+		));
+
+		free(ir, destination);
+		free(ir, source);
+		
+		return Pair.ofLeft(ir);
+	}
+
+	private Pair<List<Intermediate>, Operand> processMemsetExpression(MemsetExpressionNode memset, IRContext context) {
+		Operand target = variable(memset.getTarget());
+
+		List<Intermediate> ir = new ArrayList<>();
+		
+		ir.add(new MemsetIntermediate(
+			context.position(),
+			target,
+			memset.getOffset(),
+			memset.getLength(),
+			memset.getValue()
+		));
+		
+		free(ir, target);
+		
+		return Pair.ofLeft(ir);
+	}
+
+	private Pair<List<Intermediate>, Operand> processNumberLiteralExpression(NumberLiteralExpressionNode lit, IRContext context) {
+		return Pair.ofRight(constant(
+			lit.getLiteral(),
+			lit.getType()
+		));
+	}
+
+	private Pair<List<Intermediate>, Operand> processUnaryExpression(UnaryExpressionNode unop, IRContext context) {
+		List<Intermediate> ir = new ArrayList<>();
+
+		Punctuator op = unop.getOperation();
+		
+		// lvalue indirection
+		// INDIRECTION and MULTIPLY have the same symbol (*)
+		if(context.lvalue() && unop.isLvalue() && (op == Punctuator.INDIRECTION || op == Punctuator.MULTIPLY)) {
+			var target = processExpression(unop.getTarget(), context.reset());
+			target.ifLeftPresent(ir::addAll);
 			
-			ir.add(new MemsetIntermediate(
-				pos,
-				target,
-				memset.getOffset(),
-				memset.getLength(),
-				memset.getValue()
+			return Pair.of(
+				ir,
+				new IndirectionOperand(
+					target.getRight(),
+					unop.getType()
+				)
+			);
+		}
+		
+		Operand result = result(unop.getType(), context);
+
+		var target = processExpression(unop.getTarget(), context.reset());
+		target.ifLeftPresent(ir::addAll);
+		
+		UnaryConstructor constructor = UNARY_OPERATIONS.get(op);
+		
+		if(constructor != null)
+			ir.add(constructor.construct(
+				context.position(),
+				result,
+				target.getRight()
 			));
-			
-			free(ir, target);
-			
-			return Pair.ofLeft(ir);
-		}
 		
-		else if(expression instanceof MemcpyExpressionNode memcpy) {
-			Operand source = variable(memcpy.getSource());
-			Operand destination = variable(memcpy.getDestination());
+		else Logger.error(unop, "Unrecognized unary expression type");
 
-			List<Intermediate> ir = new ArrayList<>();
-			
-			ir.add(new MemcpyIntermediate(
-				pos,
-				source,
-				destination,
-				memcpy.getSourceOffset(),
-				memcpy.getDestinationOffset(),
-				memcpy.getLength()
-			));
-			
-			free(ir, source);
-			free(ir, destination);
-			
-			return Pair.ofLeft(ir);
-		}
-		
-		else if(expression instanceof BuiltinExpressionNode builtin) {
-			Operand result = needResult && !builtin.getType().isVoid()
-				? temporary(builtin.getType())
-				: null;
-			
-			List<Intermediate> ir = new ArrayList<>();
-			
-			List<Operand> operands = new ArrayList<>();
-			
-			builtin.getFunction().getArgs()
-				.forEach(arg -> {
-					if(arg instanceof ExpressionArgument expr) {
-						var processed = processExpression(expr.getExpression(), false);
-						
-						processed.ifLeftPresent(ir::addAll);
-						processed.ifRightPresent(operands::add);
-						processed.ifRightPresent(expr::setOperand);
-					}
-				});
-			
-			ir.add(new BuiltinIntermediate(pos, builtin.getFunction()));
-			
-			for(int i = operands.size() - 1; i >= 0; --i)
-				free(ir, operands.get(i));
+		free(ir, target);
 
-			return Pair.of(ir, result);
+		return Pair.of(ir, result);
+	}
+
+	private Pair<List<Intermediate>, Operand> processVariableExpression(VariableExpressionNode var, IRContext context) {
+		return Pair.ofRight(variable(var.getVariable()));
+	}
+	
+	private static <E extends ExpressionNode> ExpressionProcessorHandle<E> handle(E expr, ExpressionProcessor<E> processor) {
+		return ctx -> processor.process(expr, ctx);
+	}
+	
+	private static interface ExpressionProcessorHandle<E extends ExpressionNode> {
+		
+		Pair<List<Intermediate>, Operand> process(IRContext context);
+		
+	}
+	
+	private static interface ExpressionProcessor<E extends ExpressionNode> {
+		
+		Pair<List<Intermediate>, Operand> process(E expression, IRContext context);
+		
+	}
+	
+	private static record IRContext(Position position, boolean needResult, boolean lvalue) {
+		
+		public static IRContext defaults(Positioned pos) {
+			return new IRContext(pos.getPosition(), true, false);
+		}
+
+		public IRContext withoutResult() {
+			return new IRContext(position, false, lvalue);
+		}
+
+		public IRContext asLvalue() {
+			return new IRContext(position, needResult, true);
+		}
+
+		public IRContext asRvalue() {
+			return new IRContext(position, needResult, false);
 		}
 		
-		Logger.error(expression, "Unrecognized expression type");
-		return null;
+		public IRContext reset() {
+			return new IRContext(position, true, false);
+		}
+		
 	}
 	
 }

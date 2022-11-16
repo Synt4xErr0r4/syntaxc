@@ -56,7 +56,7 @@ public class CastIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
+	public String toStringInternal() {
 		return "%s = (%s%d_t) %s;".formatted(
 			result,
 			resultFloat

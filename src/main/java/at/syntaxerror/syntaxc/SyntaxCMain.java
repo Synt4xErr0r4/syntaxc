@@ -78,7 +78,8 @@ public class SyntaxCMain {
 				"-fcfg-verbose",
 				"-S",
 				"-fpacked",
-				"-Wall"
+				"-Wall",
+				"-masm=att"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -321,6 +322,16 @@ public class SyntaxCMain {
 			String name = definition.getLeft();
 			String value = definition.getRight();
 			
+			if(name.isBlank()) {
+				Logger.warn("Empty name for predefined macro");
+				return;
+			}
+
+			if(!name.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+				Logger.warn("Illegal characters in name for predefined macro");
+				return;
+			}
+			
 			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
 				Logger.warn(Warning.REDEF, "Redefinition of predefined macro »%s«", name);
 			
@@ -370,6 +381,17 @@ public class SyntaxCMain {
 					
 					else ArchitectureRegistry.setArchitecture(arch);
 				}
+				
+				break;
+				
+			case "asm":
+				if(!ArchitectureRegistry.getArchitecture().setSyntax(value))
+					Logger.warn(
+						"Unknown assembly syntax »%s« for target architecture »%s«",
+						value,
+						ArchitectureRegistry.getArchitecture()
+							.getNames()[0]
+					);
 				
 				break;
 

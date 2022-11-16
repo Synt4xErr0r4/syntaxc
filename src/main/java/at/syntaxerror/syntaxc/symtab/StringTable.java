@@ -45,6 +45,12 @@ public class StringTable {
 		}
 	}
 	
+	public StringInitializer addDistinct(String value, boolean wide) {
+		synchronized(table) {
+			return new StringInitializer(id++, value, wide, true);
+		}
+	}
+	
 	public Collection<StringInitializer> getEntries() {
 		return Collections.unmodifiableCollection(table.values());
 	}

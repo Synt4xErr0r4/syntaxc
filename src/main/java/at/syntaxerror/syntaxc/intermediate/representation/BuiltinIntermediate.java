@@ -49,7 +49,7 @@ public class BuiltinIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
+	public String toStringInternal() {
 		return "/*builtin*/ __builtin_%s(%s)".formatted(
 			function.getName(),
 			String.join(

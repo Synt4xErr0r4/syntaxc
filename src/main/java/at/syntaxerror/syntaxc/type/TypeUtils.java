@@ -124,6 +124,20 @@ public class TypeUtils {
 		// otherwise, both value are converted to 'int'
 		return Type.INT;
 	}
+
+	public static boolean isCompatible(Type a, Type b) {
+		TypeKind kindA = a.getKind();
+		TypeKind kindB = b.getKind();
+		
+		if((kindA == TypeKind.ARRAY || kindA == TypeKind.POINTER) &&
+			(kindB == TypeKind.ARRAY || kindB == TypeKind.POINTER))
+			return isCompatible(
+				a.dereference(),
+				b.dereference()
+			);
+		
+		return isEqual(a, b);
+	}
 	
 	public static boolean isEqual(Type a, Type b) {
 		if(a == b)

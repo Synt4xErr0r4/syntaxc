@@ -75,7 +75,7 @@ public class JumpIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
+	public String toStringInternal() {
 		return toString("<undefined>");
 	}
 	

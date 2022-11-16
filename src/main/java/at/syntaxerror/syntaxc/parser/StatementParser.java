@@ -35,6 +35,7 @@ import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
+import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.Parser.DeclarationState;
@@ -1127,21 +1128,27 @@ public class StatementParser extends AbstractParser {
 		
 		Position pos = getPosition();
 		
-		SymbolObject __func__ = SymbolObject.global(
-			pos,
-			"__func__",
-			Type.getStringType(funcName, false)
-				.asConst(),
-			Linkage.INTERNAL,
-			getSymbolTable()
-				.getStringTable()
-				.add(funcName, false)
-		);
+		boolean hasFunc = Flag.FUNC.isEnabled();
+		SymbolObject __func__ = null;
 		
-		__func__.setInitialized(true);
-		
-		getSymbolTable().addObject(__func__);
-		globalVariables.add(__func__);
+		if(hasFunc) {
+			__func__ = SymbolObject.global(
+				pos,
+				"__func__",
+				Type.getStringType(funcName, false)
+					.asConst(),
+				Linkage.INTERNAL,
+				getSymbolTable()
+					.getStringTable()
+					.addDistinct(funcName, false)
+			);
+			
+			__func__.setInitialized(true);
+			__func__.setSyntaxTreeIgnore(true);
+			
+			getSymbolTable().addObject(__func__);
+			globalVariables.add(__func__);
+		}
 		
 		returnValueField = new VariableExpressionNode(
 			getPosition(),
@@ -1154,9 +1161,12 @@ public class StatementParser extends AbstractParser {
 		
 		postInitVariables();
 		
-//		body = controlFlowAnalyzer.checkDeadCode(body, returnLabel);
-		
 		dataFlowAnalyzer.checkInitialized(body);
+		
+		if(hasFunc && __func__.isUnused()) {
+			getSymbolTable().removeObject(__func__);
+			globalVariables.remove(__func__);
+		}
 		
 		checkVariableUsage();
 		

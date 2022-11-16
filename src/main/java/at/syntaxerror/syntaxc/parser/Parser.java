@@ -44,10 +44,12 @@ import at.syntaxerror.syntaxc.parser.node.statement.CompoundStatementNode;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
+import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
 
@@ -496,10 +498,34 @@ public class Parser extends AbstractParser {
 		
 		leaveScope();
 		
+		getSymbolTable()
+			.getStringTable()
+			.getEntries()
+			.stream()
+			.map(init -> SymbolObject.string(
+				Position.dummy(),
+				init
+			))
+			.map(StringSymbolNode::new)
+			.forEach(nodes::add);
+		
 		return nodes;
 	}
 	
 	public static record DeclarationState(Linkage linkage, boolean typedef, boolean external, boolean internal) {
+		
+	}
+	
+	@RequiredArgsConstructor
+	@Getter
+	private static class StringSymbolNode extends SymbolNode {
+		
+		private final SymbolObject object;
+		
+		@Override
+		public Position getPosition() {
+			return object.getPosition();
+		}
 		
 	}
 

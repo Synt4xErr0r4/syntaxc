@@ -57,7 +57,7 @@ public class CallIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
+	public String toStringInternal() {
 		return (target == null ? "" : target + " = ")
 			+ "%s(%s);".formatted(
 				function,

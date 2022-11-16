@@ -53,7 +53,7 @@ public class SubtractIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
+	public String toStringInternal() {
 		return "%s = %s - %s;".formatted(result, left, right);
 	}
 	

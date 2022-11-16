@@ -50,7 +50,6 @@ public class SymbolObject implements Symbol, Positioned {
 	public static final String RETURN_VALUE_NAME = ".RV";
 	
 	private static long temporaryId = 0;
-	private static long stringId = 0;
 	private static long localStaticId = 0;
 	
 	public static SymbolObject returns(Positioned pos, Type type) {
@@ -96,14 +95,19 @@ public class SymbolObject implements Symbol, Positioned {
 	public static SymbolObject string(Positioned pos, StringInitializer initializer) {
 		return new SymbolObject(
 			pos.getPosition(),
-			Long.toString(stringId++),
+			".STR" + initializer.id(),
 			SymbolKind.STRING,
-			Type.getStringType(initializer.value(), initializer.wide()),
+			Type.getStringType(initializer.value(), initializer.wide())
+				.asConst(),
 			new SymbolVariableData(
 				Linkage.INTERNAL,
 				initializer
 			)
-		);
+		) {
+			{
+				setInitialized(true);
+			}
+		};
 	}
 	
 	public static SymbolObject function(Positioned pos, String name, Type type, Linkage linkage, String returnLabel) {
@@ -189,6 +193,8 @@ public class SymbolObject implements Symbol, Positioned {
 	private @Setter boolean unused = true;
 	private @Setter boolean initialized = false;
 	private @Setter int offset = OFFSET_NONE;
+
+	private @Setter boolean syntaxTreeIgnore = false;
 	
 	public void setLocalStatic() {
 		fullNameId = localStaticId++;

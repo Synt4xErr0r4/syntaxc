@@ -47,7 +47,7 @@ public class LabelIntermediate extends Intermediate {
 	}
 	
 	@Override
-	public String toString() {
+	public String toStringInternal() {
 		return label + ":";
 	}
 	

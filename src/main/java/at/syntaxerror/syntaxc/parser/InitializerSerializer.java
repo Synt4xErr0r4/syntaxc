@@ -372,7 +372,7 @@ public class InitializerSerializer {
 		boolean truncated = false;
 		
 		if(len == ArrayType.SIZE_UNKNOWN)
-			array.setLength(strlen);
+			array.setLength(len = strlen);
 		
 		else {
 			int width = base.sizeof();

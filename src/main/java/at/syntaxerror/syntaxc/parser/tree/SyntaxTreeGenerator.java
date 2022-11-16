@@ -32,6 +32,7 @@ import java.util.List;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.GraphUtils;
+import at.syntaxerror.syntaxc.parser.node.SymbolNode;
 import guru.nidi.graphviz.attribute.Label;
 import guru.nidi.graphviz.attribute.Rank;
 import guru.nidi.graphviz.attribute.Rank.RankDir;
@@ -61,7 +62,10 @@ public class SyntaxTreeGenerator {
 		Node node = node("root");
 		
 		for(SyntaxTreeNode child : nodes)
-			node = visit(node, null, child);
+			if(child instanceof SymbolNode sym && sym.getObject().isSyntaxTreeIgnore())
+				continue;
+		
+			else node = visit(node, null, child);
 		
 		try {
 			Graphviz.fromGraph(graph.with(node))
