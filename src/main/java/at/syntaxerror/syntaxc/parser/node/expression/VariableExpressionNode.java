@@ -54,6 +54,9 @@ public class VariableExpressionNode extends ExpressionNode {
 	
 	@Override
 	public boolean isLvalue() {
+		if(variable.getType().isArray())
+			return false;
+		
 		if(variable.isVariable() && getType().isStructLike())
 			return checkNestedConst(getType().toStructLike());
 		

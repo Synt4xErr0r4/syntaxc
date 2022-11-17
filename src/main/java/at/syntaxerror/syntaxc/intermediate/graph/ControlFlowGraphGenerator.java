@@ -42,6 +42,7 @@ import at.syntaxerror.syntaxc.analysis.ControlFlowAnalyzer.CFGNode;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.FreeIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.GraphUtils;
@@ -143,21 +144,21 @@ public class ControlFlowGraphGenerator {
 		
 		nodes.add(node);
 		
-		if(node == CFGNode.ENTRY) {
+		if(node.isEntry()) {
 			next(node.next, hasReturnValue);
 			return;
 		}
 		
-		if(node == CFGNode.EXIT) {
+		if(node.isExit()) {
 			if(hasReturnValue)
 				code.add(rec("return " + SymbolObject.RETURN_VALUE_NAME + ";" + EOL));
 			
 			else code.add(rec("return;" + EOL));
 			
 			addBlock(
-				CFGNode.EXIT_NAME,
+				node.name,
 				makeDiamond(
-					CFGNode.EXIT_NAME,
+					node.name,
 					"EXIT"
 				)
 			);
@@ -173,13 +174,16 @@ public class ControlFlowGraphGenerator {
 			: node.nextThen.name;
 		
 		for(Intermediate intermediate : node.code) {
-			
+
 			if(!Flag.CFG_VERBOSE.isEnabled()) {
 				
 				if(intermediate instanceof FreeIntermediate)
 					continue;
 				
 			}
+
+			if(intermediate instanceof LabelIntermediate)
+				continue;
 
 			if(intermediate instanceof JumpIntermediate jump)
 				code.add(rec(
@@ -188,7 +192,7 @@ public class ControlFlowGraphGenerator {
 						+ EOL
 				));
 			
-			else code.add(rec(intermediate.toString()));
+			else code.add(rec(intermediate.toString() + EOL));
 		}
 		
 		addBlock(node.name, makeBlock(node.name));
@@ -214,15 +218,17 @@ public class ControlFlowGraphGenerator {
 		code.clear();
 		addLabel(name);
 		
+		CFGNode entry = CFGNode.entry();
+		
 		addBlock(
-			CFGNode.ENTRY_NAME,
+			entry.name,
 			makeDiamond(
-				CFGNode.ENTRY_NAME,
+				entry.name,
 				"ENTRY"
 			)
 		);
 		
-		link(CFGNode.ENTRY, graph, null);
+		link(entry, graph, null);
 		next(graph, hasReturnValue);
 		
 		linkInfos.forEach(info -> linkBlock(

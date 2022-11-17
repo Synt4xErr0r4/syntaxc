@@ -56,7 +56,6 @@ public class IncludeDirective extends Directive {
 			// make sure strings don't get processed here
 			if(input.peek(true) == '"') {
 				tok = null;
-				input.unmark();
 				break;
 			}
 			

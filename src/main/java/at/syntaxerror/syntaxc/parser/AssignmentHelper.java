@@ -24,11 +24,9 @@ package at.syntaxerror.syntaxc.parser;
 
 import static at.syntaxerror.syntaxc.parser.ExpressionParser.newBinary;
 import static at.syntaxerror.syntaxc.parser.ExpressionParser.newComma;
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newUnary;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.tracking.Positioned;
@@ -40,6 +38,9 @@ import at.syntaxerror.syntaxc.type.Type;
  */
 public class AssignmentHelper {
 
+	private final PointerHelper pointerHelper = new PointerHelper();
+	private final ExpressionChecker checker = new ExpressionChecker();
+	
 	public ExpressionNode newAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {
 		if(left instanceof VariableExpressionNode)
 			return newSimpleAssignment(pos, left, right, operation);
@@ -47,7 +48,13 @@ public class AssignmentHelper {
 		return newComplexAssignment(pos, left, right, operation);
 	}
 	
-	// An assignment 'x op= y' is equivalent to 'x = x op y' if 'x' has no side effects
+	/*
+	 * An assignment 'x op= y' is equivalent to
+	 * 
+	 *   x = x op y
+	 *   
+	 * if 'x' has no side effects
+	 */
 	private ExpressionNode newSimpleAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operator) {
 		Type leftType = left.getType();
 		
@@ -68,7 +75,14 @@ public class AssignmentHelper {
 		);
 	}
 	
-	// An assignment 'x op= y' is equivalent to 'z = &x, *z = *z op y' if 'x' has side effects
+	/*
+	 * An assignment 'x op= y' is equivalent to
+	 * 
+	 *   z = &x;
+	 *   *z = *z op y
+	 *   
+	 * if 'x' has side effects
+	 */
 	private ExpressionNode newComplexAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {
 		Type leftType = left.getType();
 		Type leftAddr = leftType.addressOf();
@@ -84,28 +98,17 @@ public class AssignmentHelper {
 			sym
 		);
 		
-		UnaryExpressionNode deref = newUnary( // *z
-			pos,
-			var,
-			Punctuator.INDIRECTION,
-			leftType
-		);
+		ExpressionNode deref = pointerHelper.dereference(pos, var); // *z
 		
 		return newComma( // z = &x, *z = *z op y
 			pos,
-			newBinary( // z = &x
+			checker.checkAssignment( // z = &x
 				pos,
 				var,
-				newUnary( // &x
-					pos,
-					left,
-					Punctuator.ADDRESS_OF,
-					leftAddr
-				),
-				Punctuator.ASSIGN,
-				leftAddr.unqualified()
+				pointerHelper.addressOf(pos, left), // &x
+				false
 			),
-			newBinary( // *z = *z op y
+			checker.checkAssignment( // *z = *z op y
 				pos,
 				deref,
 				newBinary( // *z op y
@@ -114,8 +117,7 @@ public class AssignmentHelper {
 					right,
 					operation
 				),
-				Punctuator.ASSIGN,
-				leftType.unqualified()
+				false
 			)
 		);
 	}

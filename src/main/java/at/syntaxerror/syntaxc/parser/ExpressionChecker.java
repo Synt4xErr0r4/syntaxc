@@ -34,6 +34,7 @@ import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
@@ -145,7 +146,7 @@ public class ExpressionChecker implements Logable {
 		);
 	}
 	
-	public BinaryExpressionNode checkAddition(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
+	public BinaryExpressionNode checkAddition(Positioned pos, ExpressionNode exprLeft, ExpressionNode exprRight) {
 		Type left = exprLeft.getType();
 		Type right = exprRight.getType();
 		
@@ -153,14 +154,14 @@ public class ExpressionChecker implements Logable {
 			
 			if(!left.isInteger() && !right.isInteger())
 				error(
-					op,
+					pos,
 					"Expected pointer and integer operands for addition (got »%s« and »%s«)",
 					left,
 					right
 				);
 
 			return newBinary(
-				op,
+				pos,
 				exprLeft,
 				exprRight,
 				Punctuator.ADD,
@@ -172,21 +173,21 @@ public class ExpressionChecker implements Logable {
 		
 		else if(!left.isArithmetic() || !right.isArithmetic())
 			error(
-				op,
+				pos,
 				"Expected number or pointer operands for addition (got »%s« and »%s«)",
 				left,
 				right
 			);
 		
 		return newArithmetic( // x + y
-			op,
+			pos,
 			exprLeft,
 			exprRight,
 			Punctuator.ADD
 		);
 	}
 	
-	public BinaryExpressionNode checkSubtraction(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
+	public BinaryExpressionNode checkSubtraction(Positioned pos, ExpressionNode exprLeft, ExpressionNode exprRight) {
 		Type left = exprLeft.getType();
 		Type right = exprRight.getType();
 		
@@ -195,14 +196,14 @@ public class ExpressionChecker implements Logable {
 			if(right.isPointerLike()) { // pointer - pointer
 				if(!TypeUtils.isCompatible(left, right))
 					error(
-						op,
+						pos,
 						"Expected compatible pointer operands for subtraction (got »%s« and »%s«)",
 						left,
 						right
 					);
 
 				return newBinary(
-					op,
+					pos,
 					exprLeft,
 					exprRight,
 					Punctuator.SUBTRACT,
@@ -212,14 +213,14 @@ public class ExpressionChecker implements Logable {
 			
 			else if(!right.isInteger())
 				error(
-					op,
+					pos,
 					"Expected pointer and integer operands for subtraction (got »%s« and »%s«)",
 					left,
 					right
 				);
 			
 			return newBinary(
-				op,
+				pos,
 				exprLeft,
 				exprRight,
 				Punctuator.SUBTRACT,
@@ -229,18 +230,24 @@ public class ExpressionChecker implements Logable {
 		
 		else if(!left.isArithmetic() || !right.isArithmetic())
 			error(
-				op,
+				pos,
 				"Expected number or pointer operands for addition (got »%s« and »%s«)",
 				left,
 				right
 			);
 
 		return newArithmetic( // x - y
-			op,
+			pos,
 			exprLeft,
 			exprRight,
 			Punctuator.SUBTRACT
 		);
+	}
+	
+	public BinaryExpressionNode checkAdditive(Positioned pos, ExpressionNode exprLeft, ExpressionNode exprRight, boolean subtraction) {
+		return subtraction
+			? checkSubtraction(pos, exprLeft, exprRight)
+			: checkAddition(pos, exprLeft, exprRight);
 	}
 	
 	public BinaryExpressionNode checkComparison(Token op, ExpressionNode exprLeft, ExpressionNode exprRight) {
@@ -256,8 +263,6 @@ public class ExpressionChecker implements Logable {
 					left,
 					right
 				);
-			
-			System.out.println(left + " / " + right);
 			
 			if(!TypeUtils.isVoidPointer(left)
 				&& !TypeUtils.isVoidPointer(right)
@@ -290,13 +295,13 @@ public class ExpressionChecker implements Logable {
 		);
 	}
 	
-	public BinaryExpressionNode checkAssignment(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, boolean isReturn) {
+	public BinaryExpressionNode checkAssignment(Positioned pos, ExpressionNode exprLeft, ExpressionNode exprRight, boolean isReturn) {
 		Type left = exprLeft.getType();
 		Type right = exprRight.getType();
 		
 		do {
 			if(left.isArray())
-				error(op, "Cannot assign to array type");
+				error(pos, "Cannot assign to array type");
 			
 			if(left.isArithmetic() && right.isArithmetic())
 				break;
@@ -308,14 +313,14 @@ public class ExpressionChecker implements Logable {
 				
 				if(!lbase.isConst() && rbase.isConst())
 					error(
-						op,
+						pos,
 						"%s discards »const« qualifier from target type",
 						isReturn ? "»return«" : "Assignment"
 					);
 				
 				if(!lbase.isVolatile() && rbase.isVolatile())
 					error(
-						op,
+						pos,
 						"%s discards »volatile« qualifier from target type",
 						isReturn ? "»return«" : "Assignment"
 					);
@@ -329,7 +334,7 @@ public class ExpressionChecker implements Logable {
 				break;
 			
 			error(
-				op,
+				pos,
 				"Incompatible types for %s (got »%s« and »%s«)",
 				isReturn ? "»return«" : "assignment",
 				left,
@@ -338,7 +343,7 @@ public class ExpressionChecker implements Logable {
 		} while(false);
 		
 		return newBinary(
-			op,
+			pos,
 			exprLeft,
 			exprRight,
 			Punctuator.ASSIGN,

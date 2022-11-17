@@ -146,7 +146,9 @@ public class DataFlowAnalyzer implements Logable {
 			
 			SymbolObject object = var.getVariable();
 			
-			if(!object.isUserDefined())
+			object.setUnused(false);
+			
+			if(!object.isUserDefined() || object.isFunction())
 				return false;
 			
 			String name = object.getName();
@@ -158,8 +160,6 @@ public class DataFlowAnalyzer implements Logable {
 					"»%s« might not have been initialized yet",
 					name
 				);
-			
-			object.setUnused(false);
 			
 			return false;
 		}
@@ -222,6 +222,8 @@ public class DataFlowAnalyzer implements Logable {
 		}
 		
 		else if(stmt instanceof CallExpressionNode call) {
+			scanInitialized(call.getTarget(), branches, insideInit, funCall);
+			
 			call.getParameters().forEach(expr -> scanInitialized(expr, branches, false, true));
 			
 			return true;

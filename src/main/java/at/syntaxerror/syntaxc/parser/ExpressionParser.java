@@ -72,6 +72,7 @@ public class ExpressionParser extends AbstractParser {
 	private final AbstractParser parser;
 	private final DeclarationParser declarationParser;
 	
+	private final @Getter PointerHelper pointerHelper = new PointerHelper();
 	private final @Getter AssignmentHelper assignmentHelper = new AssignmentHelper();
 	private final @Getter ExpressionChecker checker = new ExpressionChecker();
 	
@@ -464,12 +465,93 @@ public class ExpressionParser extends AbstractParser {
 			}
 			
 			if(equal("++", "--")) {
-				expr = newUnary(
-					op.getPosition(),
-					expr,
-					equal("++")
-						? Punctuator.INCREMENT
-						: Punctuator.DECREMENT
+				boolean increment = equal("++");
+				
+				if(!exprType.isScalar())
+					error(
+						op,
+						"Expected scalar for %s operator",
+						increment
+							? "increment"
+							: "decrement"
+					);
+				
+				if(!expr.isLvalue())
+					error(
+						op,
+						"Expected lvalue for %s operator",
+						increment
+							? "increment"
+							: "decrement"
+					);
+				
+				/*
+				 * convert 'val = x++' into
+				 * 
+				 *   typeof(x) *tmp = &x;
+				 *   typeof(x) val = *tmp;
+				 *   *tmp = val + 1;
+				 *   result = val 
+				 */
+
+				Position pos = op.getPosition();
+				
+				SymbolObject tmp = SymbolObject.temporary(
+					pos,
+					exprType.addressOf()
+				);
+
+				SymbolObject val = SymbolObject.temporary(
+					pos,
+					exprType
+				);
+				
+				VariableExpressionNode exprTmp = new VariableExpressionNode(
+					pos,
+					tmp
+				);
+				
+				VariableExpressionNode exprVal = new VariableExpressionNode(
+					pos,
+					val
+				);
+				
+				expr = newComma(
+					pos,
+					newComma(
+						pos,
+						checker.checkAssignment( // tmp = &x;
+							pos,
+							exprTmp,
+							pointerHelper.addressOf(pos, expr), // &x
+							false
+						),
+						checker.checkAssignment( // val = *tmp;
+							pos,
+							exprVal,
+							pointerHelper.dereference(pos, exprTmp), // *tmp
+							false
+						)
+					),
+					newComma(
+						pos,
+						checker.checkAssignment( // *tmp = val + 1; or *tmp = val - 1;
+							pos,
+							pointerHelper.dereference(pos, exprTmp), // *tmp
+							checker.checkAdditive( // val + 1 or val - 1
+								pos,
+								exprVal,
+								newNumber(
+									pos,
+									BigInteger.ONE,
+									Type.CHAR
+								),
+								increment
+							),
+							false
+						),
+						exprVal // result = val
+					)
 				);
 				
 				continue;
@@ -498,44 +580,11 @@ public class ExpressionParser extends AbstractParser {
 
 			// § 6.3.3.2 Address and indirection operators
 			
-			if(op.is("&")) {
-				if(type.isBitfield())
-					error(op, "Cannot take address of bit-field");
-				
-				else if(!((expr instanceof VariableExpressionNode var) && var.getVariable().isFunction())
-					&& !expr.isLvalue())
-					error(op, "Cannot take address of rvalue");
-				
-				return newUnary(
-					op,
-					expr,
-					Punctuator.ADDRESS_OF,
-					expr.getType().addressOf()
-				);
-			}
+			if(op.is("&"))
+				return pointerHelper.addressOf(op, expr);
 			
-			if(op.is("*")) {
-				if(type.isFunction()) // dereferencing a function doesn't do anything
-					return expr;
-				
-				if(!type.isPointerLike())
-					error(op, "Expected pointer for indirection");
-				
-				type = type.dereference();
-				
-				if(type.isVoid())
-					warn(op, Warning.DEREF_VOID, "Dereferencing of a pointer to »void«");
-				
-				if(type.isIncomplete())
-					error(op, "Cannot dereference pointer to incomplete type");
-				
-				return newUnary(
-					op,
-					expr,
-					Punctuator.INDIRECTION,
-					type
-				);
-			}
+			if(op.is("*"))
+				return pointerHelper.dereference(op, expr);
 
 			// § 6.3.3.3 Unary arithmetic operators
 			

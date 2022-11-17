@@ -22,6 +22,8 @@
  */
 package at.syntaxerror.syntaxc.type;
 
+import java.util.function.BiPredicate;
+
 import lombok.experimental.UtilityClass;
 
 /**
@@ -136,22 +138,33 @@ public class TypeUtils {
 				b.dereference()
 			);
 		
-		return isEqual(a, b);
+		return check(a, b, TypeUtils::isCompatible);
 	}
 	
 	public static boolean isEqual(Type a, Type b) {
+		return check(a, b, TypeUtils::isEqual);
+	}
+	
+	public static boolean check(Type a, Type b, BiPredicate<Type, Type> comparator) {
 		if(a == b)
 			return true;
-		
-		// enums, structs, and unions must pass the identify check above
-		if(a.getKind() != b.getKind() || a.isEnum() || a.isStructLike())
+
+		if(a.getKind() != b.getKind())
 			return false;
+		
+		if(a.isEnum())
+			return a.toEnum().getName()
+				.equals(b.toEnum().getName());
+	
+		if(a.isStructLike())
+			return a.toStructLike().getName()
+				.equals(b.toStructLike().getName());
 		
 		if(a.isInteger())
 			return a.toNumber().isUnsigned() == b.toNumber().isUnsigned();
 		
 		if(a.isPointer())
-			return isEqual(
+			return comparator.test(
 				a.dereference(),
 				b.dereference()
 			);
@@ -160,7 +173,7 @@ public class TypeUtils {
 			FunctionType aFunction = a.toFunction();
 			FunctionType bFunction = b.toFunction();
 			
-			if(!isEqual(
+			if(!comparator.test(
 				aFunction.getReturnType(),
 				bFunction.getReturnType())
 			) return false;
@@ -175,11 +188,13 @@ public class TypeUtils {
 				return false;
 			
 			if(!aFunction.isKAndR() && !bFunction.isKAndR())
-				for(int i = 0; i < aParams.size(); ++i)
-					if(!isEqual(
+				for(int i = 0; i < aParams.size(); ++i) {
+					
+					if(!comparator.test(
 						aParams.get(i).type(),
 						bParams.get(i).type()
 					)) return false;
+				}
 			
 			return true;
 		}
@@ -188,7 +203,7 @@ public class TypeUtils {
 			ArrayType aArray = a.toArray();
 			ArrayType bArray = b.toArray();
 			
-			if(!isEqual(
+			if(!comparator.test(
 				aArray.getBase(),
 				bArray.getBase()
 			)) return false;

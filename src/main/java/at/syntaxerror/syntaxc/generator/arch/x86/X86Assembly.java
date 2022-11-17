@@ -158,6 +158,9 @@ public class X86Assembly {
 				if(obj instanceof AssemblyTarget target)
 					return toString(target);
 				
+				if(obj == null)
+					return "<null>";
+				
 				return obj.toString();
 			})
 			.collect(

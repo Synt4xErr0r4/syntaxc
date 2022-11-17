@@ -74,11 +74,12 @@ public class SyntaxCMain {
 				"-fno-stdlib",
 				"-fno-long-double",
 				"-fsyntax-tree=svg",
-				"-fcontrol-flow-graph=svg",
-				"-fcfg-verbose",
+				"-fcontrol-flow-graph=dot",
+				"-fno-cfg-verbose",
 				"-S",
 				"-fpacked",
 				"-Wall",
+				"-Wno-implicit-function", "-Wno-pragma",
 				"-masm=att"
 			}; // XXX debugging only
 		

@@ -31,7 +31,6 @@ import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.Warning;
-import at.syntaxerror.syntaxc.parser.ConstantExpressionEvaluator;
 import at.syntaxerror.syntaxc.parser.ExpressionParser;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;

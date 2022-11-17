@@ -38,7 +38,7 @@ import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.Warning;
-import at.syntaxerror.syntaxc.parser.Parser.DeclarationState;
+import at.syntaxerror.syntaxc.parser.SymbolHelper.DeclarationState;
 import at.syntaxerror.syntaxc.parser.node.declaration.Declarator;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
@@ -292,7 +292,7 @@ public class StatementParser extends AbstractParser {
 				
 				else statements.add(new ExpressionStatementNode(
 					expressionParser.getChecker().checkAssignment(
-						Token.ofPunctuator(pos, Punctuator.ASSIGN),
+						pos,
 						returnValueField,
 						returnValue,
 						true
@@ -1034,7 +1034,8 @@ public class StatementParser extends AbstractParser {
 			Type baseType = declSpec.getRight();
 			
 			if(skip(";")) {
-				parser.warnUseless(baseType);
+				parser.getSymbolHelper()
+					.warnUseless(baseType);
 				continue;
 			}
 			
@@ -1053,7 +1054,7 @@ public class StatementParser extends AbstractParser {
 				if(type.isFunction() && internal)
 					error(decl, "Illegal »static« specifier for block-scope function");
 				
-				SymbolObject obj = parser.registerDeclaration(
+				SymbolObject obj = parser.getSymbolHelper().registerVariable(
 					declPos,
 					type,
 					decl.getName(),
@@ -1146,6 +1147,8 @@ public class StatementParser extends AbstractParser {
 			__func__.setInitialized(true);
 			__func__.setSyntaxTreeIgnore(true);
 			
+			parser.enterScope();
+			
 			getSymbolTable().addObject(__func__);
 			globalVariables.add(__func__);
 		}
@@ -1163,9 +1166,13 @@ public class StatementParser extends AbstractParser {
 		
 		dataFlowAnalyzer.checkInitialized(body);
 		
-		if(hasFunc && __func__.isUnused()) {
-			getSymbolTable().removeObject(__func__);
-			globalVariables.remove(__func__);
+		if(hasFunc) {
+			parser.leaveScope();
+			
+			if(__func__.isUnused()) {
+				getSymbolTable().removeObject(__func__);
+				globalVariables.remove(__func__);
+			}
 		}
 		
 		checkVariableUsage();

@@ -45,6 +45,7 @@ import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ConstantOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.GlobalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndexOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndirectionOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ReturnValueOperand;
@@ -220,7 +221,12 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 			return X86Register.RAX; // TODO
 		}
 		
-		Logger.error("Unrecognized operand");
+		if(operand instanceof IndirectionOperand indir) {
+			
+			return X86Register.RAX; // TODO
+		}
+		
+		Logger.error("Unrecognized operand: %s", operand.getClass());
 		return null;
 	}
 	
@@ -441,8 +447,6 @@ public class X86CodeGenerator extends CodeGenerator implements AssemblyGenerator
 		else num = type.toNumber().getNumericType();
 		
 		AssemblyTarget temp = left; // TODO
-		
-		System.out.println(temp);
 		
 		add(
 			x86.mov(temp, left),

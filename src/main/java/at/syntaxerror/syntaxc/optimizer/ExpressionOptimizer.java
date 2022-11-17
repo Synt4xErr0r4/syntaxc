@@ -40,6 +40,7 @@ import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
 import at.syntaxerror.syntaxc.symtab.global.IntegerInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -126,13 +127,18 @@ public class ExpressionOptimizer {
 		else if(expr instanceof CastExpressionNode cast) {
 			ExpressionNode target = optimize(cast.getTarget());
 
-			expr = new CastExpressionNode(
-				pos,
-				target,
-				cast.getType()
-			);
-			
-			eval = isNumber(target);
+			if(TypeUtils.isCompatible(target.getType(), cast.getType()))
+				expr = target;
+				
+			else {
+				expr = new CastExpressionNode(
+					pos,
+					target,
+					cast.getType()
+				);
+				
+				eval = isNumber(target) && cast.getType().isArithmetic();
+			}
 		}
 		
 		else if(expr instanceof ConditionalExpressionNode cond) {

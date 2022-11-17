@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
-import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
@@ -332,7 +331,7 @@ public class InitializerSerializer {
 			
 			assignments.add(
 				parser.getChecker().checkAssignment(
-					Token.ofPunctuator(pos, Punctuator.ASSIGN),
+					pos,
 					dest,
 					initializer.getExpression(),
 					false
@@ -509,14 +508,11 @@ public class InitializerSerializer {
 					padding.process(pos, offset, pad)
 				);
 			
-			if(!type.isBitfield()) {
-				System.out.println(member.getName() + " => " + element.process(offset, init, type));
-				
+			if(!type.isBitfield())
 				accumulator.accumulateAll(
 					result,
 					element.process(offset, init, type)
 				);
-			}
 			
 			else if(type.isBitfield()) {
 				var bitValue = ((IntegerInitializer) serialize(type, init, member.getBitWidth())).value();

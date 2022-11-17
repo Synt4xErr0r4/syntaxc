@@ -478,7 +478,7 @@ public class DeclarationParser extends AbstractParser {
 				String name = tok.getString();
 				
 				if(enumerators.containsKey(name))
-					error(tok, "Duplicate enumerator in enum");
+					softError(tok, "Duplicate enumerator in enum");
 				
 				if(optional("=")) {
 					next();
@@ -490,7 +490,10 @@ public class DeclarationParser extends AbstractParser {
 					type.addEnumerator(tok);
 				}
 
-				symtab.addObject(SymbolObject.enumerator(tok, name, type, enumerators.get(name).value()));
+				SymbolObject obj = SymbolObject.enumerator(tok, name, type, enumerators.get(name).value());
+				
+				if(!symtab.addObject(obj))
+					softError(tok, "Redeclaration of enumerator »%s«", name);
 				
 				if(expect(",", "}").is("}")) {
 					next();

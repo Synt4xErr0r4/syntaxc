@@ -34,6 +34,7 @@ import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.optimizer.ExpressionOptimizer;
+import at.syntaxerror.syntaxc.parser.SymbolHelper.DeclarationState;
 import at.syntaxerror.syntaxc.parser.node.FunctionNode;
 import at.syntaxerror.syntaxc.parser.node.GlobalVariableNode;
 import at.syntaxerror.syntaxc.parser.node.SymbolNode;
@@ -73,6 +74,9 @@ public class Parser extends AbstractParser {
 	private StatementParser statementParser;
 	
 	@Getter
+	private SymbolHelper symbolHelper;
+	
+	@Getter
 	private FunctionType activeFunctionType;
 	
 	public Parser(List<Token> tokens) {
@@ -88,6 +92,8 @@ public class Parser extends AbstractParser {
 		declarationParser = new DeclarationParser(this);
 		expressionParser = new ExpressionParser(this, declarationParser);
 		statementParser = new StatementParser(this, declarationParser, expressionParser);
+		
+		symbolHelper = new SymbolHelper(this);
 	}
 	
 	@Override
@@ -206,7 +212,7 @@ public class Parser extends AbstractParser {
 			error("»typedef« may not occur together with other storage-class specifiers");
 		
 		if(equal(";")) {
-			warnUseless(declSpecs.getRight());
+			symbolHelper.warnUseless(declSpecs.getRight());
 			return List.of();
 		}
 		
@@ -243,7 +249,7 @@ public class Parser extends AbstractParser {
 						error(declSpecs.getLeft().get(), "Illegal storage-class specifier for function parameter");
 					
 					if(equal(";")) {
-						warnUseless(declSpecs.getRight());
+						symbolHelper.warnUseless(declSpecs.getRight());
 						next();
 						continue;
 					}
@@ -268,8 +274,10 @@ public class Parser extends AbstractParser {
 						
 						SymbolObject obj = SymbolObject.local(decl, name, paramType);
 						obj.setUnused(false);
+						obj.setInitialized(true);
 						
-						getSymbolTable().addObject(obj);
+						if(getSymbolTable().addObject(obj))
+							softError(obj, "Redeclaration of local variable »%s«", name);
 						
 						parameterNamesFound.add(name);
 						
@@ -285,6 +293,7 @@ public class Parser extends AbstractParser {
 
 						SymbolObject obj = SymbolObject.local(decl, name, Type.INT);
 						obj.setUnused(false);
+						obj.setInitialized(true);
 						
 						getSymbolTable().addObject(obj);
 						
@@ -303,10 +312,9 @@ public class Parser extends AbstractParser {
 					if(paramType == null)
 						error(param, "Missing type for function parameter »%s«", paramName);
 
-					SymbolObject obj = SymbolObject.local(decl, paramName, paramType);
+					SymbolObject obj = symbolHelper.registerLocal(decl, paramType, paramName);
 					obj.setUnused(false);
-					
-					getSymbolTable().addObject(obj);
+					obj.setInitialized(true);
 				}
 			
 				consume("{");
@@ -327,26 +335,25 @@ public class Parser extends AbstractParser {
 			
 			if(symtab.hasObjectInScope(name)) {
 				SymbolObject obj = symtab.findObjectInScope(name);
-
+				
 				if(!TypeUtils.isEqual(type, obj.getType())) {
 					softError(decl, "Incompatible types for »%s«", name);
 					note(obj, "Previously declared here");
-					terminate();
 				}
 				
-				if(!obj.isPrototype()) {
+				else if(!obj.isPrototype()) {
 					softError(decl, "Redefinition of »%s«", name);
 					note(obj, "Previously defined here");
-					terminate();
 				}
 				
-				if(internal && obj.getFunctionData().linkage() == Linkage.EXTERNAL) {
+				else if(internal && obj.getFunctionData().linkage() == Linkage.EXTERNAL) {
 					softError(decl, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
 					note(obj, "Previously declared here");
-					terminate();
 				}
 				
 				obj.setInitialized(true);
+				
+				symtab.removeObject(obj);
 			}
 			
 			SymbolObject obj = SymbolObject.function(
@@ -373,7 +380,7 @@ public class Parser extends AbstractParser {
 				init = declarationParser.nextInitializer();
 			}
 
-			SymbolObject obj = registerDeclaration(
+			SymbolObject obj = symbolHelper.registerVariable(
 				decl,
 				type,
 				decl.getName(),
@@ -394,85 +401,6 @@ public class Parser extends AbstractParser {
 		}
 		
 		return nodes;
-	}
-	
-	public void warnUseless(Type type) {
-		if(!type.isEnum() && (!type.isStructLike() || type.toStructLike().isAnonymous()))
-			warn(Warning.USELESS, "Useless declaration does not declare anything");
-	}
-	
-	public SymbolObject registerDeclaration(Positioned pos, Type type, String name,
-			Initializer initializer, DeclarationState state) {
-		boolean hasInit = initializer != null;
-		
-		if(hasInit && (state.typedef() || state.external()))
-			error("»%s« does not accept an initializer", state.typedef() ? "typedef" : "extern");
-		
-		SymbolTable symtab = getSymbolTable();
-		
-		if(symtab.hasObjectInScope(name)) {
-			SymbolObject obj = symtab.findObjectInScope(name);
-			
-			if(obj.isTypedef() != state.typedef()) {
-				softError(pos, "Redefinition of »%s« as another type", name);
-				note(obj, "Previously declared here");
-				terminate();
-			}
-			
-			if(!TypeUtils.isEqual(type, obj.getType())) {
-				softError(pos, "Incompatible types for »%s«", name);
-				note(obj, "Previously declared here");
-				terminate();
-			}
-			
-			if(obj.isPrototype()) // discard subsequent prototypes
-				return null;
-			
-			if(obj.getVariableData().initializer() != null && hasInit) {
-				softError(pos, "Redefinition of »%s«", name);
-				note(obj, "Previously declared here");
-				terminate();
-			}
-			
-			if(state.linkage() == Linkage.EXTERNAL)
-				return null;
-			
-			if(state.internal() && obj.getLinkage() == Linkage.EXTERNAL) {
-				softError(pos, "Cannot redeclare »%s« as »static« after previous non-static declaration", name);
-				note(obj, "Previously declared here");
-				terminate();
-			}
-		}
-		
-		SymbolObject obj;
-		
-		if(state.typedef())
-			obj = SymbolObject.typedef(pos, name, type);
-		
-		else if(type.isFunction())
-			obj = SymbolObject.prototype(pos, name, type, state.linkage());
-		
-		else if(state.external())
-			obj = SymbolObject.extern(pos, name, type);
-		
-		else {
-			obj = SymbolObject.global(
-				pos,
-				name,
-				type,
-				state.linkage(),
-				hasInit
-					? InitializerSerializer.serialize(type, initializer)
-					: null
-			);
-			
-			if(hasInit)
-				obj.setInitialized(true);
-		}
-		
-		symtab.addObject(obj);
-		
-		return obj;
 	}
 	
 	public List<SymbolNode> parse() {
@@ -510,10 +438,6 @@ public class Parser extends AbstractParser {
 			.forEach(nodes::add);
 		
 		return nodes;
-	}
-	
-	public static record DeclarationState(Linkage linkage, boolean typedef, boolean external, boolean internal) {
-		
 	}
 	
 	@RequiredArgsConstructor

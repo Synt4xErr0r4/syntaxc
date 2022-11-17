@@ -27,6 +27,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.FreeIntermediate;
@@ -100,7 +102,7 @@ public class ControlFlowAnalyzer implements Logable {
 		
 		checkUnknownLabels(); // check for unknown labels
 		checkUnusedLabels(); // check for unused labels. Also matches labels where the associated goto statement is dead code
-
+		
 		generateNodes(name, intermediates);
 		checkNodes();
 		
@@ -138,14 +140,12 @@ public class ControlFlowAnalyzer implements Logable {
 	}
 	
 	private CFGNode makeBlock(String name) {
-		return new CFGNode(name, new ArrayList<>(code));
+		return new CFGNode(name, new ArrayList<>(code), NodeKind.PLAIN);
 	}
 	
 	private void generateNodes(String name, List<Intermediate> intermediates) {
 		boolean wasJump = false;
 		boolean wasGoto = false;
-		
-		boolean skipLink = false;
 		
 		String previous = null;
 
@@ -160,6 +160,8 @@ public class ControlFlowAnalyzer implements Logable {
 				
 			}
 			
+			code.add(intermediate);
+			
 			if(intermediate instanceof LabelIntermediate label) {
 
 				if(wasGoto || wasJump) {
@@ -173,24 +175,20 @@ public class ControlFlowAnalyzer implements Logable {
 				String current = name;
 				name = label.getLabel();
 
-				if(!skipLink)
-					linkInfo(current, name);
+				linkInfo(current, name);
 				
 				addBlock(makeBlock(current));
 				
 				previous = current;
 				
 				wasJump = wasGoto = false;
-				skipLink = false;
-
+				
 				code.clear();
 				continue;
 			}
 
 			if(!(intermediate instanceof FreeIntermediate))
 				wasGoto = wasJump = false;
-			
-			code.add(intermediate);
 			
 			if(intermediate instanceof JumpIntermediate jump) {
 
@@ -228,35 +226,45 @@ public class ControlFlowAnalyzer implements Logable {
 						: LinkKind.NEXT
 				);
 				
-				skipLink = true;
-				
 				previous = current;
 			}
 			
 		}
 		
-		boolean doesReturn = true;
 		String returnName = name;
 		
-		if(skipLink)
-			doesReturn = linkInfos.stream()
-				.anyMatch(info -> info.destination().equals(returnName));
+		boolean doesReturn = linkInfos
+			.stream()
+			.anyMatch(info -> info.destination().equals(returnName));
 		
 		if(doesReturn) {
 			
 			addBlock(new CFGNode(
 				name,
-				List.of())
-			);
-			addBlock(CFGNode.EXIT);
+				List.of(),
+				NodeKind.PLAIN
+			));
 			
-			if(!skipLink)
-				linkInfo(previous, name);
+			CFGNode exit = CFGNode.exit();
 			
-			linkInfo(name, CFGNode.EXIT_NAME);
+			addBlock(exit);
+			
+			linkInfo(previous, name);
+			
+			linkInfo(name, exit.name);
 		}
 		
-		linkInfos.forEach(info -> {
+		linkInfos
+			.stream()
+			.collect(
+				Collectors.toMap( // deduplicate
+					LinkInfo::toString,
+					Function.identity(),
+					(a, b) -> a
+				)
+			)
+			.values()
+			.forEach(info -> {
 			
 			CFGNode src = blocks.get(info.source());
 			CFGNode dst = blocks.get(info.destination());
@@ -366,14 +374,22 @@ public class ControlFlowAnalyzer implements Logable {
 	@RequiredArgsConstructor
 	public static class CFGNode {
 		
-		public static final String ENTRY_NAME = ".entry";
-		public static final String EXIT_NAME = ".exit";
+		private static final String ENTRY_NAME = ".entry";
+		private static final String EXIT_NAME = ".exit";
 		
-		public static final CFGNode ENTRY = new CFGNode(ENTRY_NAME, null);
-		public static final CFGNode EXIT = new CFGNode(EXIT_NAME, null);
+		private static int id = 0;
+		
+		public static CFGNode entry() {
+			return new CFGNode(ENTRY_NAME + "." + id++, null, NodeKind.ENTRY);
+		}
+
+		public static CFGNode exit() {
+			return new CFGNode(EXIT_NAME + "." + id++, null, NodeKind.EXIT);
+		}
 		
 		public final String name;
 		public final List<Intermediate> code;
+		public final NodeKind kind;
 		
 		private final List<Intermediate> free = new ArrayList<>();
 		
@@ -384,8 +400,22 @@ public class ControlFlowAnalyzer implements Logable {
 		public CFGNode nextThen;
 		public CFGNode nextElse;
 		
+		public boolean isEntry() {
+			return kind == NodeKind.ENTRY;
+		}
+
+		public boolean isExit() {
+			return kind == NodeKind.EXIT;
+		}
+		
 		@Override
 		public String toString() {
+			if(isEntry())
+				return "Node[entry]";
+			
+			if(isExit())
+				return "Node[exit]";
+			
 			if(nextThen != null || nextElse != null)
 				return "Node[%s -> %s & %s; %s]".formatted(
 					name,
@@ -401,12 +431,18 @@ public class ControlFlowAnalyzer implements Logable {
 			);
 		}
 		
-		private String getName(CFGNode node) {
+		private static String getName(CFGNode node) {
 			return node == null
 				? null
 				: node.name;
 		}
 		
+	}
+	
+	private static enum NodeKind {
+		PLAIN,
+		ENTRY,
+		EXIT
 	}
 	
 	private static record LinkInfo(String source, String destination, LinkKind kind) {

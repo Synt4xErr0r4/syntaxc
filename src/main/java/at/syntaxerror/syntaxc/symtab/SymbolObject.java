@@ -42,7 +42,7 @@ import lombok.ToString;
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
-@ToString(exclude = "position")
+@ToString(of = { "name", "type", "kind" })
 public class SymbolObject implements Symbol, Positioned {
 
 	public static final int OFFSET_NONE = Integer.MIN_VALUE;
@@ -51,71 +51,159 @@ public class SymbolObject implements Symbol, Positioned {
 	
 	private static long temporaryId = 0;
 	private static long localStaticId = 0;
-	
-	public static SymbolObject returns(Positioned pos, Type type) {
+
+	/*
+	 * Helper method for possibly uninitialized symbols
+	 */
+	private static SymbolObject uninitialized(Positioned pos, Type type, String name, SymbolKind kind) {
 		return new SymbolObject(
 			pos.getPosition(),
-			RETURN_VALUE_NAME,
-			SymbolKind.VARIABLE_RETURN,
 			type,
+			name,
+			kind,
 			null
 		);
 	}
 	
-	public static SymbolObject implicit(Positioned pos, String name) {
-		return new SymbolObject(
+	/**
+	 * Helper method for possibly initialized symbols.
+	 * Sets the {@link #isInitialized()} flag accordingly.
+	 */
+	private static SymbolObject initialized(Positioned pos, Type type, String name, SymbolKind kind, SymbolData data) {
+		SymbolObject obj = new SymbolObject(
 			pos.getPosition(),
+			type,
+			name,
+			kind,
+			data
+		);
+		
+		if(data != null) {
+			@SuppressWarnings("preview")
+			boolean init = switch(data) {
+			case SymbolFunctionData fun -> !fun.isImplicit() && kind != SymbolKind.PROTOTYPE;
+			case SymbolVariableData var -> var.initializer() != null;
+			case SymbolEnumeratorData enm -> true;
+			default -> false;
+			};
+			
+			obj.setInitialized(init);
+		}
+		
+		return obj;
+	}
+	
+	/**
+	 * Returns the (synthetic) return variable for the function.
+	 * Its internal name will always be equal to {@link #RETURN_VALUE_NAME}
+	 */
+	public static SymbolObject returns(Positioned pos, Type type) {
+		return uninitialized(
+			pos,
+			type,
+			RETURN_VALUE_NAME,
+			SymbolKind.VARIABLE_RETURN
+		);
+	}
+	
+	/*
+	 * Creates an implicit function declaration. When a function is invoked with a
+	 * (yet) existing definition or prototype of it, it its implicitly declared as:
+	 * 
+	 *   int function_name();
+	 *   
+	 * It accepts any number of arguments and returns an integer. However, since this
+	 * might not actually be the function's signature, any use of implicit functions
+	 * will produce a diagnostic warning (but can be disabled via the command line
+	 * option '-Wno-implicit-function')
+	 */
+	public static SymbolObject implicit(Positioned pos, String name) {
+		return initialized(
+			pos.getPosition(),
+			FunctionType.IMPLICIT,
 			name,
 			SymbolKind.FUNCTION,
-			FunctionType.IMPLICIT,
-			new SymbolFunctionData(Linkage.INTERNAL, true, null)
+			new SymbolFunctionData(
+				Linkage.INTERNAL,
+				true,
+				null
+			)
 		);
 	}
 	
+	/*
+	 * Creates a temporary variable used by some expressions or statements
+	 */
 	public static SymbolObject temporary(Positioned pos, Type type) {
-		return new SymbolObject(
-			pos.getPosition(),
+		return uninitialized(
+			pos,
+			type,
 			Long.toString(temporaryId++),
-			SymbolKind.VARIABLE_TEMPORARY,
-			type,
-			null
+			SymbolKind.VARIABLE_TEMPORARY
 		);
 	}
 	
+	/*
+	 * Creates a local variable, e.g.:
+	 * 
+	 *   {
+	 *       int a;
+	 *       ...
+	 *   }
+	 * 
+	 * 'a' is now accessible from within this scope (e.g. a function).
+	 * Function parameters are also treated as local variables
+	 */
 	public static SymbolObject local(Positioned pos, String name, Type type) {
-		return new SymbolObject(
-			pos.getPosition(),
-			name,
-			SymbolKind.VARIABLE_LOCAL,
+		return uninitialized(
+			pos,
 			type,
-			null
+			name,
+			SymbolKind.VARIABLE_LOCAL
 		);
 	}
 	
+	/*
+	 * Creates a string, e.g.:
+	 * 
+	 *   const char *name1 = "John Doe";
+	 *   const char *name2 = "John Doe";
+	 * 
+	 * Both 'name1' and 'name2' now point to the SAME string "John Doe" at the SAME address.
+	 * The string is immutable, trying to change its contents would likely result in a
+	 * memory access error.
+	 */
 	public static SymbolObject string(Positioned pos, StringInitializer initializer) {
-		return new SymbolObject(
-			pos.getPosition(),
+		return initialized(
+			pos,
+			Type.getStringType( // const char[], const wchar_t[]
+				initializer.value(),
+				initializer.wide()
+			).asConst(),
 			".STR" + initializer.id(),
 			SymbolKind.STRING,
-			Type.getStringType(initializer.value(), initializer.wide())
-				.asConst(),
 			new SymbolVariableData(
 				Linkage.INTERNAL,
 				initializer
 			)
-		) {
-			{
-				setInitialized(true);
-			}
-		};
+		);
 	}
 	
+	/*
+	 * Creates a function, e.g.:
+	 * 
+	 *   int main() { ... }
+	 *   static void do_sth() { ... }
+	 * 
+	 * 'main' and 'do_sth' can now be called from within any function in the current file.
+	 * While 'main' is also accessible from other files, 'do_sth' is not (due to the 'static' keyword).
+	 */
 	public static SymbolObject function(Positioned pos, String name, Type type, Linkage linkage, String returnLabel) {
-		return new SymbolObject(
+		return initialized(
 			pos.getPosition(),
+			type,
 			name,
 			SymbolKind.FUNCTION,
-			type,
 			new SymbolFunctionData(
 				linkage,
 				false,
@@ -124,12 +212,19 @@ public class SymbolObject implements Symbol, Positioned {
 		);
 	}
 	
+	/*
+	 * Creates a function prototype, e.g.:
+	 * 
+	 *   int printf(const char *, ...);
+	 * 
+	 * 'printf' can now be used without being defined (yet).
+	 */
 	public static SymbolObject prototype(Positioned pos, String name, Type type, Linkage linkage) {
-		return new SymbolObject(
-			pos.getPosition(),
+		return initialized(
+			pos,
+			type,
 			name,
 			SymbolKind.PROTOTYPE,
-			type,
 			new SymbolFunctionData(
 				linkage,
 				false,
@@ -138,13 +233,24 @@ public class SymbolObject implements Symbol, Positioned {
 		);
 	}
 	
+	/*
+	 * Creates a global variable, e.g.:
+	 * 
+	 *   float PI = 3.1415926f;
+	 *   static int LOOKUP[256] = { ... };
+	 *   
+	 * 'PI' and 'LOOKUP' can now be used from within any function in the current file.
+	 * While 'PI' is also accessible from other files, 'LOOKUP' is not (due to the 'static' keyword).
+	 * 
+	 * These rules only apply when the variables are declared outside of a function body.
+	 */
 	public static SymbolObject global(Positioned pos, String name, Type type,
 			Linkage linkage, GlobalVariableInitializer initializer) {
-		return new SymbolObject(
-			pos.getPosition(),
+		return initialized(
+			pos,
+			type,
 			name,
 			SymbolKind.VARIABLE_GLOBAL,
-			type,
 			new SymbolVariableData(
 				linkage,
 				initializer
@@ -152,6 +258,13 @@ public class SymbolObject implements Symbol, Positioned {
 		);
 	}
 	
+	/*
+	 * Creates an external declaration, e.g.:
+	 * 
+	 *   extern int puts(const char *);
+	 *   
+	 * 'puts' can now be used without its definition within this file.
+	 */
 	public static SymbolObject extern(Positioned pos, String name, Type type) {
 		SymbolObject obj = global(pos, name, type, Linkage.EXTERNAL, null);
 		
@@ -160,48 +273,81 @@ public class SymbolObject implements Symbol, Positioned {
 		return obj;
 	}
 	
+	/*
+	 * Creates a type alias, e.g.:
+	 * 
+	 *   typedef unsigned int uint32_t;
+	 *   
+	 * 'uint32_t' is now an alias for 'unsigned int'.
+	 */
 	public static SymbolObject typedef(Positioned pos, String name, Type type) {
-		return new SymbolObject(
-			pos.getPosition(),
-			name,
-			SymbolKind.TYPEDEF,
+		return uninitialized(
+			pos,
 			type,
-			null
+			name,
+			SymbolKind.TYPEDEF
 		);
 	}
 	
+	/*
+	 * Creates an enumerator for an enum, e.g.:
+	 * 
+	 *   enum { A, B = 5, C }
+	 *   
+	 * 'A', 'B', and 'C' are enumerators here, with the values 1, 5, and 6, respectively.
+	 */
 	public static SymbolObject enumerator(Positioned pos, String name, Type type, BigInteger value) {
-		return new SymbolObject(
-			pos.getPosition(),
+		return initialized(
+			pos,
+			type,
 			name,
 			SymbolKind.ENUMERATOR,
-			type,
 			new SymbolEnumeratorData(value)
 		);
 	}
 	
 	private final Position position;
-	private final String name;
-	private final SymbolKind kind;
 	private final Type type;
+	private final String name;
+	
+	private final SymbolKind kind;
 
 	private final SymbolData data;
 	
+	// the ID appended to the object's name (if > -1). Used for static local variables
 	private long fullNameId = -1;
+
+	// whether the object was declared with the 'extern' keyword
 	private boolean extern = false;
 	
+	// whether this object has been referenced
 	private @Setter boolean unused = true;
+	
+	// whether this object has been initialized
 	private @Setter boolean initialized = false;
+	
+	// the stack offset of a local variable
 	private @Setter int offset = OFFSET_NONE;
 
+	// whether the syntax tree generator should ignore this object
 	private @Setter boolean syntaxTreeIgnore = false;
 	
+	/**
+	 * Marks this local variable as 'static'
+	 */
 	public void setLocalStatic() {
 		fullNameId = localStaticId++;
 	}
 	
+	/**
+	 * @return whether this object is a static local variable
+	 */
+	public boolean isLocalStatic() {
+		return fullNameId > -1;
+	}
+	
 	public String getFullName() {
-		return name + (fullNameId < 0 ? "" : "." + fullNameId);
+		return name + (isLocalStatic() ? "." + fullNameId : "");
 	}
 	
 	public String getDebugName() {

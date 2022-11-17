@@ -49,6 +49,7 @@ import at.syntaxerror.syntaxc.intermediate.representation.GreaterThanOrEqualInte
 import at.syntaxerror.syntaxc.intermediate.representation.IndirectionIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ConstantOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.FreeIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.GlobalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndexOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndirectionOperand;
@@ -105,6 +106,7 @@ import at.syntaxerror.syntaxc.type.Type;
  * @author Thomas Kasper
  * 
  */
+@SuppressWarnings("unchecked")
 public class IntermediateGenerator {
 
 	private static final Map<Punctuator, BinaryConstructor> BINARY_OPERATIONS;
@@ -214,14 +216,51 @@ public class IntermediateGenerator {
 			? temporary(type)
 			: null;
 	}
-	
+
+	/**
+	 * Indicates that the operand's register can now be reallocated
+	 */
 	private void free(List<Intermediate> ir, Operand operand) {
 		if(operand != null)
 			ir.addAll(operand.free());
 	}
 
-	private void free(List<Intermediate> ir, Pair<List<Intermediate>, Operand> operand) {
-		free(ir, operand.getRight());
+	/**
+	 * Indicates that the operands' registers can now be reallocated
+	 */
+	private void free(List<Intermediate> ir, Pair<List<Intermediate>, Operand>...operands) {
+		for(var operand : operands)
+			if(operand != null)
+				operand.ifRightPresent(op -> free(ir, op));
+	}
+
+	/**
+	 * Makes sure that the operands are not free'd yet
+	 */
+	private void unfree(Operand...operands) {
+		for(var operand : operands)
+			if(operand != null)
+				operand.free();
+	}
+
+	/**
+	 * Makes sure that the operands are not free'd yet
+	 */
+	private void unfree(Pair<List<Intermediate>, Operand>...operands) {
+		for(var operand : operands)
+			if(operand != null)
+				operand.ifRightPresent(Operand::unfree);
+	}
+
+	/**
+	 * Accumulates the intermediates from the results into the master IR list
+	 */
+	private void accumulate(List<Intermediate> ir, Pair<List<Intermediate>, Operand>...results) {
+		for(var result : results)
+			if(result != null)
+				result.ifLeftPresent(ir::addAll);
+		
+		unfree(results);
 	}
 	
 	public List<Intermediate> toIntermediateRepresentation(List<StatementNode> statements) {
@@ -258,7 +297,7 @@ public class IntermediateGenerator {
 			else if(statement instanceof JumpStatementNode jump) {
 				var condition = processExpression(jump.getCondition());
 				
-				condition.ifLeftPresent(ir::addAll);
+				accumulate(ir, condition);
 				
 				ir.add(new JumpIntermediate(
 					jump.getPosition(),
@@ -274,13 +313,21 @@ public class IntermediateGenerator {
 					labeled.getPosition(),
 					labeled.getLabel()
 				));
-			
+				
 				ir.addAll(processStatements(
 					List.of(labeled.getStatement())
 				));
 			}
 		
-		return ir;
+		return ir
+			.stream()
+			// filter out discarded frees
+			.filter(imm -> !(imm instanceof FreeIntermediate free) || !free.isDiscarded())
+			.collect(
+				ArrayList::new,
+				ArrayList::add,
+				ArrayList::addAll
+			);
 	}
 
 	private Pair<List<Intermediate>, Operand> processExpression(ExpressionNode expression) {
@@ -311,7 +358,11 @@ public class IntermediateGenerator {
 		if(proc == null)
 			Logger.error(expression, "Unrecognized expression type");
 		
-		return proc.process(ctx);
+		var result = proc.process(ctx);
+		
+		unfree(result);
+		
+		return result;
 	}
 
 	private Pair<List<Intermediate>, Operand> processArrayIndexExpression(ArrayIndexExpressionNode idx, IRContext context) {
@@ -323,10 +374,9 @@ public class IntermediateGenerator {
 		context = context.reset();
 		
 		var target = processExpression(idx.getTarget(), context);
-		target.ifLeftPresent(ir::addAll);
-
 		var index = processExpression(idx.getIndex(), context);
-		index.ifLeftPresent(ir::addAll);
+		
+		accumulate(ir, target, index);
 		
 		if(lvalue)
 			return Pair.of(
@@ -345,8 +395,7 @@ public class IntermediateGenerator {
 			index.getRight()
 		));
 
-		free(ir, index);
-		free(ir, target);
+		free(ir, index, target);
 		
 		return Pair.of(ir, result);
 	}
@@ -424,8 +473,7 @@ public class IntermediateGenerator {
 				var left = processExpression(exprLeft, context);
 				var right = processExpression(exprRight, context);
 				
-				left.ifLeftPresent(ir::addAll);
-				right.ifLeftPresent(ir::addAll);
+				accumulate(ir, left, right);
 				
 				Operand diff = temporary(NumericValueType.PTRDIFF.asType());
 				
@@ -437,8 +485,7 @@ public class IntermediateGenerator {
 					right.getRight()
 				));
 				
-				free(ir, right);
-				free(ir, left);
+				free(ir, right, left);
 				
 				// _2 = _1 / sizeof(type_t)
 				ir.add(new DivideIntermediate(
@@ -462,14 +509,15 @@ public class IntermediateGenerator {
 		if(!exprOff.getType().isInteger())
 			Logger.error(exprOff, "Illegal type for pointer offset");
 
-		var ptr = processExpression(exprPtr, context);
+		Pair<List<Intermediate>, Operand> ptr = processExpression(exprPtr, context);
+		Pair<List<Intermediate>, Operand> off = null;
 
 		Operand pointer = ptr.getRight();
 		Operand offset;
 		
 		// pointer + offset: evaluate pointer first
 		if(!swap)
-			ptr.ifLeftPresent(ir::addAll);
+			accumulate(ir, ptr);
 		
 		int sizeof = exprPtr.getType().dereference().sizeof();
 
@@ -482,8 +530,8 @@ public class IntermediateGenerator {
 			);
 		
 		else {
-			var off = processExpression(exprOff);
-			off.ifLeftPresent(ir::addAll);
+			off = processExpression(exprOff);
+			accumulate(ir, off);
 
 			offset = temporary(NumericValueType.PTRDIFF.asType());
 			
@@ -498,7 +546,9 @@ public class IntermediateGenerator {
 		
 		// offset + pointer: evaluate offset first
 		if(swap)
-			ptr.ifLeftPresent(ir::addAll);
+			accumulate(ir, ptr);
+		
+		unfree(off, ptr);
 		
 		// pointer + offset * sizeof(type_t)
 		ir.add(new AddIntermediate(pos, result, pointer, offset));
@@ -544,10 +594,10 @@ public class IntermediateGenerator {
 				? context.asLvalue()
 				: context
 		);
-		left.ifLeftPresent(ir::addAll);
-
+		
 		var right = processExpression(binop.getRight(), context);
-		right.ifLeftPresent(ir::addAll);
+		
+		accumulate(ir, left, right);
 		
 		var operandLeft = left.getRight();
 		var operandRight = right.getRight();
@@ -559,23 +609,26 @@ public class IntermediateGenerator {
 		
 		else switch(op) {
 		case ASSIGN:
+			ir.add(new AssignIntermediate(pos, operandLeft, operandRight));
+			
 			if(needResult) {
-				ir.add(new AssignIntermediate(pos, result, operandRight));
-				ir.add(new AssignIntermediate(pos, operandLeft, result));
+				if(operandLeft instanceof TemporaryOperand)
+					result = operandLeft; // prefer register over memory access
+				
+				else result = operandRight; // don't care otherwise
 			}
-			else ir.add(new AssignIntermediate(pos, operandLeft, operandRight));
 			break;
 		
 		case COMMA:
-			result = operandRight;
+			if(needResult)
+				result = operandRight;
 			break;
 			
 		default:
 			Logger.error(binop, "Unrecognized binary expression type");
 		}
 
-		free(ir, right);
-		free(ir, left);
+		free(ir, right, left);
 
 		return Pair.of(ir, result);
 	}
@@ -592,7 +645,8 @@ public class IntermediateGenerator {
 				if(arg instanceof ExpressionArgument expr) {
 					var processed = processExpression(expr.getExpression());
 					
-					processed.ifLeftPresent(ir::addAll);
+					accumulate(ir, processed);
+					
 					processed.ifRightPresent(operands::add);
 					processed.ifRightPresent(expr::setOperand);
 				}
@@ -621,14 +675,16 @@ public class IntermediateGenerator {
 			.map(expr -> {
 				var arg = processExpression(expr);
 
-				arg.ifLeftPresent(ir::addAll);
+				accumulate(ir, arg);
 				
 				return arg.getRight();
 			})
 			.toList();
 		
 		var function = processExpression(call.getTarget(), context.reset());
-		function.ifLeftPresent(ir::addAll);
+		accumulate(ir, function);
+		
+		unfree(args.toArray(Operand[]::new));
 		
 		ir.add(new CallIntermediate(
 			context.position(),
@@ -654,7 +710,7 @@ public class IntermediateGenerator {
 		Operand result = result(cast.getType(), context);
 		
 		var target = processExpression(cast.getTarget(), context.reset());
-		target.ifLeftPresent(ir::addAll);
+		accumulate(ir, target);
 
 		ir.add(new CastIntermediate(
 			context.position(),
@@ -692,7 +748,7 @@ public class IntermediateGenerator {
 		context = context.reset();
 		
 		var condition = processExpression(cond.getCondition(), context);
-		condition.ifLeftPresent(ir::addAll);
+		accumulate(ir, condition);
 		
 		String labelFalse = ".IF" + conditionLabelId++;
 		String labelEnd = ".IF" + conditionLabelId++;
@@ -707,7 +763,7 @@ public class IntermediateGenerator {
 		free(ir, condition);
 		
 		var whenTrue = processExpression(cond.getWhenTrue(), context);
-		whenTrue.ifLeftPresent(ir::addAll);
+		accumulate(ir, whenTrue);
 
 		// r = x;
 		ir.add(new AssignIntermediate(
@@ -731,7 +787,7 @@ public class IntermediateGenerator {
 		));
 
 		var whenFalse = processExpression(cond.getWhenTrue(), context);
-		whenFalse.ifLeftPresent(ir::addAll);
+		accumulate(ir, whenFalse);
 
 		// r = y;
 		ir.add(new AssignIntermediate(
@@ -792,7 +848,7 @@ public class IntermediateGenerator {
 		
 		if(context.lvalue() && !member.isBitfield()) {
 			var target = processExpression(mem.getTarget(), context.reset());
-			target.ifLeftPresent(ir::addAll);
+			accumulate(ir, target);
 
 			int offset = member.getOffset();
 
@@ -807,7 +863,7 @@ public class IntermediateGenerator {
 		Operand result = result(mem.getType(), context);
 		
 		var target = processExpression(mem.getTarget(), context.reset());
-		target.ifLeftPresent(ir::addAll);
+		accumulate(ir, target);
 		
 		ir.add(new MemberIntermediate(
 			context.position(),
@@ -882,7 +938,7 @@ public class IntermediateGenerator {
 		// INDIRECTION and MULTIPLY have the same symbol (*)
 		if(context.lvalue() && unop.isLvalue() && (op == Punctuator.INDIRECTION || op == Punctuator.MULTIPLY)) {
 			var target = processExpression(unop.getTarget(), context.reset());
-			target.ifLeftPresent(ir::addAll);
+			accumulate(ir, target);
 			
 			return Pair.of(
 				ir,
@@ -896,7 +952,7 @@ public class IntermediateGenerator {
 		Operand result = result(unop.getType(), context);
 
 		var target = processExpression(unop.getTarget(), context.reset());
-		target.ifLeftPresent(ir::addAll);
+		accumulate(ir, target);
 		
 		UnaryConstructor constructor = UNARY_OPERATIONS.get(op);
 		

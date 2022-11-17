@@ -190,14 +190,18 @@ public class SyntaxC {
 			
 			else postprocessed.add(token);
 		}
+
+		checkTerminationState();
 		
 		/* Parsing (Syntactic + Sematic Analysis) */
 		
 		List<SymbolNode> parsed = new Parser(postprocessed).parse();
+
+		checkTerminationState();
 		
 		if(syntaxTree != null)
 			SyntaxTreeGenerator.generate(syntaxTree, parsed);
-		
+
 		/* Intermediate Representation */
 		
 		IntermediateGenerator intermediateGenerator = new IntermediateGenerator();
@@ -231,7 +235,6 @@ public class SyntaxC {
 				
 				intermediate.put(
 					name,
-					
 					new FunctionData(
 						intermediates,
 						analyzer.getGraph(),
@@ -244,6 +247,8 @@ public class SyntaxC {
 			}
 		}
 
+		checkTerminationState();
+		
 		if(controlFlowGraph != null)
 			ControlFlowGraphGenerator.generate(controlFlowGraph, intermediate);
 		
@@ -274,6 +279,8 @@ public class SyntaxC {
 		}
 		
 		codeGen.getAssembler().end();
+
+		checkTerminationState();
 		
 		List<AssemblyInstruction> assembly = codeGen.getInstructions();
 		
@@ -316,7 +323,7 @@ public class SyntaxC {
 		
 		
 	}
-
+	
 	public static Token postprocess(Token token) {
 		Lexer lexer = new Lexer(CharStream.fromString(token.getRaw(), token.getPosition()));
 		

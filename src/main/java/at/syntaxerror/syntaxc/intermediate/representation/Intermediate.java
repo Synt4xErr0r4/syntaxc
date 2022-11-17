@@ -74,6 +74,7 @@ public abstract class Intermediate implements Positioned {
 	public static class FreeIntermediate extends Intermediate {
 		
 		private final TemporaryOperand operand;
+		private boolean discarded;
 		
 		@Override
 		public Position getPosition() {
@@ -87,7 +88,9 @@ public abstract class Intermediate implements Positioned {
 		
 		@Override
 		public String toStringInternal() {
-			return "/*synthetic: free _%d*/".formatted(operand.id);
+			return discarded
+				? "/* */"
+				: "/*synthetic: free _%d*/".formatted(operand.id);
 		}
 		
 	}
@@ -109,6 +112,8 @@ public abstract class Intermediate implements Positioned {
 			return getType().isFloating();
 		}
 		
+		void unfree();
+		
 		default List<Intermediate> free() {
 			return List.of();
 		}
@@ -127,6 +132,9 @@ public abstract class Intermediate implements Positioned {
 		public Type getType() {
 			return Type.VOID;
 		}
+		
+		@Override
+		public void unfree() { }
 		
 		@Override
 		public String toString() {
@@ -159,6 +167,12 @@ public abstract class Intermediate implements Positioned {
 		}
 		
 		@Override
+		public void unfree() {
+			target.unfree();
+			index.unfree();
+		}
+		
+		@Override
 		public String toString() {
 			return "%s[%s]".formatted(target, index);
 		}
@@ -183,6 +197,11 @@ public abstract class Intermediate implements Positioned {
 		}
 		
 		@Override
+		public void unfree() {
+			target.unfree();
+		}
+		
+		@Override
 		public String toString() {
 			return "*%s".formatted(target);
 		}
@@ -202,6 +221,9 @@ public abstract class Intermediate implements Positioned {
 		private final String name;
 		private final boolean extern;
 		private final Type type;
+		
+		@Override
+		public void unfree() { }
 		
 		@Override
 		public String toString() {
@@ -224,6 +246,9 @@ public abstract class Intermediate implements Positioned {
 		private final Type type;
 		
 		@Override
+		public void unfree() { }
+		
+		@Override
 		public String toString() {
 			return name;
 		}
@@ -243,6 +268,8 @@ public abstract class Intermediate implements Positioned {
 
 		private final int id;
 		private final Type type;
+		private boolean freed;
+		private FreeIntermediate freeIntermediate;
 		
 		public TemporaryOperand(Type type) {
 			this(++PREVIOUS_ID, type);
@@ -250,9 +277,22 @@ public abstract class Intermediate implements Positioned {
 		
 		@Override
 		public List<Intermediate> free() {
+			if(freed)
+				return List.of();
+			
+			freed = true;
+			
 			return List.of(
-				new FreeIntermediate(this)
+				freeIntermediate = new FreeIntermediate(this)
 			);
+		}
+		
+		@Override
+		public void unfree() {
+			if(freed) {
+				freeIntermediate.discarded = true;
+				freed = false;
+			}
 		}
 		
 		@Override
@@ -275,6 +315,9 @@ public abstract class Intermediate implements Positioned {
 		private final Type type;
 		
 		@Override
+		public void unfree() { }
+		
+		@Override
 		public String toString() {
 			return value.toString();
 		}
@@ -293,12 +336,16 @@ public abstract class Intermediate implements Positioned {
 		
 		public ReturnValueOperand(Type type) {
 			super(ID, type);
+			super.freed = true;
 		}
 		
 		@Override
 		public List<Intermediate> free() {
 			return List.of();
 		}
+		
+		@Override
+		public void unfree() { }
 		
 		@Override
 		public String toString() {
