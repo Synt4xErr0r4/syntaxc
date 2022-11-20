@@ -305,6 +305,7 @@ public class StructType extends Type {
 		structType.inherited = inherited;
 		structType.members = members;
 		structType.previous = previous;
+		structType.size = size;
 		
 		return structType;
 	}

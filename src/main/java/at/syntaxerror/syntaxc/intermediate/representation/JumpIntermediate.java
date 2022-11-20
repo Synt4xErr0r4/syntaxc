@@ -22,6 +22,8 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
@@ -72,6 +74,12 @@ public class JumpIntermediate extends Intermediate {
 			);
 		
 		else assemblyGenerator.jump(label);
+	}
+	
+	@Override
+	public List<Operand> getOperands() {
+		return condition.map(Arrays::asList)
+			.orElseGet(List::of);
 	}
 	
 	@Override

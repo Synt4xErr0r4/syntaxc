@@ -28,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
@@ -68,7 +67,7 @@ public class InitializerSerializer {
 	
 	private static GlobalVariableInitializer serialize(Type type, Initializer initializer, int integerBitWidth) {
 		if(type.isArray())
-				return serializeArray(type, initializer);
+			return serializeArray(type, initializer);
 		
 		if(type.isIncomplete())
 			Logger.error(initializer, Warning.SEM_NONE, "Cannot initialize incomplete type");
@@ -305,7 +304,8 @@ public class InitializerSerializer {
 						pos,
 						BigInteger.valueOf(targetOffset / target.getType().dereference().sizeof()),
 						Type.ULONG
-					)
+					),
+					false
 				);
 				
 			else if(target.getType().isStructLike())
@@ -313,10 +313,9 @@ public class InitializerSerializer {
 					pos,
 					ExpressionParser.newCast( // (unsigned char *) &target
 						pos,
-						ExpressionParser.newUnary( // &target
+						PointerHelper.addressOf( // &target
 							pos,
-							target,
-							Punctuator.ADDRESS_OF
+							target
 						),
 						Type.UCHAR.addressOf()
 					),
@@ -324,7 +323,8 @@ public class InitializerSerializer {
 						pos,
 						BigInteger.valueOf(targetOffset),
 						Type.ULONG
-					)
+					),
+					false
 				);
 			
 			else dest = target;

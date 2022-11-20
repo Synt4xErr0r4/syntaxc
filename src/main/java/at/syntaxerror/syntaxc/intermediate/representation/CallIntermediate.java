@@ -23,6 +23,7 @@
 package at.syntaxerror.syntaxc.intermediate.representation;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -54,6 +55,14 @@ public class CallIntermediate extends Intermediate {
 				.map(assemblyGenerator::target)
 				.toList()
 		);
+	}
+	
+	@Override
+	public List<Operand> getOperands() {
+		return Stream.concat(
+			Stream.of(target, function),
+			arguments.stream()
+		).toList();
 	}
 	
 	@Override

@@ -35,13 +35,26 @@ import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.Type;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
 /**
  * @author Thomas Kasper
  * 
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class PointerHelper implements Logable {
 
+	private static final PointerHelper INSTANCE = new PointerHelper();
+	
+	public static ExpressionNode dereference(Positioned pos, ExpressionNode expr) {
+		return INSTANCE.dereferenceImpl(pos, expr);
+	}
+	
+	public static ExpressionNode addressOf(Positioned pos, ExpressionNode expr) {
+		return INSTANCE.addressOfImpl(pos, expr);
+	}
+	
 	@Override
 	public Position getPosition() {
 		return null;
@@ -52,7 +65,7 @@ public class PointerHelper implements Logable {
 		return Warning.SEM_NONE;
 	}
 	
-	public ExpressionNode dereference(Positioned pos, ExpressionNode expr) {
+	public ExpressionNode dereferenceImpl(Positioned pos, ExpressionNode expr) {
 		Type type = expr.getType();
 		
 		if(type.isFunction()) // dereferencing a function doesn't do anything
@@ -77,7 +90,7 @@ public class PointerHelper implements Logable {
 		);
 	}
 
-	public ExpressionNode addressOf(Positioned pos, ExpressionNode expr) {
+	public ExpressionNode addressOfImpl(Positioned pos, ExpressionNode expr) {
 		Type type = expr.getType();
 		
 		if(type.isBitfield())

@@ -33,7 +33,7 @@ import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyInteger;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyLabel;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.misc.Flag;
 
 /**
  * @author Thomas Kasper
@@ -47,11 +47,12 @@ public class X86Assembly {
 		1, 'b',
 		2, 'w',
 		4, 'l',
-		8, 'q'
+		8, 'q',
+		10, '?',
+		16, '?'
 	);
 	
-	private final List<X86Register> integerRegisters;
-	private final List<X86Register> floatingRegisters;
+	public final List<X86Register> registers;
 	
 	public final X86Register RBP;
 	public final X86Register RSP;
@@ -61,56 +62,96 @@ public class X86Assembly {
 	public final X86Register RBX;
 	public final X86Register RCX;
 	public final X86Register RDX;
+
+	public final X86Register RSI;
+	public final X86Register RDI;
 	
 	public final boolean intelSyntax;
+	public final boolean bit32;
 	
+	@SuppressWarnings("unchecked")
 	public X86Assembly(boolean intelSyntax, BitSize bits) {
 		this.intelSyntax = intelSyntax;
 		
-		if(bits == BitSize.B64) {
+		if(!Flag.LONG_DOUBLE.isEnabled())
+			X86Register.disable(X86Register.GROUP_ST);
+		
+		if(bit32 = bits != BitSize.B64) {
 			
-			RBP = X86Register.RBP;
-			RSP = X86Register.RSP;
-			RIP = X86Register.RIP;
-
-			integerRegisters = List.of(
-				RAX = X86Register.RAX,
-				RBX = X86Register.RBX,
-				RCX = X86Register.RCX,
-				RDX = X86Register.RDX
+			X86Register.disable(
+				X86Register.RAX,
+				X86Register.RBX,
+				X86Register.RCX,
+				X86Register.RDX,
+				X86Register.RSI,
+				X86Register.RDI,
+				X86Register.RBP,
+				X86Register.RSP,
+				X86Register.RIP
 			);
 			
-			floatingRegisters = List.of(
-				
+			X86Register.disable(
+				X86Register.GROUP_R8,
+				X86Register.GROUP_R9,
+				X86Register.GROUP_R10,
+				X86Register.GROUP_R11,
+				X86Register.GROUP_R12,
+				X86Register.GROUP_R13,
+				X86Register.GROUP_R14,
+				X86Register.GROUP_R15
 			);
-
-		}
-		else {
 
 			RBP = X86Register.EBP;
 			RSP = X86Register.ESP;
 			RIP = X86Register.EIP;
 
-			integerRegisters = List.of(
-				RAX = X86Register.EAX,
-				RBX = X86Register.EBX,
-				RCX = X86Register.ECX,
-				RDX = X86Register.EDX
-			);
-			
-			floatingRegisters = List.of(
-				
-			);
+			RAX = X86Register.EAX;
+			RBX = X86Register.EBX;
+			RCX = X86Register.ECX;
+			RDX = X86Register.EDX;
+
+			RSI = X86Register.ESI;
+			RDI = X86Register.EDI;
 			
 		}
-	}
-	
-	public AssemblyTarget allocate(int id, Type type) {
-		return X86Register.R15;
-	}
-	
-	public AssemblyTarget free(int id) {
-		return null;
+		else {
+
+			RBP = X86Register.RBP;
+			RSP = X86Register.RSP;
+			RIP = X86Register.RIP;
+
+			RAX = X86Register.RAX;
+			RBX = X86Register.RBX;
+			RCX = X86Register.RCX;
+			RDX = X86Register.RDX;
+
+			RSI = X86Register.RSI;
+			RDI = X86Register.RDI;
+			
+		}
+		
+		registers = Stream.of(
+			X86Register.GROUP_R15,
+			X86Register.GROUP_R14,
+			X86Register.GROUP_R13,
+			X86Register.GROUP_R12,
+			X86Register.GROUP_R11,
+			X86Register.GROUP_R10,
+			X86Register.GROUP_B,
+			X86Register.GROUP_R9,
+			X86Register.GROUP_R8,
+			X86Register.GROUP_C,
+			X86Register.GROUP_D,
+			X86Register.GROUP_SI,
+			X86Register.GROUP_DI,
+			X86Register.GROUP_A,
+			X86Register.GROUP_XMM,
+			X86Register.GROUP_ST
+		).collect(
+			ArrayList::new,
+			ArrayList::addAll,
+			ArrayList::addAll
+		);
 	}
 
 	private char getSuffix(int size) {
@@ -219,6 +260,10 @@ public class X86Assembly {
 
 	public AssemblyInstruction add(AssemblyTarget dst, AssemblyTarget src) {
 		return asm("add", dst, src);
+	}
+
+	public AssemblyInstruction add(AssemblyTarget dst, long value) {
+		return asm("add", dst, value);
 	}
 
 	public AssemblyInstruction addss(AssemblyTarget dst, AssemblyTarget src) {

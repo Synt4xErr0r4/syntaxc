@@ -45,6 +45,8 @@ public abstract class Intermediate implements Positioned {
 
 	public abstract void generate(AssemblyGenerator assemblyGenerator);
 	
+	public abstract List<Operand> getOperands();
+	
 	/**
 	 * Converts this intermediate representation into C-like code
 	 * 
@@ -82,8 +84,11 @@ public abstract class Intermediate implements Positioned {
 		}
 		
 		@Override
-		public void generate(AssemblyGenerator assemblyGenerator) {
-			assemblyGenerator.free(operand.getId());
+		public void generate(AssemblyGenerator assemblyGenerator) { }
+		
+		@Override
+		public List<Operand> getOperands() {
+			return List.of();
 		}
 		
 		@Override
@@ -153,15 +158,18 @@ public abstract class Intermediate implements Positioned {
 	public static class IndexOperand implements Operand {
 		
 		private final Operand target;
-		private final Operand index;
+		private final long index;
 		private final Type type;
+		
+		public IndexOperand(Operand target, Type type) {
+			this(target, 0, type);
+		}
 		
 		@Override
 		public List<Intermediate> free() {
 			List<Intermediate> freed = new ArrayList<>();
 			
 			freed.addAll(target.free());
-			freed.addAll(index.free());
 			
 			return freed;
 		}
@@ -169,41 +177,13 @@ public abstract class Intermediate implements Positioned {
 		@Override
 		public void unfree() {
 			target.unfree();
-			index.unfree();
 		}
 		
 		@Override
 		public String toString() {
-			return "%s[%s]".formatted(target, index);
-		}
-		
-	}
-	
-	/**
-	 * operand representing dereferencing of a pointer
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@RequiredArgsConstructor
-	@Getter
-	public static class IndirectionOperand implements Operand {
-		
-		private final Operand target;
-		private final Type type;
-		
-		@Override
-		public List<Intermediate> free() {
-			return target.free();
-		}
-		
-		@Override
-		public void unfree() {
-			target.unfree();
-		}
-		
-		@Override
-		public String toString() {
-			return "*%s".formatted(target);
+			return index == 0
+				? "*%s".formatted(target)
+				: "%s[%d]".formatted(target, index);
 		}
 		
 	}
@@ -264,9 +244,9 @@ public abstract class Intermediate implements Positioned {
 	@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 	public static class TemporaryOperand implements Operand {
 		
-		private static int PREVIOUS_ID = 0;
+		private static long PREVIOUS_ID = 0;
 
-		private final int id;
+		private final long id;
 		private final Type type;
 		private boolean freed;
 		private FreeIntermediate freeIntermediate;

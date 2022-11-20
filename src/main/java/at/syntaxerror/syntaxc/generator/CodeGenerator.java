@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
+import at.syntaxerror.syntaxc.generator.alloc.RegisterProvider;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.FunctionMetadata;
@@ -65,11 +67,11 @@ public abstract class CodeGenerator implements Logable {
 		return Warning.GEN_NONE;
 	}
 	
-	protected final void add(AssemblyInstruction...instructions) {
+	public final void add(AssemblyInstruction...instructions) {
 		add(Arrays.asList(instructions));
 	}
 	
-	protected final void add(List<AssemblyInstruction> instructions) {
+	public final void add(List<AssemblyInstruction> instructions) {
 		this.instructions.addAll(
 			instructions.stream()
 				.filter(i -> i != null)
@@ -77,7 +79,7 @@ public abstract class CodeGenerator implements Logable {
 		);
 	}
 	
-	protected final void addAt(int index, List<AssemblyInstruction> instructions) {
+	public final void addAt(int index, List<AssemblyInstruction> instructions) {
 		this.instructions.addAll(
 			index,
 			instructions.stream()
@@ -107,11 +109,18 @@ public abstract class CodeGenerator implements Logable {
 	public final void generateBody(List<Intermediate> intermediates, FunctionMetadata metadata) {
 		AssemblyGenerator asm = getAssembler();
 		
-		asm.prologue(metadata);
+		asm.enter(
+			new RegisterAllocator(
+				getRegisterProvider(),
+				intermediates,
+				metadata.stackOffset()
+			),
+			metadata
+		);
 		
 		intermediates.forEach(ir -> ir.generate(asm));
 		
-		asm.epilogue(metadata);
+		asm.leave(metadata);
 	}
 	
 	private final int generateInit(AssemblyGenerator asm, GlobalVariableInitializer init) {
@@ -180,5 +189,6 @@ public abstract class CodeGenerator implements Logable {
 	}
 	
 	public abstract AssemblyGenerator getAssembler();
+	public abstract RegisterProvider getRegisterProvider();
 	
 }

@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.optimizer.ExpressionOptimizer;
 import at.syntaxerror.syntaxc.parser.SymbolHelper.DeclarationState;
 import at.syntaxerror.syntaxc.parser.node.FunctionNode;
@@ -46,13 +45,12 @@ import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author Thomas Kasper

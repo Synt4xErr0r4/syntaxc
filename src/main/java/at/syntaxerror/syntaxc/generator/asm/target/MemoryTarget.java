@@ -20,49 +20,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.intermediate.representation;
+package at.syntaxerror.syntaxc.generator.asm.target;
 
-import java.util.Arrays;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
-import at.syntaxerror.syntaxc.tracking.Position;
+import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Intermediate representation of addition ('a+b')
- * 
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
 @Getter
-public class AddIntermediate extends Intermediate {
+@RequiredArgsConstructor
+public class MemoryTarget implements AssemblyTarget {
 
-	private final Position position;
-	
-	private final Operand result;
-	private final Operand left;
-	private final Operand right;
+	private final Type type;
+	private final AssemblyTarget base;
+	private final long offset;
 	
 	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.add(
-			assemblyGenerator.target(result),
-			assemblyGenerator.target(left),
-			assemblyGenerator.target(right)
-		);
-	}
-	
-	@Override
-	public List<Operand> getOperands() {
-		return Arrays.asList(result, left, right);
-	}
-	
-	@Override
-	public String toStringInternal() {
-		return "%s = %s + %s;".formatted(result, left, right);
+	public String toString() {
+		return "Memory(" + base + "+" + offset + ")";
 	}
 	
 }

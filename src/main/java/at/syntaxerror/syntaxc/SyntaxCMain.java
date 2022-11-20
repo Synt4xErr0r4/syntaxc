@@ -61,6 +61,23 @@ import at.syntaxerror.syntaxc.tracking.Position;
  */
 public class SyntaxCMain {
 
+	static {
+		Thread.setDefaultUncaughtExceptionHandler(
+			(t, e) -> {
+				Logger.softError(
+					"%s: %s",
+					e.getClass().getSimpleName(),
+					e.getMessage()
+				);
+				
+				for(StackTraceElement ste : e.getStackTrace())
+					Logger.note("%s", ste);
+				
+				System.exit(1);
+			}
+		);
+	}
+	
 	public static void main(String[] args) {
 		Locale.setDefault(Locale.ROOT);
 		AnsiPipe.init();
@@ -74,13 +91,14 @@ public class SyntaxCMain {
 				"-fno-stdlib",
 				"-fno-long-double",
 				"-fsyntax-tree=svg",
-				"-fcontrol-flow-graph=dot",
+				"-fcontrol-flow-graph=svg",
 				"-fno-cfg-verbose",
 				"-S",
 				"-fpacked",
 				"-Wall",
 				"-Wno-implicit-function", "-Wno-pragma",
-				"-masm=att"
+				"-masm=intel",
+				"-m64"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()

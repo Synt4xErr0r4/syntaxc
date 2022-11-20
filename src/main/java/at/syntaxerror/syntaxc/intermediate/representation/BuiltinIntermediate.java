@@ -22,8 +22,11 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
+import java.util.List;
+
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction.BuiltinArgument;
+import at.syntaxerror.syntaxc.builtin.BuiltinFunction.ExpressionArgument;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
@@ -46,6 +49,16 @@ public class BuiltinIntermediate extends Intermediate {
 	@Override
 	public void generate(AssemblyGenerator assemblyGenerator) {
 		// TODO
+	}
+	
+	@Override
+	public List<Operand> getOperands() {
+		return function.getArgs()
+			.stream()
+			.filter(ExpressionArgument.class::isInstance)
+			.map(ExpressionArgument.class::cast)
+			.map(ExpressionArgument::getOperand)
+			.toList();
 	}
 	
 	@Override

@@ -46,6 +46,7 @@ public class ArrayIndexExpressionNode extends ExpressionNode {
 	private final Position position;
 	private final ExpressionNode target;
 	private final ExpressionNode index;
+	private final boolean swapped;
 	
 	@Override
 	public Type getType() {

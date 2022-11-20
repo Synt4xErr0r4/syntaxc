@@ -25,8 +25,20 @@ package at.syntaxerror.syntaxc.generator.asm;
 import java.math.BigInteger;
 import java.util.List;
 
+import at.syntaxerror.syntaxc.generator.alloc.Allocation;
+import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.MemoryTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.StackTarget;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ConstantOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.DiscardOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.GlobalOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndexOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ReturnValueOperand;
+import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.TemporaryOperand;
+import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.Type;
 
@@ -34,66 +46,130 @@ import at.syntaxerror.syntaxc.type.Type;
  * @author Thomas Kasper
  * 
  */
-public interface AssemblyGenerator {
+public abstract class AssemblyGenerator {
 
-	AssemblyTarget allocate(int id, Type type);
-	AssemblyTarget free(int id);
+	protected RegisterAllocator allocator;
 	
-	AssemblyTarget target(Operand operand);
+	public void enter(RegisterAllocator allocator, FunctionMetadata metadata) {
+		this.allocator = allocator;
+		prologue(metadata);
+	}
 	
-	void begin();
-	void end();
+	public void leave(FunctionMetadata metadata) {
+		epilogue(metadata);
+		allocator = null;
+	}
 	
-	void metadata(SymbolObject object);
+	@SuppressWarnings("preview")
+	public AssemblyTarget target(Operand operand) {
+		switch(operand) {
+		
+		case DiscardOperand discard:
+			return null;
+			
+		case ReturnValueOperand retval:
+			return getReturnValueTarget(retval.getType());
+			
+		case IndexOperand index: {
+			AssemblyTarget target = target(index.getTarget());
+			
+			if(target instanceof StackTarget stack)
+				return new StackTarget(
+					index.getType(),
+					stack.getOffset() + index.getIndex()
+				);
+			
+			return new MemoryTarget(
+				index.getType(),
+				target,
+				index.getIndex()
+			);
+		}
+			
+		case GlobalOperand global:
+			return null;
+			
+		case LocalOperand local:
+			return null;
+		
+		case TemporaryOperand temporary: {
+			Allocation allocation = allocator.getAllocation(temporary.getId());
+			
+			if(allocation.isStack())
+				return new StackTarget(temporary.getType(), allocation.stackOffset());
+			
+			return allocation.register();
+		}
+		
+		case ConstantOperand constant:
+			return null;
+		
+		default:
+			Logger.error(
+				"Unknown operand type: %s",
+				operand == null
+					? "null"
+					: operand.getClass().getName()
+			);
+			return null;
+		}
+	}
 	
-	void prologue(FunctionMetadata metadata);
-	void epilogue(FunctionMetadata metadata);
+	public abstract AssemblyTarget getReturnValueTarget(Type type);
 	
-	void nulString(String value);
-	void rawString(String value);
-	void pointerOffset(String label, BigInteger offset);	
-	void constant(BigInteger value, int size);
-	void zero(int size);
+	public abstract void begin();
+	public abstract void end();
 	
-	void memcpy			(AssemblyTarget dst, AssemblyTarget src, int dstOffset, int srcOffset, int length);
-	void memset			(AssemblyTarget dst, int offset, int length, int value);
+	public abstract void metadata(SymbolObject object);
 	
-	void add			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void subtract		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void multiply		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void divide			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void modulo			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void bitwiseAnd		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void bitwiseOr		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void bitwiseXor		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void shiftLeft		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void shiftRight		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void logicalAnd		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void logicalOr		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void equal			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void notEqual		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void greater		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void greaterEqual	(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void less			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
-	void lessEqual		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void prologue(FunctionMetadata metadata);
+	public abstract void epilogue(FunctionMetadata metadata);
 	
-	void assign			(AssemblyTarget result, AssemblyTarget value);
-	void bitwiseNot		(AssemblyTarget result, AssemblyTarget value);
-	void minus			(AssemblyTarget result, AssemblyTarget value);
-	void addressOf		(AssemblyTarget result, AssemblyTarget value);
-	void indirection	(AssemblyTarget result, AssemblyTarget value);
+	public abstract void nulString(String value);
+	public abstract void rawString(String value);
+	public abstract void pointerOffset(String label, BigInteger offset);	
+	public abstract void constant(BigInteger value, int size);
+	public abstract void zero(int size);
+	
+	public abstract void memcpy			(AssemblyTarget dst, AssemblyTarget src, int dstOffset, int srcOffset, int length);
+	public abstract void memset			(AssemblyTarget dst, int offset, int length, int value);
+	
+	public abstract void add			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void subtract		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void multiply		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void divide			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void modulo			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void bitwiseAnd		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void bitwiseOr		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void bitwiseXor		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void shiftLeft		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void shiftRight		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void logicalAnd		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void logicalOr		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void equal			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void notEqual		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void greater		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void greaterEqual	(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void less			(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	public abstract void lessEqual		(AssemblyTarget result, AssemblyTarget left, AssemblyTarget right);
+	
+	public abstract void assign			(AssemblyTarget result, AssemblyTarget value);
+	public abstract void bitwiseNot		(AssemblyTarget result, AssemblyTarget value);
+	public abstract void minus			(AssemblyTarget result, AssemblyTarget value);
+	public abstract void addressOf		(AssemblyTarget result, AssemblyTarget value);
+	public abstract void indirection	(AssemblyTarget result, AssemblyTarget value);
 
-	void call			(AssemblyTarget result, AssemblyTarget target, List<AssemblyTarget> args);
+	public abstract void call			(AssemblyTarget result, AssemblyTarget target, List<AssemblyTarget> args);
 	
-	void cast			(AssemblyTarget result, AssemblyTarget value, boolean resultFloat, boolean valueFloat);
+	public abstract void cast			(AssemblyTarget result, AssemblyTarget value, boolean resultFloat, boolean valueFloat);
 	
-	void member			(AssemblyTarget result, AssemblyTarget value, int offset, int bitOffset, int bitWidth);
+	public abstract void member			(AssemblyTarget result, AssemblyTarget value, int offset, int bitOffset, int bitWidth);
 	
-	void arrayIndex		(AssemblyTarget result, AssemblyTarget target, AssemblyTarget index);
+	public abstract void arrayIndex		(AssemblyTarget result, AssemblyTarget target, AssemblyTarget index);
 	
-	void jump			(AssemblyTarget condition, String name);
-	void jump			(String name);
+	public abstract void jump			(AssemblyTarget condition, String name);
+	public abstract void jump			(String name);
 	
-	void label			(String name);
+	public abstract void label			(String name);
 	
 }

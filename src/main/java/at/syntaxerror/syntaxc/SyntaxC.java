@@ -268,7 +268,7 @@ public class SyntaxC {
 			codeGen.generateObject(sym);
 			
 			if(sym.isFunction()) {
-				FunctionMetadata metadata = new FunctionMetadata(sym.getName(), 0); // TODO size
+				FunctionMetadata metadata = new FunctionMetadata(sym, 0); // TODO size
 				
 				codeGen.generateBody(
 					intermediate.get(sym.getName())

@@ -192,17 +192,14 @@ public class DataFlowAnalyzer implements Logable {
 			
 			ExpressionNode target = unOp.getTarget();
 			
-			if(unOp.getOperation() == Punctuator.ADDRESS_OF && target instanceof VariableExpressionNode var) {
-				
-				if(insideInit || funCall)
-					branches.add(var.getVariable().getName());
-				
-				return false;
-			}
-
 			boolean hasEffect = scanInitialized(target, branches, insideInit, funCall);
 			
-			return hasEffect || unOp.getOperation() == Punctuator.INDIRECTION;
+			Punctuator op = unOp.getOperation();
+			
+			// ADDRESS_OF and BITWISE_AND have the same symbol (&)
+			// INDIRECTION and MULTIPLY have the same symbol (*)
+			return (op != Punctuator.ADDRESS_OF && op != Punctuator.BITWISE_AND)
+				&& (hasEffect || op == Punctuator.INDIRECTION || op == Punctuator.MULTIPLY);
 		}
 		
 		else if(stmt instanceof ConditionalExpressionNode cond) {

@@ -25,10 +25,8 @@ package at.syntaxerror.syntaxc.intermediate;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction.ExpressionArgument;
 import at.syntaxerror.syntaxc.intermediate.representation.AddIntermediate;
@@ -52,7 +50,6 @@ import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ConstantO
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.FreeIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.GlobalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndexOperand;
-import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.IndirectionOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.ReturnValueOperand;
@@ -101,6 +98,7 @@ import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.StructType;
 import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.TypeUtils;
 
 /**
  * @author Thomas Kasper
@@ -237,15 +235,6 @@ public class IntermediateGenerator {
 	/**
 	 * Makes sure that the operands are not free'd yet
 	 */
-	private void unfree(Operand...operands) {
-		for(var operand : operands)
-			if(operand != null)
-				operand.free();
-	}
-
-	/**
-	 * Makes sure that the operands are not free'd yet
-	 */
 	private void unfree(Pair<List<Intermediate>, Operand>...operands) {
 		for(var operand : operands)
 			if(operand != null)
@@ -376,17 +365,42 @@ public class IntermediateGenerator {
 		var target = processExpression(idx.getTarget(), context);
 		var index = processExpression(idx.getIndex(), context);
 		
-		accumulate(ir, target, index);
+		if(idx.isSwapped()) // change order of evaluation if format is index[pointer]
+			accumulate(ir, index, target);
+		else accumulate(ir, target, index);
 		
-		if(lvalue)
+		if(lvalue) {
+			Operand indexOperand = index.getRight();
+			
+			if(indexOperand instanceof ConstantOperand constant && !constant.isFloating())
+				return Pair.of(
+					ir,
+					new IndexOperand(
+						target.getRight(),
+						constant.getValue().longValue(),
+						idx.getType()
+					)
+				);
+			
+			Operand address = temporary(NumericValueType.POINTER.asType());
+			
+			ir.add(new AddIntermediate(
+				context.position(),
+				address,
+				target.getRight(),
+				indexOperand
+			));
+
+			free(ir, index, target);
+			
 			return Pair.of(
 				ir,
 				new IndexOperand(
-					target.getRight(),
-					index.getRight(),
+					address,
 					idx.getType()
 				)
 			);
+		}
 		
 		ir.add(new ArrayIndexIntermediate(
 			context.position(),
@@ -461,14 +475,18 @@ public class IntermediateGenerator {
 		ExpressionNode exprOff = exprRight;
 		
 		switch(op) {
+		// PLUS and AND have the same symbol (+)
 		case ADD:
+		case PLUS:
 			if(swap = typeRight.isPointerLike()) {
 				exprPtr = exprRight;
 				exprOff = exprLeft;
 			}
 			break;
 			
+		// SUBTRACT and MINUS have the same symbol (-)
 		case SUBTRACT:
+		case MINUS:
 			if(typeLeft.isPointerLike() && typeRight.isPointerLike()) {
 				var left = processExpression(exprLeft, context);
 				var right = processExpression(exprRight, context);
@@ -551,7 +569,11 @@ public class IntermediateGenerator {
 		unfree(off, ptr);
 		
 		// pointer + offset * sizeof(type_t)
-		ir.add(new AddIntermediate(pos, result, pointer, offset));
+		ir.add(
+			op == Punctuator.ADD || op == Punctuator.PLUS
+				? new AddIntermediate(pos, result, pointer, offset)
+				: new SubtractIntermediate(pos, result, pointer, offset)
+		);
 
 		free(ir, pointer);
 		free(ir, offset);
@@ -609,11 +631,25 @@ public class IntermediateGenerator {
 		
 		else switch(op) {
 		case ASSIGN:
-			ir.add(new AssignIntermediate(pos, operandLeft, operandRight));
+			Type typeLeft = exprLeft.getType();
+			Type typeRight = exprRight.getType();
+			
+			// implicit type cast (e.g. assigning a char to an int)
+			if(!TypeUtils.isCompatible(typeLeft, typeRight))
+				ir.add(new CastIntermediate(
+					pos,
+					operandLeft,
+					operandRight,
+					typeLeft.isFloating(),
+					typeRight.isFloating()
+				));
+			
+			else ir.add(new AssignIntermediate(pos, operandLeft, operandRight));
 			
 			if(needResult) {
+				// prefer register over memory access (assuming that a register is is allocated to the TemporaryOperand)
 				if(operandLeft instanceof TemporaryOperand)
-					result = operandLeft; // prefer register over memory access
+					result = operandLeft;
 				
 				else result = operandRight; // don't care otherwise
 			}
@@ -657,10 +693,7 @@ public class IntermediateGenerator {
 			builtin.getFunction()
 		));
 		
-		operands.stream()
-			.collect(Collectors.toCollection(LinkedList::new))
-			.descendingIterator()
-			.forEachRemaining(arg -> free(ir, arg));
+		operands.forEach(arg -> free(ir, arg));
 
 		return Pair.of(ir, result);
 	}
@@ -684,7 +717,7 @@ public class IntermediateGenerator {
 		var function = processExpression(call.getTarget(), context.reset());
 		accumulate(ir, function);
 		
-		unfree(args.toArray(Operand[]::new));
+		args.forEach(Operand::unfree);
 		
 		ir.add(new CallIntermediate(
 			context.position(),
@@ -696,10 +729,7 @@ public class IntermediateGenerator {
 		free(ir, function);
 		
 		// free arguments in reverse order to avoid any stack push/pop-order problems
-		args.stream()
-			.collect(Collectors.toCollection(LinkedList::new))
-			.descendingIterator()
-			.forEachRemaining(arg -> free(ir, arg));
+		args.forEach(arg -> free(ir, arg));
 		
 		return Pair.of(ir, result);
 	}
@@ -843,21 +873,23 @@ public class IntermediateGenerator {
 		StructType.Member member = mem
 			.getTarget()
 			.getType()
+			.dereference()
 			.toStructLike()
 			.getMember(name);
 		
-		if(context.lvalue() && !member.isBitfield()) {
+		if(!member.isBitfield()) {
 			var target = processExpression(mem.getTarget(), context.reset());
 			accumulate(ir, target);
-
-			int offset = member.getOffset();
-
+			
+			Operand result = new IndexOperand(
+				target.getRight(),
+				member.getOffset(),
+				mem.getType()
+			);
+			
 			free(ir, target);
 			
-			return Pair.of(
-				ir,
-				null // TODO
-			);
+			return Pair.of(ir, result);
 		}
 		
 		Operand result = result(mem.getType(), context);
@@ -942,7 +974,7 @@ public class IntermediateGenerator {
 			
 			return Pair.of(
 				ir,
-				new IndirectionOperand(
+				new IndexOperand(
 					target.getRight(),
 					unop.getType()
 				)
@@ -953,17 +985,31 @@ public class IntermediateGenerator {
 
 		var target = processExpression(unop.getTarget(), context.reset());
 		accumulate(ir, target);
-		
-		UnaryConstructor constructor = UNARY_OPERATIONS.get(op);
-		
-		if(constructor != null)
-			ir.add(constructor.construct(
+
+		// ADDRESS_OF and BITWISE_AND have the same symbol (&)
+		if(target.getRight() instanceof IndexOperand index && (op == Punctuator.ADDRESS_OF || op == Punctuator.BITWISE_AND))
+			ir.add(new AddIntermediate(
 				context.position(),
 				result,
-				target.getRight()
+				index.getTarget(),
+				new ConstantOperand(
+					BigInteger.valueOf(index.getIndex()),
+					NumericValueType.POINTER.asType()
+				)
 			));
 		
-		else Logger.error(unop, "Unrecognized unary expression type");
+		else {
+			UnaryConstructor constructor = UNARY_OPERATIONS.get(op);
+		
+			if(constructor != null)
+				ir.add(constructor.construct(
+					context.position(),
+					result,
+					target.getRight()
+				));
+			
+			else Logger.error(unop, "Unrecognized unary expression type");
+		}
 
 		free(ir, target);
 

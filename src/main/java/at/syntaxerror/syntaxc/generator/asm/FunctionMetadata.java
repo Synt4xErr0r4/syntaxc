@@ -22,10 +22,12 @@
  */
 package at.syntaxerror.syntaxc.generator.asm;
 
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
+
 /**
  * @author Thomas Kasper
  * 
  */
-public record FunctionMetadata(String name, int size) {
+public record FunctionMetadata(SymbolObject object, long stackOffset) {
 
 }

@@ -38,7 +38,6 @@ import at.syntaxerror.syntaxc.type.Type;
  */
 public class AssignmentHelper {
 
-	private final PointerHelper pointerHelper = new PointerHelper();
 	private final ExpressionChecker checker = new ExpressionChecker();
 	
 	public ExpressionNode newAssignment(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator operation) {
@@ -98,14 +97,14 @@ public class AssignmentHelper {
 			sym
 		);
 		
-		ExpressionNode deref = pointerHelper.dereference(pos, var); // *z
+		ExpressionNode deref = PointerHelper.dereference(pos, var); // *z
 		
 		return newComma( // z = &x, *z = *z op y
 			pos,
 			checker.checkAssignment( // z = &x
 				pos,
 				var,
-				pointerHelper.addressOf(pos, left), // &x
+				PointerHelper.addressOf(pos, left), // &x
 				false
 			),
 			checker.checkAssignment( // *z = *z op y

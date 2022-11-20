@@ -72,7 +72,6 @@ public class ExpressionParser extends AbstractParser {
 	private final AbstractParser parser;
 	private final DeclarationParser declarationParser;
 	
-	private final @Getter PointerHelper pointerHelper = new PointerHelper();
 	private final @Getter AssignmentHelper assignmentHelper = new AssignmentHelper();
 	private final @Getter ExpressionChecker checker = new ExpressionChecker();
 	
@@ -283,11 +282,21 @@ public class ExpressionParser extends AbstractParser {
 				
 				// must be either 'pointer[index]' or 'index[pointer]'
 				
+				boolean swapped = false;
+				
 				if(!exprType.isPointerLike() && !indexType.isPointerLike())
 					error(op, "Indexed type is not a pointer");
 				
 				if(!exprType.isInteger() && !indexType.isInteger())
 					error(op, "Index is not an integer");
+				
+				if(swapped = indexType.isPointerLike()) {
+					ExpressionNode temp = index;
+					index = expr;
+					expr = temp;
+					
+					exprType = expr.getType();
+				}
 				
 				exprType = exprType.dereference();
 				
@@ -297,7 +306,8 @@ public class ExpressionParser extends AbstractParser {
 				expr = new ArrayIndexExpressionNode(
 					pos,
 					expr,
-					index
+					index,
+					swapped
 				);
 				continue;
 			}
@@ -416,7 +426,7 @@ public class ExpressionParser extends AbstractParser {
 				 * ...
 				 */
 				if(exprType.isPointer())
-					expr = newUnary(expr, expr, Punctuator.INDIRECTION, fnType);
+					expr = PointerHelper.dereference(expr, expr);
 				
 				expr = new CallExpressionNode(expr.getPosition(), expr, arguments, fnType);
 				continue;
@@ -428,20 +438,20 @@ public class ExpressionParser extends AbstractParser {
 			 */
 			if(equal(".", "->")) {
 				
-				// a->b is equivalent to (*a).b
-				if(equal("->")) {
-					if(!exprType.isPointer() || !exprType.dereference().isStructLike())
-						error(op, "Target for member access is not pointer to struct or union");
+				if(!expr.isLvalue())
+					error(op, "Target for member access is not an lvalue");
+				
+				// a.b is equivalent to (&a)->b
+				if(equal(".")) {
+					if(!exprType.isStructLike())
+						error(op, "Target for member access is not struct or union");
 					
-					expr = newUnary(
-						op,
-						expr,
-						Punctuator.INDIRECTION,
-						exprType = exprType.dereference()
-					);
+					expr = PointerHelper.addressOf(op, expr);
 				}
-				else if(!exprType.isStructLike())
-					error(op, "Target for member access is not struct or union");
+				else if(!exprType.isPointer() || !exprType.dereference().isStructLike())
+					error(op, "Target for member access is not pointer to struct or union");
+				
+				else exprType = exprType.dereference();
 				
 				StructType struct = exprType.toStructLike();
 
@@ -523,13 +533,13 @@ public class ExpressionParser extends AbstractParser {
 						checker.checkAssignment( // tmp = &x;
 							pos,
 							exprTmp,
-							pointerHelper.addressOf(pos, expr), // &x
+							PointerHelper.addressOf(pos, expr), // &x
 							false
 						),
 						checker.checkAssignment( // val = *tmp;
 							pos,
 							exprVal,
-							pointerHelper.dereference(pos, exprTmp), // *tmp
+							PointerHelper.dereference(pos, exprTmp), // *tmp
 							false
 						)
 					),
@@ -537,14 +547,14 @@ public class ExpressionParser extends AbstractParser {
 						pos,
 						checker.checkAssignment( // *tmp = val + 1; or *tmp = val - 1;
 							pos,
-							pointerHelper.dereference(pos, exprTmp), // *tmp
+							PointerHelper.dereference(pos, exprTmp), // *tmp
 							checker.checkAdditive( // val + 1 or val - 1
 								pos,
 								exprVal,
 								newNumber(
 									pos,
 									BigInteger.ONE,
-									Type.CHAR
+									exprType
 								),
 								increment
 							),
@@ -581,10 +591,10 @@ public class ExpressionParser extends AbstractParser {
 			// § 6.3.3.2 Address and indirection operators
 			
 			if(op.is("&"))
-				return pointerHelper.addressOf(op, expr);
+				return PointerHelper.addressOf(op, expr);
 			
 			if(op.is("*"))
-				return pointerHelper.dereference(op, expr);
+				return PointerHelper.dereference(op, expr);
 
 			// § 6.3.3.3 Unary arithmetic operators
 			

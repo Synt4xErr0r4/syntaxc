@@ -22,6 +22,8 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
+import java.util.List;
+
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
@@ -44,6 +46,11 @@ public class LabelIntermediate extends Intermediate {
 	@Override
 	public void generate(AssemblyGenerator assemblyGenerator) {
 		assemblyGenerator.label(label);
+	}
+	
+	@Override
+	public List<Operand> getOperands() {
+		return List.of();
 	}
 	
 	@Override

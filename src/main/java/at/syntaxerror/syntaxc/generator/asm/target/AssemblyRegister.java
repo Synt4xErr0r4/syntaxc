@@ -31,4 +31,8 @@ public interface AssemblyRegister extends AssemblyTarget {
 	String getName();
 	int getSize();
 	
+	boolean intersects(AssemblyRegister other);
+	
+	boolean isUsable();
+	
 }

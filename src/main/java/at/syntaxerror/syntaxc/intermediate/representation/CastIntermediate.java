@@ -22,6 +22,9 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
+import java.util.Arrays;
+import java.util.List;
+
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
@@ -56,15 +59,22 @@ public class CastIntermediate extends Intermediate {
 	}
 	
 	@Override
+	public List<Operand> getOperands() {
+		return Arrays.asList(result, target);
+	}
+	
+	@Override
 	public String toStringInternal() {
-		return "%s = (%s%d_t) %s;".formatted(
-			result,
-			resultFloat
-				? "float"
-				: "int",
-			result.getSize() * 8,
-			target
-		);
+		return result == null
+			? "(<illegal cast>) %s".formatted(target)
+			: "%s = (%s%d_t) %s;".formatted(
+				result,
+				resultFloat
+					? "float"
+					: "int",
+				result.getSize() * 8,
+				target
+			);
 	}
 	
 }
