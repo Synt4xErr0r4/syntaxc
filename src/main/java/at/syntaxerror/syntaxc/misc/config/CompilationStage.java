@@ -1,6 +1,6 @@
 /* MIT License
  * 
- * Copyright (c) 2022 Thomas Kasper
+ * Copyright (c) 2020, 2021 Thomas Kasper
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,18 +20,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.misc;
+package at.syntaxerror.syntaxc.misc.config;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public interface NamedToggle {
-
-	String getName();
-	String getDescription();
+@Getter
+@RequiredArgsConstructor
+public enum CompilationStage {
+	PREPROCESSING	("Preprocessing"),
+	LEXICAL			("Lexical"),
+	SYNTACTIC		("Syntactic"),
+	SEMANTIC		("Semantic"),
+	OPTIMIZATION	("Optimization"),
+	GENERATION		("Code Generation");
 	
-	boolean isEnabled();
-	void setEnabled(boolean state);
+	private final String name;
 	
 }

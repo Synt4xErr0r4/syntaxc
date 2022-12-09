@@ -90,8 +90,6 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 	@SuppressWarnings("preview")
 	@Override
 	public List<AssemblyInstruction> generate(Intermediate intermediate) {
-		System.out.println(intermediate.getClass().getSimpleName());
-		
 		asm = new Instructions(new ArrayList<>());
 		isFPUControlWordStored = false;
 		
@@ -222,8 +220,6 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			AssemblyTarget base = generateOperand(index.getTarget());
 			AssemblyTarget offset = generateOperand(index.getOffset());
 			long idxScale = index.getScale();
-			
-			System.out.println(base + " + " + offset + " * " + idxScale);
 			
 			if(idxScale != 0 && idxScale != 1 && idxScale != 2 && idxScale != 4 && idxScale != 8) {
 				

@@ -30,8 +30,8 @@ import java.io.OutputStream;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.GraphUtils;
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.parser.node.SymbolNode;
 import guru.nidi.graphviz.attribute.Label;
 import guru.nidi.graphviz.attribute.Rank;
@@ -69,7 +69,7 @@ public class SyntaxTreeGenerator {
 		
 		try {
 			Graphviz.fromGraph(graph.with(node))
-				.render(GraphUtils.getGraphFormat(Flag.SYNTAX_TREE))
+				.render(GraphUtils.getGraphFormat(Flags.SYNTAX_TREE))
 				.toOutputStream(out);
 		} catch (Exception e) {
 			Logger.warn("Failed to generate syntax tree: %s", e.getMessage());

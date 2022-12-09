@@ -22,8 +22,8 @@
  */
 package at.syntaxerror.syntaxc.logger;
 
-import at.syntaxerror.syntaxc.misc.Flag;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Flags;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 
 /**
@@ -32,20 +32,20 @@ import at.syntaxerror.syntaxc.tracking.Positioned;
  */
 public interface Logable extends Positioned {
 	
-	default Warning getDefaultWarning() {
+	default Warnings getDefaultWarning() {
 		return null;
 	}
 	
-	default void log(LogLevel level, Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(level, position, warning, message, args);
+	default void log(LogLevel level, Positioned position, Warnings warnings, String message, Object...args) {
+		Logger.log(level, position, warnings, message, args);
 	}
 	
 	default void log(LogLevel level, Positioned position, String message, Object...args) {
 		Logger.log(level, position, getDefaultWarning(), message, args);
 	}
 
-	default void log(LogLevel level, Warning warning, String message, Object...args) {
-		Logger.log(level, getPosition(), warning, message, args);
+	default void log(LogLevel level, Warnings warnings, String message, Object...args) {
+		Logger.log(level, getPosition(), warnings, message, args);
 	}
 	
 	default void log(LogLevel level, String message, Object...args) {
@@ -53,16 +53,16 @@ public interface Logable extends Positioned {
 	}
 	
 
-	default void note(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.NOTE, position, warning, message, args);
+	default void note(Positioned position, Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.NOTE, position, warnings, message, args);
 	}
 	
 	default void note(Positioned position, String message, Object...args) {
 		Logger.log(LogLevel.NOTE, position, getDefaultWarning(), message, args);
 	}
 
-	default void note(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.NOTE, getPosition(), warning, message, args);
+	default void note(Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.NOTE, getPosition(), warnings, message, args);
 	}
 	
 	default void note(String message, Object...args) {
@@ -70,16 +70,16 @@ public interface Logable extends Positioned {
 	}
 	
 
-	default void info(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.INFO, position, warning, message, args);
+	default void info(Positioned position, Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.INFO, position, warnings, message, args);
 	}
 	
 	default void info(Positioned position, String message, Object...args) {
 		Logger.log(LogLevel.INFO, position, getDefaultWarning(), message, args);
 	}
 
-	default void info(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.INFO, getPosition(), warning, message, args);
+	default void info(Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.INFO, getPosition(), warnings, message, args);
 	}
 	
 	default void info(String message, Object...args) {
@@ -87,16 +87,16 @@ public interface Logable extends Positioned {
 	}
 	
 
-	default void warn(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.WARN, position, warning, message, args);
+	default void warn(Positioned position, Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.WARN, position, warnings, message, args);
 	}
 
 	default void warn(Positioned position, String message, Object...args) {
 		Logger.log(LogLevel.WARN, position, getDefaultWarning(), message, args);
 	}
 
-	default void warn(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.WARN, getPosition(), warning, message, args);
+	default void warn(Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.WARN, getPosition(), warnings, message, args);
 	}
 
 	default void warn(String message, Object...args) {
@@ -104,16 +104,16 @@ public interface Logable extends Positioned {
 	}
 	
 
-	default void error(Positioned position, Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.ERROR, position, warning, message, args);
+	default void error(Positioned position, Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.ERROR, position, warnings, message, args);
 	}
 
 	default void error(Positioned position, String message, Object...args) {
 		Logger.log(LogLevel.ERROR, position, getDefaultWarning(), message, args);
 	}
 
-	default void error(Warning warning, String message, Object...args) {
-		Logger.log(LogLevel.ERROR, getPosition(), warning, message, args);
+	default void error(Warnings warnings, String message, Object...args) {
+		Logger.log(LogLevel.ERROR, getPosition(), warnings, message, args);
 	}
 
 	default void error(String message, Object...args) {
@@ -121,20 +121,20 @@ public interface Logable extends Positioned {
 	}
 
 	
-	default void error(Positioned position, Flag flag, String message, Object...args) {
-		Logger.error(position, flag, message, args);
+	default void error(Positioned position, Flags flags, String message, Object...args) {
+		Logger.error(position, flags, message, args);
 	}
 
-	default void error(Flag flag, String message, Object...args) {
-		Logger.error(flag, message, args);
+	default void error(Flags flags, String message, Object...args) {
+		Logger.error(flags, message, args);
 	}
 	
 
-	default void softError(Positioned position, Warning warning, String message, Object...args) {
+	default void softError(Positioned position, Warnings warnings, String message, Object...args) {
 		if(!onBeforeSoftError())
 			return;
 		
-		Logger.logRecover(LogLevel.ERROR, position, warning, message, args);
+		Logger.logRecover(LogLevel.ERROR, position, warnings, message, args);
 
 		onAfterSoftError();
 	}
@@ -148,11 +148,11 @@ public interface Logable extends Positioned {
 		onAfterSoftError();
 	}
 
-	default void softError(Warning warning, String message, Object...args) {
+	default void softError(Warnings warnings, String message, Object...args) {
 		if(!onBeforeSoftError())
 			return;
 		
-		Logger.logRecover(LogLevel.ERROR, getPosition(), warning, message, args);
+		Logger.logRecover(LogLevel.ERROR, getPosition(), warnings, message, args);
 
 		onAfterSoftError();
 	}
@@ -167,20 +167,20 @@ public interface Logable extends Positioned {
 	}
 
 	
-	default void softError(Positioned position, Flag flag, String message, Object...args) {
+	default void softError(Positioned position, Flags flags, String message, Object...args) {
 		if(!onBeforeSoftError())
 			return;
 		
-		Logger.softError(position, flag, message, args);
+		Logger.softError(position, flags, message, args);
 
 		onAfterSoftError();
 	}
 
-	default void softError(Flag flag, String message, Object...args) {
+	default void softError(Flags flags, String message, Object...args) {
 		if(!onBeforeSoftError())
 			return;
 		
-		Logger.softError(flag, message, args);
+		Logger.softError(flags, message, args);
 		
 		onAfterSoftError();
 	}

@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
-import at.syntaxerror.syntaxc.misc.Flag;
+import at.syntaxerror.syntaxc.misc.config.Flags;
 
 /**
  * @author Thomas Kasper
@@ -57,7 +57,7 @@ public class X86Assembly {
 	public X86Assembly(boolean intelSyntax, BitSize bits) {
 		this.intelSyntax = intelSyntax;
 		
-		if(!Flag.LONG_DOUBLE.isEnabled())
+		if(!Flags.LONG_DOUBLE.isEnabled())
 			X86Register.disable(X86Register.GROUP_ST);
 		
 		if(bit32 = bits != BitSize.B64) {

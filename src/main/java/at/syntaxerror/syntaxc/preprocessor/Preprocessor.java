@@ -37,7 +37,7 @@ import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.preprocessor.directive.Directive;
 import at.syntaxerror.syntaxc.preprocessor.directive.Directives;
 import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
@@ -110,8 +110,8 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 	}
 	
 	@Override
-	public Warning getDefaultWarning() {
-		return Warning.PREPROC_NONE;
+	public Warnings getDefaultWarning() {
+		return Warnings.PREPROC_NONE;
 	}
 	
 	@Override
@@ -168,9 +168,9 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 		}
 		
 		if(BUILTIN.contains(name))
-			warn(pos, Warning.BUILTIN_REDEF, "Redefinition of builtin macro");
+			warn(pos, Warnings.BUILTIN_REDEF, "Redefinition of builtin macro");
 		
-		else if(macros.containsKey(name) && Warning.REDEF.isEnabled()) {
+		else if(macros.containsKey(name) && Warnings.REDEF.isEnabled()) {
 			Macro old = macros.get(name);
 			
 			boolean equal = old.isFunction() == macro.isFunction()
@@ -178,8 +178,8 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 				&& Objects.equals(old.getBody(), macro.getBody());
 
 			if(!equal) {
-				warn(pos, Warning.REDEF, "Redefinition of existent macro");
-				note(old, Warning.REDEF, "Previously defined here");
+				warn(pos, Warnings.REDEF, "Redefinition of existent macro");
+				note(old, Warnings.REDEF, "Previously defined here");
 			}
 		}
 		
@@ -192,10 +192,10 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 		Position pos = nameToken.getPosition();
 		
 		if(BUILTIN.contains(name))
-			warn(pos, Warning.BUILTIN_UNDEF, "Undefinition of builtin macro");
+			warn(pos, Warnings.BUILTIN_UNDEF, "Undefinition of builtin macro");
 		
 		else if(!macros.containsKey(name))
-			warn(pos, Warning.UNDEF, "Undefinition of non-existent macro");
+			warn(pos, Warnings.UNDEF, "Undefinition of non-existent macro");
 		
 		macros.remove(name);
 	}
@@ -232,7 +232,7 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 		end = start.range(end);
 		
 		if(notify && nonWhitespace)
-			warn(end, Warning.TRAILING, "Trailing data after preprocessing directive");
+			warn(end, Warnings.TRAILING, "Trailing data after preprocessing directive");
 		
 		return end;
 	}
@@ -270,7 +270,7 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 				
 				if(tok.is(TokenType.NEWLINE)) {
 					if(!skip)
-						warn(previous, Warning.EMPTY_DIRECTIVE, "Empty preprocessing directive");
+						warn(previous, Warnings.EMPTY_DIRECTIVE, "Empty preprocessing directive");
 					
 					unmark();
 					continue;

@@ -27,7 +27,7 @@ import static at.syntaxerror.syntaxc.parser.ExpressionParser.newUnary;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
@@ -61,8 +61,8 @@ public class PointerHelper implements Logable {
 	}
 	
 	@Override
-	public Warning getDefaultWarning() {
-		return Warning.SEM_NONE;
+	public Warnings getDefaultWarning() {
+		return Warnings.SEM_NONE;
 	}
 	
 	public ExpressionNode dereferenceImpl(Positioned pos, ExpressionNode expr) {
@@ -77,7 +77,7 @@ public class PointerHelper implements Logable {
 		type = type.dereference();
 		
 		if(type.isVoid())
-			warn(pos, Warning.DEREF_VOID, "Dereferencing of a pointer to »void«");
+			warn(pos, Warnings.DEREF_VOID, "Dereferencing of a pointer to »void«");
 		
 		if(type.isIncomplete())
 			error(pos, "Cannot dereference pointer to incomplete type");

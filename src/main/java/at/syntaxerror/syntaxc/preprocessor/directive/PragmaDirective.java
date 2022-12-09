@@ -23,7 +23,7 @@
 package at.syntaxerror.syntaxc.preprocessor.directive;
 
 import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 
 /**
@@ -38,7 +38,7 @@ public class PragmaDirective extends Directive {
 
 	@Override
 	public void processSimple() {
-		warn(skipTrailing(false), Warning.PRAGMA, "Unsupported pragma directive");
+		warn(skipTrailing(false), Warnings.PRAGMA, "Unsupported pragma directive");
 	}
 
 }

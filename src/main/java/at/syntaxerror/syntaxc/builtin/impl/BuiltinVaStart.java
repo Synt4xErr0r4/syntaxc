@@ -24,7 +24,7 @@ package at.syntaxerror.syntaxc.builtin.impl;
 
 import at.syntaxerror.syntaxc.builtin.BuiltinContext;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
@@ -47,7 +47,7 @@ public class BuiltinVaStart extends BuiltinFunction {
 	@Override
 	public void populate(BuiltinContext context) {
 		if(!context.isInsideFunction())
-			context.error(Warning.SEM_NONE, "Cannot call »__builtin_va_start« outside of a function");
+			context.error(Warnings.SEM_NONE, "Cannot call »__builtin_va_start« outside of a function");
 		
 		ExpressionArgument expr = context.nextExpression();
 		IdentifierArgument param = context.nextIdentifier();
@@ -77,7 +77,7 @@ public class BuiltinVaStart extends BuiltinFunction {
 					.orElse(null);
 				
 				if(parameter != null)
-					context.warn(param, Warning.VARARGS, "Parameter supplied to __builtin_va_start is not the last function parameter");
+					context.warn(param, Warnings.VARARGS, "Parameter supplied to __builtin_va_start is not the last function parameter");
 			}
 		}
 		

@@ -23,7 +23,7 @@
 package at.syntaxerror.syntaxc.parser;
 
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
@@ -50,7 +50,7 @@ public class SymbolHelper implements Logable {
 	
 	public void warnUseless(Type type) {
 		if(!type.isEnum() && (!type.isStructLike() || type.toStructLike().isAnonymous()))
-			warn(Warning.USELESS, "Useless declaration does not declare anything");
+			warn(Warnings.USELESS, "Useless declaration does not declare anything");
 	}
 	
 	public SymbolObject registerLocal(Positioned pos, Type type, String name) {

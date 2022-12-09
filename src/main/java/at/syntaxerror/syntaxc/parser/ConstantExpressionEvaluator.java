@@ -34,7 +34,7 @@ import java.util.function.Supplier;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
@@ -115,7 +115,7 @@ public class ConstantExpressionEvaluator {
 	private static BigInteger performOperation(Positioned pos, Punctuator punct, BigInteger left, BigInteger right) {
 		if(BITWISE_OPERATIONS.containsKey(punct)) {
 			if((punct == Punctuator.LSHIFT || punct == Punctuator.RSHIFT) && right.compareTo(BigInteger.ZERO) < 0) {
-				Logger.warn(pos, Warning.NEGATIVE_SHIFT, "Shift count is negative");
+				Logger.warn(pos, Warnings.NEGATIVE_SHIFT, "Shift count is negative");
 				return BigInteger.ZERO;
 			}
 			
@@ -147,7 +147,7 @@ public class ConstantExpressionEvaluator {
 		
 		if(DIVISION_OPERATIONS.containsKey(punct)) {
 			if(isZero(r))
-				warn(pos, Warning.DIVISION_BY_ZERO, "Division by zero");
+				warn(pos, Warnings.DIVISION_BY_ZERO, "Division by zero");
 			
 			else return DIVISION_OPERATIONS.get(punct).getRight().calculate(l, r);
 		}
@@ -556,7 +556,7 @@ public class ConstantExpressionEvaluator {
 					&& isZero(evalArithmetic(binary.getRight()))) {
 					
 					if(ALREADY_WARNED.add(binary))
-						warn(binary, Warning.DIVISION_BY_ZERO, "Division by zero");
+						warn(binary, Warnings.DIVISION_BY_ZERO, "Division by zero");
 					
 					return false;
 				}
@@ -588,11 +588,11 @@ public class ConstantExpressionEvaluator {
 	}
 	
 	private static void error(Positioned pos, String message, Object...args) {
-		Logger.error(pos, Warning.SEM_NONE, message, args);
+		Logger.error(pos, Warnings.SEM_NONE, message, args);
 	}
 	
-	private static void warn(Positioned pos, Warning warning, String message, Object...args) {
-		Logger.warn(pos, warning, message, args);
+	private static void warn(Positioned pos, Warnings warnings, String message, Object...args) {
+		Logger.warn(pos, warnings, message, args);
 	}
 	
 	@FunctionalInterface

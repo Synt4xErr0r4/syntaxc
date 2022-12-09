@@ -20,13 +20,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.misc;
+package at.syntaxerror.syntaxc.misc.config;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
+import at.syntaxerror.syntaxc.misc.config.Configurable.Toggleable;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -35,7 +31,8 @@ import lombok.Setter;
  * 
  */
 @Getter
-public enum Flag implements NamedToggle {
+public enum Flags implements Toggleable {
+	
 	NO_STDLIB			("stdlib",				"Adds default library paths to the include path"),
 	ELIFDEF				("elifdef", 			"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
 	FUNC				("func",				"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
@@ -49,22 +46,12 @@ public enum Flag implements NamedToggle {
 	VERY_VERBOSE		("very-verbose",		"Enables very verbose diagnostic messages", false)
 	;
 	
-	private static final Map<String, Flag> FLAGS;
-	
 	static {
-		FLAGS = new HashMap<>();
-		
-		for(Flag flag : values())
-			FLAGS.put(flag.name, flag);
+		for(Flags flags : values())
+			ConfigRegistry.registerFlag(flags.name, flags);
 	}
 	
-	public static Collection<Flag> getFlags() {
-		return Collections.unmodifiableCollection(FLAGS.values());
-	}
-	
-	public static Flag of(String name) {
-		return FLAGS.get(name);
-	}
+	public static void init() { }
 	
 	private final String name;
 	private final String description;
@@ -77,19 +64,19 @@ public enum Flag implements NamedToggle {
 	@Setter
 	private String value;
 	
-	private Flag(String name, String description) {
+	private Flags(String name, String description) {
 		this(name, description, true, null);
 	}
 
-	private Flag(String name, String description, String value) {
+	private Flags(String name, String description, String value) {
 		this(name, description, true, value);
 	}
 
-	private Flag(String name, String description, boolean enabled) {
+	private Flags(String name, String description, boolean enabled) {
 		this(name, description, enabled, null);
 	}
 
-	private Flag(String name, String description, boolean enabled, String value) {
+	private Flags(String name, String description, boolean enabled, String value) {
 		this.name = name;
 		this.description = description;
 		
@@ -98,5 +85,10 @@ public enum Flag implements NamedToggle {
 		
 		acceptsValue = value != null;
 	}
-	
+
+	@Override
+	public boolean acceptsValue() {
+		return acceptsValue;
+	}
+
 }

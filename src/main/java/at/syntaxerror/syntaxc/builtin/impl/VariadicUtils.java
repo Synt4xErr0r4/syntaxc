@@ -23,7 +23,7 @@
 package at.syntaxerror.syntaxc.builtin.impl;
 
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.Type;
@@ -46,7 +46,7 @@ public class VariadicUtils {
 		if(type.isPointer() && type.toPointer().getBase().isVoid())
 			return;
 		
-		Logger.error(pos, Warning.SEM_NONE, "Expected »__builtin_va_list«, got »%s« instead", type);
+		Logger.error(pos, Warnings.SEM_NONE, "Expected »__builtin_va_list«, got »%s« instead", type);
 	}
 
 	/**
@@ -60,7 +60,7 @@ public class VariadicUtils {
 		if(type.isVariadic())
 			return;
 		
-		Logger.error(pos, Warning.SEM_NONE, "Cannot use »%s« within non-variadic function", name);
+		Logger.error(pos, Warnings.SEM_NONE, "Cannot use »%s« within non-variadic function", name);
 	}
 
 }

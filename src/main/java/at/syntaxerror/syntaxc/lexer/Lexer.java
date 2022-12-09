@@ -26,8 +26,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import at.syntaxerror.syntaxc.io.CharStream;
-import at.syntaxerror.syntaxc.misc.Flag;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Flags;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 
@@ -98,8 +98,8 @@ public class Lexer extends CommonLexer {
 				
 				skip();
 				
-				if(!Flag.BINARY_LITERALS.isEnabled())
-					error(Flag.BINARY_LITERALS, "Binary literals are not allowed");
+				if(!Flags.BINARY_LITERALS.isEnabled())
+					error(Flags.BINARY_LITERALS, "Binary literals are not allowed");
 				
 				c = next();
 				
@@ -283,7 +283,7 @@ public class Lexer extends CommonLexer {
 			}
 			
 			if(value == null || !type.inRange(value)) {
-				warn(Warning.FLOAT_OVERFLOW, "Decimal literal is too big for its type");
+				warn(Warnings.FLOAT_OVERFLOW, "Decimal literal is too big for its type");
 				
 				// value cannot be less than the minimum value (there are no negative constants yet)
 				value = (BigDecimal) type.getMax();
@@ -343,7 +343,7 @@ public class Lexer extends CommonLexer {
 			type = NumericValueType.UNSIGNED_LONG;
 			
 			if(!type.inRange(value)) {
-				warn(Warning.INT_OVERFLOW, "Integer literal is too big for its type");
+				warn(Warnings.INT_OVERFLOW, "Integer literal is too big for its type");
 				value = type.mask(value);
 			}
 		}

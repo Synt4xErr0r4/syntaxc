@@ -29,7 +29,7 @@ import java.util.List;
 import at.syntaxerror.syntaxc.io.CharStream;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.tracking.Position;
 
@@ -81,7 +81,7 @@ public class LineDirective extends Directive {
 				warn(
 					tokens.get(tokens.size() - 1).getPosition()
 						.range(tokens.get(0)),
-					Warning.TRAILING,
+					Warnings.TRAILING,
 					"Trailing data after preprocessing directive"
 				);
 		}

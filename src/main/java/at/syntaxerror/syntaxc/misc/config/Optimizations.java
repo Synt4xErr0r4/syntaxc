@@ -20,13 +20,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.misc;
+package at.syntaxerror.syntaxc.misc.config;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
+import at.syntaxerror.syntaxc.misc.config.Configurable.Toggleable;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -35,28 +31,19 @@ import lombok.Setter;
  * 
  */
 @Getter
-public enum Optimization implements NamedToggle {
+public enum Optimizations implements Toggleable {
+	
 	CONST_FOLDING	("const-folding",		"Automatically inlines global arithmetic variables declared as »§cconst§f«"),
 	GOTO			("goto",				"Automatically removes »§cgoto§f« statements followed by the label they jump to"),
 	JUMP_TO_JUMP	("jump-to-jump",		"Automatically chooses the shortest path instead of jumping several times in a row"),
 	;
 	
-	private static final Map<String, Optimization> OPTIMIZATIONS;
-	
 	static {
-		OPTIMIZATIONS = new HashMap<>();
-		
-		for(Optimization flag : values())
-			OPTIMIZATIONS.put(flag.name, flag);
+		for(Optimizations opt : values())
+			ConfigRegistry.registerOptimization(opt.name, opt);
 	}
 	
-	public static Collection<Optimization> getOptimizations() {
-		return Collections.unmodifiableCollection(OPTIMIZATIONS.values());
-	}
-	
-	public static Optimization of(String name) {
-		return OPTIMIZATIONS.get(name);
-	}
+	public static void init() { }
 	
 	private final String name;
 	private final String description;
@@ -69,19 +56,19 @@ public enum Optimization implements NamedToggle {
 	@Setter
 	private String value;
 	
-	private Optimization(String name, String description) {
+	private Optimizations(String name, String description) {
 		this(name, description, true, null);
 	}
 
-	private Optimization(String name, String description, String value) {
+	private Optimizations(String name, String description, String value) {
 		this(name, description, true, value);
 	}
 
-	private Optimization(String name, String description, boolean enabled) {
+	private Optimizations(String name, String description, boolean enabled) {
 		this(name, description, enabled, null);
 	}
 
-	private Optimization(String name, String description, boolean enabled, String value) {
+	private Optimizations(String name, String description, boolean enabled, String value) {
 		this.name = name;
 		this.description = description;
 		
@@ -90,5 +77,10 @@ public enum Optimization implements NamedToggle {
 		
 		acceptsValue = value != null;
 	}
-	
+
+	@Override
+	public boolean acceptsValue() {
+		return acceptsValue;
+	}
+
 }

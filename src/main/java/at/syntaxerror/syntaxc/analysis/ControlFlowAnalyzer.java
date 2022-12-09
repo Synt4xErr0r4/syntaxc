@@ -34,7 +34,7 @@ import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.RequiredArgsConstructor;
 
@@ -70,8 +70,8 @@ public class ControlFlowAnalyzer implements Logable {
 	}
 	
 	@Override
-	public Warning getDefaultWarning() {
-		return Warning.SEM_NONE;
+	public Warnings getDefaultWarning() {
+		return Warnings.SEM_NONE;
 	}
 	
 	/* check for dead (unreachable) code within the compound statement
@@ -314,7 +314,7 @@ public class ControlFlowAnalyzer implements Logable {
 		}
 		
 		if(dead != null)
-			warn(dead, Warning.DEAD_CODE, "Code is unreachable");
+			warn(dead, Warnings.DEAD_CODE, "Code is unreachable");
 	}
 	
 	private void checkUnknownLabels() {
@@ -346,7 +346,7 @@ public class ControlFlowAnalyzer implements Logable {
 				continue;
 			
 			if(!jumps.containsKey(label))
-				warn(entry.getValue(), Warning.UNUSED_LABEL, "Unused label »%s«", label);
+				warn(entry.getValue(), Warnings.UNUSED_LABEL, "Unused label »%s«", label);
 		}
 	}
 	

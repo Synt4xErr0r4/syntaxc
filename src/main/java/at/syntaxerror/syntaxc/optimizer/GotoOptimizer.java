@@ -32,7 +32,7 @@ import java.util.Map;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
-import at.syntaxerror.syntaxc.misc.Optimization;
+import at.syntaxerror.syntaxc.misc.config.Optimizations;
 
 /**
  * @author Thomas Kasper
@@ -66,7 +66,7 @@ public class GotoOptimizer {
 	 * - goto followed by label jumped to
 	 */
 	public List<Intermediate> optimize(List<Intermediate> intermediates) {
-		if(!Optimization.GOTO.isEnabled() && !Optimization.JUMP_TO_JUMP.isEnabled())
+		if(!Optimizations.GOTO.isEnabled() && !Optimizations.JUMP_TO_JUMP.isEnabled())
 			return intermediates;
 		
 		aliases.clear();
@@ -114,7 +114,7 @@ public class GotoOptimizer {
 			++index;
 		}
 		
-		if(Optimization.JUMP_TO_JUMP.isEnabled())
+		if(Optimizations.JUMP_TO_JUMP.isEnabled())
 			for(var jump : jumps.entrySet()) {
 				
 				jumpLabel = jump.getKey();
@@ -137,7 +137,7 @@ public class GotoOptimizer {
 				);
 			}
 		
-		if(Optimization.GOTO.isEnabled()) {
+		if(Optimizations.GOTO.isEnabled()) {
 			int offset = 0;
 			
 			Collections.sort(redundants);

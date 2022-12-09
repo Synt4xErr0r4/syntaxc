@@ -32,7 +32,7 @@ import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.declaration.Declarator;
 import at.syntaxerror.syntaxc.parser.node.declaration.DeclaratorPostfix;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
@@ -150,7 +150,7 @@ public class DeclarationParser extends AbstractParser {
 			
 			if(skip("const")) {
 				if(hasConst)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »const«");
+					warn(tok, Warnings.DUPLICATE_QUALIFIER, "Duplicate type qualifier »const«");
 				
 				hasConst = true;
 				continue;
@@ -158,7 +158,7 @@ public class DeclarationParser extends AbstractParser {
 			
 			if(skip("volatile")) {
 				if(hasVolatile)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »volatile«");
+					warn(tok, Warnings.DUPLICATE_QUALIFIER, "Duplicate type qualifier »volatile«");
 				
 				hasVolatile = true;
 				continue;
@@ -247,13 +247,13 @@ public class DeclarationParser extends AbstractParser {
 			break;
 			
 		case SIGNED:
-			warn(pos, Warning.IMPLICIT_INT, "Type is implicitly »signed int«");
+			warn(pos, Warnings.IMPLICIT_INT, "Type is implicitly »signed int«");
 		case SIGNED | INT:
 			type = Type.SINT;
 			break;
 
 		case UNSIGNED:
-			warn(pos, Warning.IMPLICIT_INT, "Type is implicitly »unsigned int«");
+			warn(pos, Warnings.IMPLICIT_INT, "Type is implicitly »unsigned int«");
 		case UNSIGNED | INT:
 			type = Type.UINT;
 			break;
@@ -367,7 +367,7 @@ public class DeclarationParser extends AbstractParser {
 						boolean isStruct = memberType.isStructLike();
 						
 						if(memberType.isEnum() || (isStruct && memberType.toStructLike().isInherited()))
-							warn(memberPos, Warning.EMPTY_DECLARATION, "Declaration declares nothing");
+							warn(memberPos, Warnings.EMPTY_DECLARATION, "Declaration declares nothing");
 						
 						else if(!isStruct)
 							softError(memberPos, "Expected name for declaration");
@@ -660,7 +660,7 @@ public class DeclarationParser extends AbstractParser {
 				next();
 				
 				if(allowKAndR && equal(TokenType.IDENTIFIER) && !isTypeName()) {
-					warn(previous, Warning.K_AND_R, "Declared function using K&R syntax");
+					warn(previous, Warnings.K_AND_R, "Declared function using K&R syntax");
 					
 					kAndR = true;
 					
@@ -782,7 +782,7 @@ public class DeclarationParser extends AbstractParser {
 			
 			if(skip("const")) {
 				if(hasConst)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »const«");
+					warn(tok, Warnings.DUPLICATE_QUALIFIER, "Duplicate type qualifier »const«");
 				
 				hasConst = true;
 				continue;
@@ -790,7 +790,7 @@ public class DeclarationParser extends AbstractParser {
 			
 			if(skip("volatile")) {
 				if(hasVolatile)
-					warn(tok, Warning.DUPLICATE_QUALIFIER, "Duplicate type qualifier »volatile«");
+					warn(tok, Warnings.DUPLICATE_QUALIFIER, "Duplicate type qualifier »volatile«");
 				
 				hasVolatile = true;
 				continue;

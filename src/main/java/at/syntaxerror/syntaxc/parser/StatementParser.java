@@ -35,9 +35,9 @@ import at.syntaxerror.syntaxc.lexer.Keyword;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Flags;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.SymbolHelper.DeclarationState;
 import at.syntaxerror.syntaxc.parser.node.declaration.Declarator;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
@@ -189,7 +189,7 @@ public class StatementParser extends AbstractParser {
 		);
 		
 		if(labels.containsKey(label))
-			error(pos, Warning.SEM_NONE, "Duplicate label »%s« in current function", label);
+			error(pos, Warnings.SEM_NONE, "Duplicate label »%s« in current function", label);
 		
 		labels.put(label, labeled);
 		
@@ -282,13 +282,13 @@ public class StatementParser extends AbstractParser {
 			if(returnValue == null) {
 				
 				if(!expectedType.isVoid())
-					warn(pos, Warning.RETURN_VOID, "Expected value for »return« inside function returning »%s«", expectedType);
+					warn(pos, Warnings.RETURN_VOID, "Expected value for »return« inside function returning »%s«", expectedType);
 				
 			}
 			else {
 				
 				if(expectedType.isVoid())
-					warn(pos, Warning.RETURN_VALUE, "Unexpected value for »return« inside function returning »void«");
+					warn(pos, Warnings.RETURN_VALUE, "Unexpected value for »return« inside function returning »void«");
 				
 				else statements.add(new ExpressionStatementNode(
 					expressionParser.getChecker().checkAssignment(
@@ -326,7 +326,7 @@ public class StatementParser extends AbstractParser {
 			var cases = getCases();
 			
 			if(cases.containsKey(constant))
-				error(pos, Warning.SEM_NONE, "Duplicate label for »switch« statement");
+				error(pos, Warnings.SEM_NONE, "Duplicate label for »switch« statement");
 			
 			consume(":");
 			
@@ -438,7 +438,7 @@ public class StatementParser extends AbstractParser {
 		
 		if(val.isPresent()) {
 			if(!val.get()) { // if(0) ... [else ...]
-				warn(pos, Warning.DEAD_CODE, "»if« block is unreachable because condition always evaluates to false");
+				warn(pos, Warnings.DEAD_CODE, "»if« block is unreachable because condition always evaluates to false");
 				
 				return stmtElse == null
 					? new NullStatementNode(pos)
@@ -446,7 +446,7 @@ public class StatementParser extends AbstractParser {
 			}
 			
 			if(stmtElse != null) // if(1) ... else ...
-				warn(elsePos, Warning.DEAD_CODE, "»else« block is unreachable because condition always evaluates to true");
+				warn(elsePos, Warnings.DEAD_CODE, "»else« block is unreachable because condition always evaluates to true");
 
 			return stmtThen;
 		}
@@ -640,7 +640,7 @@ public class StatementParser extends AbstractParser {
 			StatementNode first = body.getStatements().get(0);
 			
 			if(!(first instanceof LabeledStatementNode))
-				warn(first.getPosition(), Warning.DEAD_CODE, "Code before first switch label is unreachable");
+				warn(first.getPosition(), Warnings.DEAD_CODE, "Code before first switch label is unreachable");
 			
 		}
 		
@@ -704,7 +704,7 @@ public class StatementParser extends AbstractParser {
 		
 		if(val.isPresent()) {
 			if(!val.get()) {
-				warn(pos, Warning.DEAD_CODE, "»while« block is unreachable because condition always evaluates to false");
+				warn(pos, Warnings.DEAD_CODE, "»while« block is unreachable because condition always evaluates to false");
 				
 				return new NullStatementNode(pos);
 			}
@@ -937,7 +937,7 @@ public class StatementParser extends AbstractParser {
 		
 		if(val.isPresent()) {
 			if(!val.get()) { // for(...; 0; ...) ... 
-				warn(pos, Warning.DEAD_CODE, "»for« block is unreachable because condition always evaluates to false");
+				warn(pos, Warnings.DEAD_CODE, "»for« block is unreachable because condition always evaluates to false");
 				
 				return initialize == null
 					? new NullStatementNode(pos)
@@ -1027,7 +1027,7 @@ public class StatementParser extends AbstractParser {
 					break;
 				
 				case REGISTER:
-					warn(optSpec.get(), Warning.REGISTER, "The »register« specifier is not supported");
+					warn(optSpec.get(), Warnings.REGISTER, "The »register« specifier is not supported");
 					break;
 
 				case AUTO:
@@ -1138,7 +1138,7 @@ public class StatementParser extends AbstractParser {
 		
 		Position pos = getPosition();
 		
-		boolean hasFunc = Flag.FUNC.isEnabled();
+		boolean hasFunc = Flags.FUNC.isEnabled();
 		SymbolObject __func__ = null;
 		
 		if(hasFunc) {
@@ -1212,7 +1212,7 @@ public class StatementParser extends AbstractParser {
 		allVariables.forEach(obj -> {
 			
 			if(obj.isUnused())
-				warn(obj, Warning.UNUSED, "Variable »%s« is declared, but not used", obj.getName());
+				warn(obj, Warnings.UNUSED, "Variable »%s« is declared, but not used", obj.getName());
 			
 		});
 	}

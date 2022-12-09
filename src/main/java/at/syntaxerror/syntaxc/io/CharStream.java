@@ -36,7 +36,7 @@ import java.util.Stack;
 
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.Getter;
@@ -399,7 +399,7 @@ public abstract class CharStream implements Logable, Closeable {
 					unmark();
 					
 					if(!warnedTrigraphs.contains(bytenum)) {
-						warn(Warning.TRIGRAPHS, "Converted trigraph »??%c« into »%c«", (char) n, r);
+						warn(Warnings.TRIGRAPHS, "Converted trigraph »??%c« into »%c«", (char) n, r);
 						warnedTrigraphs.add(bytenum);
 					}
 					

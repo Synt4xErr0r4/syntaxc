@@ -43,8 +43,8 @@ import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.GraphUtils;
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import guru.nidi.graphviz.attribute.Color;
 import guru.nidi.graphviz.attribute.Label;
@@ -95,7 +95,7 @@ public class ControlFlowGraphGenerator {
 		
 		try {
 			Graphviz.fromGraph(graph.with(subgraphs))
-				.render(GraphUtils.getGraphFormat(Flag.CONTROL_FLOW_GRAPH))
+				.render(GraphUtils.getGraphFormat(Flags.CONTROL_FLOW_GRAPH))
 				.toOutputStream(out);
 		} catch (Exception e) {
 			Logger.warn("Failed to generate control flow graph: %s", e.getMessage());

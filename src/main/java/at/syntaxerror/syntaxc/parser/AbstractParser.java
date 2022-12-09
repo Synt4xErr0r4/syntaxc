@@ -31,7 +31,7 @@ import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Position;
 
@@ -47,8 +47,8 @@ public abstract class AbstractParser implements Logable {
 	private Stack<Pair<Token, Token>> marked = new Stack<>();
 	
 	@Override
-	public Warning getDefaultWarning() {
-		return Warning.SYN_NONE;
+	public Warnings getDefaultWarning() {
+		return Warnings.SYN_NONE;
 	}
 	
 	@Override

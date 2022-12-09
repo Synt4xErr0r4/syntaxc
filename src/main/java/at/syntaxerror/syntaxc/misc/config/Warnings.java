@@ -20,14 +20,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.misc;
+package at.syntaxerror.syntaxc.misc.config;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
+import at.syntaxerror.syntaxc.misc.config.Configurable.Toggleable;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -38,7 +36,7 @@ import lombok.Setter;
  */
 @RequiredArgsConstructor
 @Getter
-public enum Warning implements NamedToggle {
+public enum Warnings implements Toggleable {
 	NONE,
 	
 	/**
@@ -125,30 +123,29 @@ public enum Warning implements NamedToggle {
 	
 	;
 	
-	private static final Map<String, Warning> WARNINGS;
-	private static final Map<String, WarningGroup> GROUPS;
-	
-	private static void group(String name, String description, Warning...warnings) {
-		GROUPS.put(name, new WarningGroup(name, description, List.of(warnings)));
+	private static void group(String name, String description, Warnings...warnings) {
+		ConfigRegistry.registerWarning(name, new WarningGroup(name, description, List.of(warnings)));
 	}
 	
 	static {
-		WARNINGS = new LinkedHashMap<>();
-		GROUPS = new LinkedHashMap<>();
-		
 		CompilationStage previous = null;
 		
-		for(Warning warning : values())
+		List<Warnings> warnings = new ArrayList<>();
+		
+		for(Warnings warning : values())
 			if(warning.stage != null)
 				previous = warning.stage;
 			else {
 				warning.stage = previous;
 				
-				if(warning.name != null)
-					WARNINGS.put(warning.name, warning);
+				if(warning.name != null) {
+					warnings.add(warning);
+					
+					ConfigRegistry.registerWarning(warning.name, warning);
+				}
 			}
 		
-		group("all", "Enables all warnings", WARNINGS.values().toArray(Warning[]::new));
+		group("all", "Enables all warnings", warnings.toArray(Warnings[]::new));
 		group("overflow", "Enables all *-overflow warnings", CHAR_HEX_OVERFLOW, CHAR_OCT_OVERFLOW, CHAR_OVERFLOW, INT_OVERFLOW, FLOAT_OVERFLOW);
 		group("kandr", "Alias for -Wk&r", K_AND_R);
 		
@@ -157,21 +154,7 @@ public enum Warning implements NamedToggle {
 		EMPTY_DIRECTIVE.setEnabled(false);
 	}
 	
-	public static Collection<Warning> getWarnings() {
-		return Collections.unmodifiableCollection(WARNINGS.values());
-	}
-
-	public static Collection<WarningGroup> getGroups() {
-		return Collections.unmodifiableCollection(GROUPS.values());
-	}
-	
-	public static Warning of(String name) {
-		return WARNINGS.get(name);
-	}
-	
-	public static WarningGroup groupOf(String name) {
-		return GROUPS.get(name);
-	}
+	public static void init() { }
 	
 	private CompilationStage stage;
 	private final String name;
@@ -180,12 +163,12 @@ public enum Warning implements NamedToggle {
 	@Setter
 	private boolean enabled = true;
 	
-	private Warning(CompilationStage stage) {
+	private Warnings(CompilationStage stage) {
 		this();
 		this.stage = stage;
 	}
 	
-	private Warning() {
+	private Warnings() {
 		this(null, null);
 	}
 	
@@ -194,7 +177,7 @@ public enum Warning implements NamedToggle {
 		return description + (enabled ? " §8(§aenabled§8)" : " §8(§9disabled§8)");
 	}
 	
-	public static record WarningGroup(String name, String description, List<Warning> warnings) implements NamedToggle {
+	public static record WarningGroup(String name, String description, List<Warnings> warnings) implements Toggleable {
 		
 		@Override
 		public String getName() {

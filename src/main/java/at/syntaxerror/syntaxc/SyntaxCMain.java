@@ -25,27 +25,25 @@ package at.syntaxerror.syntaxc;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
-import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.io.CharStream;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.AnsiPipe;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.IncludePathRegistry;
-import at.syntaxerror.syntaxc.misc.NamedToggle;
-import at.syntaxerror.syntaxc.misc.Optimization;
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.misc.Warning;
-import at.syntaxerror.syntaxc.misc.Warning.WarningGroup;
+import at.syntaxerror.syntaxc.misc.config.ConfigRegistry;
+import at.syntaxerror.syntaxc.misc.config.Configurable;
+import at.syntaxerror.syntaxc.misc.config.Flags;
+import at.syntaxerror.syntaxc.misc.config.MachineSpecifics;
+import at.syntaxerror.syntaxc.misc.config.Optimizations;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.options.Option;
 import at.syntaxerror.syntaxc.options.OptionParser;
 import at.syntaxerror.syntaxc.options.OptionResult;
@@ -76,6 +74,12 @@ public class SyntaxCMain {
 				System.exit(1);
 			}
 		);
+		
+		/* make sure to load classes */
+		MachineSpecifics.init();
+		Flags.init();
+		Warnings.init();
+		Optimizations.init();
 	}
 	
 	public static void main(String[] args) {
@@ -95,7 +99,6 @@ public class SyntaxCMain {
 				"-S",
 				"-Wall",
 				"-Wno-implicit-function", "-Wno-pragma",
-				"-masm=intel",
 				"-m64"
 			}; // XXX debugging only
 		
@@ -178,22 +181,22 @@ public class SyntaxCMain {
 		 */
 		
 		// architecture/machine settings
-		result.get('m').forEach(CLIHandler::machine);
+		result.get('m').forEach(ConfigRegistry::enableMachineSpecific);
 		
 		// enable/disable warnings
-		result.get('W').forEach(CLIHandler::warning);
+		result.get('W').forEach(ConfigRegistry::enableWarning);
 		
 		// enable/disable flags
-		result.get('f').forEach(CLIHandler::flag);
+		result.get('f').forEach(ConfigRegistry::enableFlag);
 		
 		// enable/disable optimizations
-		result.get('O').forEach(CLIHandler::optimize);
+		result.get('O').forEach(ConfigRegistry::enableOptimization);
 		
 		// (un)define macros
 		result.get('D').forEach(CLIHandler::define);
 		result.get('U').forEach(CLIHandler::undef);
 		
-		if(Flag.NO_STDLIB.isEnabled())
+		if(Flags.NO_STDLIB.isEnabled())
 			IncludePathRegistry.clear();
 		
 		// include path
@@ -231,23 +234,23 @@ public class SyntaxCMain {
 			SyntaxC.outputFileName = result.get('o').get(0);
 		}
 
-		if(Flag.SYNTAX_TREE.isEnabled())
+		if(Flags.SYNTAX_TREE.isEnabled())
 			SyntaxC.syntaxTree = SyntaxC.createStream(
 				parser,
 				base + ".syntaxtree."
-					+ getGraphExtension(Flag.SYNTAX_TREE)
+					+ getGraphExtension(Flags.SYNTAX_TREE)
 			);
 
-		if(Flag.CONTROL_FLOW_GRAPH.isEnabled())
+		if(Flags.CONTROL_FLOW_GRAPH.isEnabled())
 			SyntaxC.controlFlowGraph = SyntaxC.createStream(
 				parser,
 				base + ".cfg."
-					+ getGraphExtension(Flag.CONTROL_FLOW_GRAPH)
+					+ getGraphExtension(Flags.CONTROL_FLOW_GRAPH)
 			);
 		
-		if(Flag.ALIGN.isEnabled())
+		if(Flags.ALIGN.isEnabled())
 			try {
-				int alignment = Integer.parseInt(Flag.ALIGN.getValue());
+				int alignment = Integer.parseInt(Flags.ALIGN.getValue());
 				
 				if((alignment & 3) != 0 || alignment < 0)
 					throw new IllegalArgumentException();
@@ -267,11 +270,11 @@ public class SyntaxCMain {
 	 * on the value of the flag.
 	 * Supported extensions are {@code svg}, {@code png} and {@code dot}
 	 * 
-	 * @param flag the flag of the requested graph
+	 * @param flags the flag of the requested graph
 	 * @return the file name extension
 	 */
-	private static String getGraphExtension(Flag flag) {
-		return switch(flag.getValue().toLowerCase()) {
+	private static String getGraphExtension(Flags flags) {
+		return switch(flags.getValue().toLowerCase()) {
 		case "svg" -> "svg";
 		case "png" -> "png";
 		default -> "dot";
@@ -328,7 +331,7 @@ public class SyntaxCMain {
 		
 		private static void undef(String name) {
 			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
-				Logger.warn(Warning.UNDEF, "Undefinition of non-existent macro »%s«", name);
+				Logger.warn(Warnings.UNDEF, "Undefinition of non-existent macro »%s«", name);
 			
 			else BuiltinMacro.getBuiltinMacros().remove(name);
 		}
@@ -350,7 +353,7 @@ public class SyntaxCMain {
 			}
 			
 			if(BuiltinMacro.getBuiltinMacros().containsKey(name))
-				Logger.warn(Warning.REDEF, "Redefinition of predefined macro »%s«", name);
+				Logger.warn(Warnings.REDEF, "Redefinition of predefined macro »%s«", name);
 			
 			if(value == null)
 				BuiltinMacro.define(name);
@@ -376,167 +379,6 @@ public class SyntaxCMain {
 			}
 		}
 		
-		private static void machine(String arg) {
-			var option = split(arg, '=');
-			
-			String name = option.getLeft();
-			String value = option.getRight();
-			
-			if(value == null)
-				value = "";
-			
-			switch(name) {
-			case "arch":
-				if(value.isBlank())
-					Logger.warn("Missing value for assembler option -march");
-				
-				else {
-					Architecture arch = ArchitectureRegistry.find(value);
-					
-					if(arch == null)
-						Logger.warn("Unknown architecture »%s«", value);
-					
-					else ArchitectureRegistry.setArchitecture(arch);
-				}
-				
-				break;
-				
-			case "asm":
-				if(!ArchitectureRegistry.getArchitecture().setSyntax(value))
-					Logger.warn(
-						"Unknown assembly syntax »%s« for target architecture »%s«",
-						value,
-						ArchitectureRegistry.getArchitecture()
-							.getNames()[0]
-					);
-				
-				break;
-
-			case "8": ArchitectureRegistry.setBitSize(BitSize.B8); break;
-			case "16": ArchitectureRegistry.setBitSize(BitSize.B16); break;
-			case "32": ArchitectureRegistry.setBitSize(BitSize.B32); break;
-			case "64": ArchitectureRegistry.setBitSize(BitSize.B64); break;
-			case "128": ArchitectureRegistry.setBitSize(BitSize.B128); break;
-			
-			case "target":
-				try {
-					ArchitectureRegistry.setOperatingSystem(OperatingSystem.valueOf(value.toUpperCase()));
-				} catch(Exception e) {
-					Logger.warn("Unknown target system »%s«", value);
-				}
-				break;
-				
-			case "endian":
-				if(value.equalsIgnoreCase("little"))
-					ArchitectureRegistry.setEndianness(ByteOrder.LITTLE_ENDIAN);
-				
-				else if(value.equalsIgnoreCase("big"))
-					ArchitectureRegistry.setEndianness(ByteOrder.BIG_ENDIAN);
-				
-				else if(value.isBlank())
-					Logger.warn("Missing value for assembler option -morder");
-				
-				else Logger.warn("Unknown endianness »%s«", value);
-				
-				break;
-			
-			case "syntax":
-				if(!ArchitectureRegistry.getArchitecture().setSyntax(value))
-					Logger.warn("Unknown assembly syntax »%s«", value);
-				
-				break;
-				
-			default:
-				Logger.warn("Unrecognized assembler option »%s«", name);
-				break;
-			}
-		}
-		
-		private static void warning(String arg) {
-			boolean state = true;
-			
-			if(arg.startsWith("no-")) {
-				arg = arg.substring(3);
-				state = false;
-			}
-			
-			Warning warning = Warning.of(arg);
-			
-			if(warning != null) {
-				warning.setEnabled(state);
-				return;
-			}
-			
-			WarningGroup group = Warning.groupOf(arg);
-			
-			if(group == null) {
-				Logger.warn("Unrecognized warning: %s", arg);
-				return;
-			}
-
-			group.setEnabled(state);
-		}
-
-		private static void flag(String arg) {
-			var flagData = split(arg, '=');
-			
-			String flagName = flagData.getLeft();
-			String flagValue = flagData.getRight();
-			
-			boolean state = true;
-			
-			if(flagName.startsWith("no-")) {
-				flagName = flagName.substring(3);
-				state = false;
-			}
-			
-			Flag flag = Flag.of(flagName);
-
-			if(flag == null) {
-				Logger.warn("Unrecognized flag: %s", flagName);
-				return;
-			}
-			
-			if(flagValue != null && !flag.isAcceptsValue()) {
-				Logger.warn("Flag »%s« does not accept a value", flagName);
-				return;
-			}
-			else if(flagValue != null)
-				flag.setValue(flagValue);
-			
-			flag.setEnabled(state);
-		}
-		
-		private static void optimize(String arg) {
-			var optData = split(arg, '=');
-			
-			String optName = optData.getLeft();
-			String optValue = optData.getRight();
-			
-			boolean state = true;
-			
-			if(optName.startsWith("no-")) {
-				optName = optName.substring(3);
-				state = false;
-			}
-			
-			Optimization opt = Optimization.of(optName);
-
-			if(opt == null) {
-				Logger.warn("Unrecognized optimization: %s", optName);
-				return;
-			}
-			
-			if(optValue != null && !opt.isAcceptsValue()) {
-				Logger.warn("Optimization »%s« does not accept a value", optName);
-				return;
-			}
-			else if(optValue != null)
-				opt.setValue(optValue);
-			
-			opt.setEnabled(state);
-		}
-		
 	}
 	
 	/* Utility class for command line option documentation */
@@ -560,7 +402,20 @@ public class SyntaxCMain {
 		}
 
 		private static void include() {
+			// TODO
+		}
+		
+		private static void printList(List<Configurable> list) {
+			list.forEach(toggle -> {
+				String name = toggle.getName();
+				
+				int len = name.length();
+				
+				System.out.printf(" §8- §a%s%s§f%s§r\n", name, " ".repeat(Math.max(1, 20 - len)), toggle.getDescription());
+			});
 			
+			if(list.isEmpty())
+				System.out.println(" §8<none>§r");
 		}
 		
 		private static void machine() {
@@ -575,20 +430,12 @@ public class SyntaxCMain {
 				
 				The following options are currently defined:
 				
-				 §8- §a-march=ARCH§f         Specifies the target architecture (see below)
-				 §8- §a-mtarget=TARGET§f     Specifies the target system (see below)
-				 §8- §a-mendian=ENDIANNESS§f Specifies the target endianness (see below)
-				 §8- §a-masm=SYNTAX§f        Specifies the assembly syntax (see below)
-				 §8- §a-m8§f                 Sets the bit size to 8
-				 §8- §a-m16§f                Sets the bit size to 16
-				 §8- §a-m32§f                Sets the bit size to 32
-				 §8- §a-m64§f                Sets the bit size to 64
-				 §8- §a-m128§f               Sets the bit size to 128
-				
-				Supported architectures:
-				
 				"""
 			);
+
+			printList(ConfigRegistry.getMachineSpecifics());
+
+			System.out.println("\nSupported architectures:\n");
 			
 			ArchitectureRegistry.getArchitectures()
 				.forEach(arch -> {
@@ -650,19 +497,6 @@ public class SyntaxCMain {
 			return flag ? " §8(active)§r" : "";
 		}
 		
-		private static void printList(Collection<? extends NamedToggle> list) {
-			list.forEach(toggle -> {
-				String name = toggle.getName();
-				
-				int len = name.length();
-				
-				System.out.printf(" §8- §a%s%s§f%s§r\n", name, " ".repeat(Math.max(1, 20 - len)), toggle.getDescription());
-			});
-			
-			if(list.isEmpty())
-				System.out.println(" §8<none>§r");
-		}
-		
 		private static void warning() {
 			System.out.println(
 				"""
@@ -676,11 +510,7 @@ public class SyntaxCMain {
 				"""
 			);
 			
-			printList(Warning.getWarnings());
-			
-			System.out.println("\nList of warning groups:\n");
-			
-			printList(Warning.getGroups());
+			printList(ConfigRegistry.getWarnings());
 		}
 		
 		private static void flag() {
@@ -696,7 +526,7 @@ public class SyntaxCMain {
 				"""
 			);
 			
-			printList(Flag.getFlags());
+			printList(ConfigRegistry.getFlags());
 		}
 		
 		private static void optimize() {
@@ -712,7 +542,7 @@ public class SyntaxCMain {
 				"""
 			);
 			
-			printList(Optimization.getOptimizations());
+			printList(ConfigRegistry.getOptimizations());
 		}
 		
 	}

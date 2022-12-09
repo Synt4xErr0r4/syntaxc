@@ -35,7 +35,7 @@ import at.syntaxerror.syntaxc.builtin.BuiltinRegistry;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BuiltinExpressionNode;
@@ -152,10 +152,10 @@ public class ExpressionParser extends AbstractParser {
 			}
 			
 			if(optional("(")) // function call, but function is not declared
-				error(ident, Warning.SEM_NONE, "Implicit declaration of function »%s«", ident.getString());
+				error(ident, Warnings.SEM_NONE, "Implicit declaration of function »%s«", ident.getString());
 			
 			// variable is not declared
-			error(ident, Warning.SEM_NONE, "Undefined variable »%s«", ident.getString());
+			error(ident, Warnings.SEM_NONE, "Undefined variable »%s«", ident.getString());
 		}
 
 		// string literal
@@ -256,7 +256,7 @@ public class ExpressionParser extends AbstractParser {
 				
 				sym = SymbolObject.implicit(pos, name);
 				
-				warn(pos, Warning.IMPLICIT_FUNCTION, "Implicit declaration of function »%s«", name);
+				warn(pos, Warnings.IMPLICIT_FUNCTION, "Implicit declaration of function »%s«", name);
 			}
 			
 			expr = new VariableExpressionNode(pos, sym);

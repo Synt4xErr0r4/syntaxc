@@ -27,7 +27,7 @@ import java.util.Map;
 
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Flag;
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.preprocessor.directive.Directive.DirectiveConstructor;
 import at.syntaxerror.syntaxc.preprocessor.directive.Directive.ElseDirectiveConstructor;
@@ -104,8 +104,8 @@ public class Directives {
 		if(!ELSE_DIRECTIVES.containsKey(name))
 			return null;
 		
-		if(name.matches("elifn?def") && !Flag.ELIFDEF.isEnabled())
-			Logger.error(token, Flag.ELIFDEF, "»%s« is not allowed", name);
+		if(name.matches("elifn?def") && !Flags.ELIFDEF.isEnabled())
+			Logger.error(token, Flags.ELIFDEF, "»%s« is not allowed", name);
 		
 		return ELSE_DIRECTIVES
 			.get(name)

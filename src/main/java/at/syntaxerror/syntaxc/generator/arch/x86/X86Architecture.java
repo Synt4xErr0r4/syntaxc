@@ -32,8 +32,8 @@ import at.syntaxerror.syntaxc.generator.arch.Alignment;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils.FloatingSpec;
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 
@@ -87,7 +87,7 @@ public class X86Architecture extends Architecture {
 				ByteOrder.LITTLE_ENDIAN
 			);
 		
-		if(Flag.UNSIGNED_CHAR.isEnabled())
+		if(Flags.UNSIGNED_CHAR.isEnabled())
 			NumericValueType.CHAR = NumericValueType.UNSIGNED_CHAR;
 
 		int longDoubleBits = 0;
@@ -148,7 +148,7 @@ public class X86Architecture extends Architecture {
 		}
 		else Logger.error("Unsupported bit size for x86 architecture: %s (only 32 and 64 are supported)", bitSize);
 
-		if(Flag.LONG_DOUBLE.isEnabled())
+		if(Flags.LONG_DOUBLE.isEnabled())
 			NumericValueType.LDOUBLE.modify(longDoubleBits, FloatingSpec.EXTENDED);
 		
 		super.onInit(system, bitSize, endianness);

@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.misc;
 
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import guru.nidi.graphviz.engine.Format;
 import lombok.experimental.UtilityClass;
 
@@ -33,8 +34,8 @@ import lombok.experimental.UtilityClass;
 public class GraphUtils {
 
 	@SuppressWarnings("preview")
-	public static Format getGraphFormat(Flag flag) {
-		return switch(flag.getValue().toLowerCase()) {
+	public static Format getGraphFormat(Flags flags) {
+		return switch(flags.getValue().toLowerCase()) {
 		case "png" -> Format.PNG;
 		case "svg" -> Format.SVG;
 		case null -> Format.DOT;

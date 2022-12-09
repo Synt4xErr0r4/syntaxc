@@ -30,7 +30,7 @@ import static at.syntaxerror.syntaxc.parser.ExpressionParser.newPromote;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -53,8 +53,8 @@ public class ExpressionChecker implements Logable {
 	}
 	
 	@Override
-	public Warning getDefaultWarning() {
-		return Warning.SEM_NONE;
+	public Warnings getDefaultWarning() {
+		return Warnings.SEM_NONE;
 	}
 	
 	public BinaryExpressionNode checkBitwise(Token op, ExpressionNode exprLeft, ExpressionNode exprRight, String name) {
@@ -267,7 +267,7 @@ public class ExpressionChecker implements Logable {
 			if(!TypeUtils.isVoidPointer(left)
 				&& !TypeUtils.isVoidPointer(right)
 				&& !TypeUtils.isCompatible(left, right))
-				warn(Warning.INCOMPATIBLE_POINTERS, "Comparison of different pointer types");
+				warn(Warnings.INCOMPATIBLE_POINTERS, "Comparison of different pointer types");
 			
 			return newBinary(
 				op,

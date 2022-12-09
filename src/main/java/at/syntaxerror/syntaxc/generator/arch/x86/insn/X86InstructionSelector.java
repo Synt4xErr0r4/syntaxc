@@ -25,7 +25,7 @@ package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 import java.util.HashMap;
 import java.util.Map;
 
-import at.syntaxerror.syntaxc.misc.Flag;
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.experimental.UtilityClass;
@@ -85,7 +85,7 @@ public class X86InstructionSelector {
 		case FLOAT:		index = INDEX_F32; break;
 		case DOUBLE:	index = INDEX_F64; break;
 		case LDOUBLE:
-			if(!Flag.LONG_DOUBLE.isEnabled())
+			if(!Flags.LONG_DOUBLE.isEnabled())
 				index = INDEX_F64;
 			else index = INDEX_F80;
 			break;

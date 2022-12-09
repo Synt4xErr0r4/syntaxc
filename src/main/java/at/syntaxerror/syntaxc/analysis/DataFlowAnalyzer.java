@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
@@ -68,8 +68,8 @@ public class DataFlowAnalyzer implements Logable {
 	}
 	
 	@Override
-	public Warning getDefaultWarning() {
-		return Warning.SEM_NONE;
+	public Warnings getDefaultWarning() {
+		return Warnings.SEM_NONE;
 	}
 	
 	/*
@@ -98,7 +98,7 @@ public class DataFlowAnalyzer implements Logable {
 		
 		if(stmt instanceof ExpressionStatementNode node) {
 			if(!scanInitialized(node.getExpression(), branches) && !node.getExpression().getType().isVoid())
-				warn(node, Warning.UNUSED_VALUE, "Result of expression is unused");
+				warn(node, Warnings.UNUSED_VALUE, "Result of expression is unused");
 		}
 		
 		else if(stmt instanceof LabeledStatementNode node) {
@@ -156,7 +156,7 @@ public class DataFlowAnalyzer implements Logable {
 			if(!object.isInitialized() && !object.isGlobalVariable() && !branches.has(name))
 				warn(
 					var,
-					Warning.UNINITIALIZED,
+					Warnings.UNINITIALIZED,
 					"»%s« might not have been initialized yet",
 					name
 				);

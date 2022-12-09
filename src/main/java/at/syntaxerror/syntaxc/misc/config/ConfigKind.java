@@ -20,41 +20,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.builtin.impl;
-
-import at.syntaxerror.syntaxc.builtin.BuiltinContext;
-import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
-import at.syntaxerror.syntaxc.misc.config.Warnings;
-import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.type.FunctionType;
+package at.syntaxerror.syntaxc.misc.config;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class BuiltinVaEnd extends BuiltinFunction {
-
-	public BuiltinVaEnd() {
-		super("va_end");
-	}
+public enum ConfigKind {
 	
-	@Override
-	public void populate(BuiltinContext context) {
-		if(!context.isInsideFunction())
-			context.error(Warnings.SEM_NONE, "Cannot call »__builtin_va_end« outside of a function");
-		
-		ExpressionArgument expr = context.nextExpression();
-		
-		context.ensureClosed();
-		
-		VariadicUtils.ensureVaListType(expr, expr.getType());
-		ExpressionNode.markUsed(expr.getExpression());
-		
-		FunctionType type = context.getEnclosingFunction();
-		
-		VariadicUtils.ensureVariadic(context, type, "__builtin_va_end");
-
-		args.add(expr);
-	}
+	OPTIMIZATION,
+	MACHINE,
+	WARNINGS,
+	FLAGS;
+	
+	
 	
 }

@@ -30,7 +30,7 @@ import java.util.List;
 
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.optimizer.ExpressionOptimizer;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
@@ -69,7 +69,7 @@ public class InitializerSerializer {
 			return serializeArray(type, initializer);
 		
 		if(type.isIncomplete())
-			Logger.error(initializer, Warning.SEM_NONE, "Cannot initialize incomplete type");
+			Logger.error(initializer, Warnings.SEM_NONE, "Cannot initialize incomplete type");
 		
 		if(type.isStructLike())
 			return serializeStruct(type, initializer);
@@ -78,7 +78,7 @@ public class InitializerSerializer {
 			type = type.toEnum().asNumberType();
 
 		while(initializer.isList()) {
-			Logger.warn(initializer, Warning.SCALAR_BRACES, "Braces around scalar initializer");
+			Logger.warn(initializer, Warnings.SCALAR_BRACES, "Braces around scalar initializer");
 			initializer = initializer.getList().get(0);
 		}
 		
@@ -91,7 +91,7 @@ public class InitializerSerializer {
 		if(type.isFloating())
 			return serializeFloating(type, initializer);
 		
-		Logger.error(initializer, Warning.SEM_NONE, "Illegal type for initializer");
+		Logger.error(initializer, Warnings.SEM_NONE, "Illegal type for initializer");
 		return null;
 	}
 
@@ -149,7 +149,7 @@ public class InitializerSerializer {
 		BigInteger bigint = ConstantExpressionEvaluator.evalInteger(initializer.getExpression());
 		
 		if(!numericType.inRange(bigint) || bigint.bitCount() > integerBitWidth)
-			Logger.warn(initializer, Warning.INITIALIZER_OVERFLOW, "Integer is too large for initialization");
+			Logger.warn(initializer, Warnings.INITIALIZER_OVERFLOW, "Integer is too large for initialization");
 		
 		return new IntegerInitializer(
 			numericType.mask(bigint),
@@ -283,7 +283,7 @@ public class InitializerSerializer {
 			assignments.addAll(toArrayAssignment(parser, target, targetOffset, type, initializer));
 		
 		else if(type.isIncomplete())
-			Logger.error(initializer, Warning.SEM_NONE, "Cannot initialize incomplete type");
+			Logger.error(initializer, Warnings.SEM_NONE, "Cannot initialize incomplete type");
 		
 		else if(type.isStructLike()) {
 			if(initializer.isSimple())
@@ -302,7 +302,7 @@ public class InitializerSerializer {
 		
 		else {
 			while(initializer.isList()) {
-				Logger.warn(initializer, Warning.SCALAR_BRACES, "Braces around scalar initializer");
+				Logger.warn(initializer, Warnings.SCALAR_BRACES, "Braces around scalar initializer");
 				initializer = initializer.getList().get(0);
 			}
 			
@@ -376,7 +376,7 @@ public class InitializerSerializer {
 		ExpressionNode expr = ExpressionOptimizer.optimize(initializer.getExpression());
 		
 		if(!(expr instanceof VariableExpressionNode var) || !var.getVariable().isString())
-			Logger.error(pos, Warning.SEM_NONE, "Expected string literal for initializer");
+			Logger.error(pos, Warnings.SEM_NONE, "Expected string literal for initializer");
 		
 		VariableExpressionNode var = ((VariableExpressionNode) expr);
 		
@@ -403,7 +403,7 @@ public class InitializerSerializer {
 			
 			if(len < strlen) {
 				if(len + 1 != strlen)
-					Logger.warn(initializer, Warning.STRING_INITIALIZER, "Initializer string for array is too long");
+					Logger.warn(initializer, Warnings.STRING_INITIALIZER, "Initializer string for array is too long");
 	
 				truncated = true;
 			}
@@ -427,7 +427,7 @@ public class InitializerSerializer {
 			if(initializer.getExpression().getType().isString())
 				return string.process(initializer, array, base, len);
 			
-			Logger.warn(initializer, Warning.MISSING_BRACES, "Missing braces around initializer");
+			Logger.warn(initializer, Warnings.MISSING_BRACES, "Missing braces around initializer");
 			
 			inits = List.of(initializer);
 		}
@@ -439,7 +439,7 @@ public class InitializerSerializer {
 			array.setLength(len = inits.size());
 		
 		else if(len < inits.size())
-			Logger.warn(initializer, Warning.INITIALIZER_OVERFLOW, "Too many initializers for array");
+			Logger.warn(initializer, Warnings.INITIALIZER_OVERFLOW, "Too many initializers for array");
 
 		int nEntries = Math.min(inits.size(), len);
 		int offset = base.sizeof();
@@ -484,7 +484,7 @@ public class InitializerSerializer {
 		List<Initializer> inits;
 		
 		if(initializer.isSimple()) {
-			Logger.warn(initializer, Warning.MISSING_BRACES, "Missing braces around initializer");
+			Logger.warn(initializer, Warnings.MISSING_BRACES, "Missing braces around initializer");
 			
 			inits = List.of(initializer);
 		}
@@ -496,7 +496,7 @@ public class InitializerSerializer {
 		if(initlen > memlen)
 			Logger.warn(
 				initializer,
-				Warning.INITIALIZER_OVERFLOW,
+				Warnings.INITIALIZER_OVERFLOW,
 				"Too many initializers for %s",
 				struct.isUnion()
 					? "union"

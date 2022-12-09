@@ -24,7 +24,7 @@ package at.syntaxerror.syntaxc.builtin.impl;
 
 import at.syntaxerror.syntaxc.builtin.BuiltinContext;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.type.FunctionType;
 
@@ -41,7 +41,7 @@ public class BuiltinVaArg extends BuiltinFunction {
 	@Override
 	public void populate(BuiltinContext context) {
 		if(!context.isInsideFunction())
-			context.error(Warning.SEM_NONE, "Cannot call »__builtin_va_arg« outside of a function");
+			context.error(Warnings.SEM_NONE, "Cannot call »__builtin_va_arg« outside of a function");
 		
 		ExpressionArgument expr = context.nextExpression();
 		TypeArgument type = context.nextType();

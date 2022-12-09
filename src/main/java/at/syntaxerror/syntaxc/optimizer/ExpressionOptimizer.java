@@ -25,7 +25,7 @@ package at.syntaxerror.syntaxc.optimizer;
 import java.math.BigInteger;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
-import at.syntaxerror.syntaxc.misc.Optimization;
+import at.syntaxerror.syntaxc.misc.config.Optimizations;
 import at.syntaxerror.syntaxc.parser.ConstantExpressionEvaluator;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
@@ -76,7 +76,7 @@ public class ExpressionOptimizer {
 
 		if(expr instanceof VariableExpressionNode var) {
 			
-			if(Optimization.CONST_FOLDING.isEnabled() && var.hasConstQualifier()) {
+			if(Optimizations.CONST_FOLDING.isEnabled() && var.hasConstQualifier()) {
 				SymbolObject obj = var.getVariable();
 				
 				if(obj.isGlobalVariable() && obj.getType().isArithmetic()) {

@@ -27,7 +27,7 @@ import java.util.Set;
 
 import at.syntaxerror.syntaxc.io.CharStream;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Warning;
+import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.RequiredArgsConstructor;
@@ -59,8 +59,8 @@ public abstract class CommonLexer implements Logable {
 	protected int previous;
 	
 	@Override
-	public Warning getDefaultWarning() {
-		return Warning.LEX_NONE;
+	public Warnings getDefaultWarning() {
+		return Warnings.LEX_NONE;
 	}
 	
 	@Override
@@ -131,12 +131,12 @@ public abstract class CommonLexer implements Logable {
 			
 			if(!type.inUnsignedRange(value)) {
 				value = (int) type.maskUnsigned(value);
-				warn(Warning.CHAR_OCT_OVERFLOW, "Octal escape sequence is too big for its type in %s", where);
+				warn(Warnings.CHAR_OCT_OVERFLOW, "Octal escape sequence is too big for its type in %s", where);
 			}
 
 			if(value < 0 || value > 0x10FFFF) { // in case 'type' is greater than 4 bytes
 				value = Math.min(0x10FFFF, value & 0x1FFFFF);
-				warn(Warning.CODEPOINT, "Codepoint out of range");
+				warn(Warnings.CODEPOINT, "Codepoint out of range");
 			}
 
 			source.unmark();
@@ -161,13 +161,13 @@ public abstract class CommonLexer implements Logable {
 			
 			if(!type.inUnsignedRange(value)) {
 				charValue = (int) type.maskUnsigned(value.longValue());
-				warn(Warning.CHAR_OCT_OVERFLOW, "Hexadecimal escape sequence is too big for its type in %s", where);
+				warn(Warnings.CHAR_OCT_OVERFLOW, "Hexadecimal escape sequence is too big for its type in %s", where);
 			}
 			else charValue = value.intValue();
 			
 			if(charValue < 0 || charValue > 0x10FFFF) { // in case 'type' is greater than 4 bytes
 				charValue = Math.min(0x10FFFF, charValue & 0x1FFFFF);
-				warn(Warning.CODEPOINT, "Codepoint out of range");
+				warn(Warnings.CODEPOINT, "Codepoint out of range");
 			}
 
 			source.unmark();
@@ -255,12 +255,12 @@ public abstract class CommonLexer implements Logable {
 			error("Empty character literal");
 		
 		if(!NumericValueType.SIGNED_INT.inRange(value)) {
-			warn(Warning.CHAR_OVERFLOW, "Character literal is too big for its type");
+			warn(Warnings.CHAR_OVERFLOW, "Character literal is too big for its type");
 			value = NumericValueType.SIGNED_INT.mask(value);
 		}
 		
 		else if(count > 1)
-			warn(Warning.MULTICHAR, "Multiple characters in character literal");
+			warn(Warnings.MULTICHAR, "Multiple characters in character literal");
 		
 		return Token.ofCharacter(getPosition(), value, wide)
 			.setRaw(raw.toString());
