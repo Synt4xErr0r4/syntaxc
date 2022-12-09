@@ -22,12 +22,10 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of labels
@@ -35,23 +33,16 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public class LabelIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final String label;
+	private String label;
 
 	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.label(label);
-	}
-	
-	@Override
-	public List<Operand> getOperands() {
-		return List.of();
-	}
+	public void withResult(Operand operand) { }
 	
 	@Override
 	public String toStringInternal() {

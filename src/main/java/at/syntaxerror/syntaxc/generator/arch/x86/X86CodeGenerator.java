@@ -23,6 +23,10 @@
 package at.syntaxerror.syntaxc.generator.arch.x86;
 
 import at.syntaxerror.syntaxc.generator.CodeGenerator;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86Assembly;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
+import at.syntaxerror.syntaxc.generator.arch.x86.register.X86RegisterProvider;
 import lombok.Getter;
 
 /**
@@ -31,12 +35,24 @@ import lombok.Getter;
  */
 @Getter
 public class X86CodeGenerator extends CodeGenerator {
-	
-	private X86AssemblyGenerator assembler;
+
 	private X86RegisterProvider registerProvider;
+	private X86AssemblyGenerator assemblyGenerator;
+	
+	private X86FloatTable floatTable;
+	private X86Assembly x86;
 	
 	public X86CodeGenerator(String inputFileName) {
-		assembler = new X86AssemblyGenerator(this, inputFileName);
+		floatTable = new X86FloatTable();
+		
+		x86 = new X86Assembly(
+			ArchitectureRegistry.getArchitecture()
+				.getSyntax()
+				.equals("intel"),
+			ArchitectureRegistry.getBitSize()
+		);
+		
+		assemblyGenerator = new X86AssemblyGenerator(floatTable, x86);
 		registerProvider = new X86RegisterProvider();
 	}
 	

@@ -47,12 +47,16 @@ public class ArrayIndexExpressionNode extends ExpressionNode {
 	private final ExpressionNode target;
 	private final ExpressionNode index;
 	private final boolean swapped;
+	private final boolean array;
+	private final Type rawType;
 	
 	@Override
 	public Type getType() {
-		return target.getType().dereference();
+		return rawType.isArray()
+			? rawType.dereference().addressOf() // convert array into pointer
+			: rawType;
 	}
-
+	
 	@Override
 	public boolean isLvalue() {
 		return true;

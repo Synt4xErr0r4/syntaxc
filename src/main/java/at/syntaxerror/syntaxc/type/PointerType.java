@@ -38,7 +38,7 @@ public class PointerType extends PointerLikeType {
 	
 	@Override
 	protected Type clone() {
-		return new PointerType(getBase());
+		return inheritProperties(new PointerType(getBase()));
 	}
 
 	@Override

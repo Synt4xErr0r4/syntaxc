@@ -44,6 +44,9 @@ public class ArrayDeclaratorPostfix implements DeclaratorPostfix {
 	public Type applyTo(Positioned pos, Type type) {
 		if(type.isFunction())
 			error(pos, "Cannot create array of functions");
+
+		if(type.isVoid())
+			error(pos, "Cannot create void array");
 		
 		return type.arrayOf(length);
 	}

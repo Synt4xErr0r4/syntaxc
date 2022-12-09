@@ -40,7 +40,6 @@ import java.util.function.Function;
 
 import at.syntaxerror.syntaxc.analysis.ControlFlowAnalyzer.CFGNode;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
-import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.FreeIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
 import at.syntaxerror.syntaxc.logger.Logger;
@@ -169,25 +168,18 @@ public class ControlFlowGraphGenerator {
 		
 		addLabel(node.name);
 		
-		String labelTrue = node.nextThen == null
+		String labelFalse = node.nextElse == null
 			? null
-			: node.nextThen.name;
+			: node.nextElse.name;
 		
 		for(Intermediate intermediate : node.code) {
-
-			if(!Flag.CFG_VERBOSE.isEnabled()) {
-				
-				if(intermediate instanceof FreeIntermediate)
-					continue;
-				
-			}
 
 			if(intermediate instanceof LabelIntermediate)
 				continue;
 
 			if(intermediate instanceof JumpIntermediate jump)
 				code.add(rec(
-					jump.toString(labelTrue)
+					jump.toString(labelFalse)
 						.replace("\n", EOL)
 						+ EOL
 				));

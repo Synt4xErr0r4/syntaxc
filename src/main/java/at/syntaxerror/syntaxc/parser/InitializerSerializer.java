@@ -29,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.optimizer.ExpressionOptimizer;
@@ -279,14 +278,27 @@ public class InitializerSerializer {
 		
 		List<ExpressionNode> assignments = new ArrayList<>();
 		
+		
 		if(type.isArray())
 			assignments.addAll(toArrayAssignment(parser, target, targetOffset, type, initializer));
 		
 		else if(type.isIncomplete())
 			Logger.error(initializer, Warning.SEM_NONE, "Cannot initialize incomplete type");
 		
-		else if(type.isStructLike())
-			assignments.addAll(toStructAssignment(parser, target, targetOffset, type, initializer));
+		else if(type.isStructLike()) {
+			if(initializer.isSimple())
+				assignments.add(
+					parser.getChecker()
+						.checkAssignment(
+							pos,
+							target,
+							initializer.getExpression(),
+							false
+						)
+				);
+			
+			else assignments.addAll(toStructAssignment(parser, target, targetOffset, type, initializer));
+		}
 		
 		else {
 			while(initializer.isList()) {
@@ -305,7 +317,9 @@ public class InitializerSerializer {
 						BigInteger.valueOf(targetOffset / target.getType().dereference().sizeof()),
 						Type.ULONG
 					),
-					false
+					false,
+					false,
+					null
 				);
 				
 			else if(target.getType().isStructLike())
@@ -324,7 +338,9 @@ public class InitializerSerializer {
 						BigInteger.valueOf(targetOffset),
 						Type.ULONG
 					),
-					false
+					false,
+					false,
+					null
 				);
 			
 			else dest = target;
@@ -517,31 +533,7 @@ public class InitializerSerializer {
 			else if(type.isBitfield()) {
 				var bitValue = ((IntegerInitializer) serialize(type, init, member.getBitWidth())).value();
 
-				if(Flag.PACKED.isEnabled()) {
-					if(bitOffset == -1)
-						bitOffset = offset;
-
-					bits = bits
-						.or( // merge values
-							bitValue
-								.and( // create bitmask and apply to value
-									BigInteger.ONE
-										.shiftLeft(member.getBitWidth())
-										.subtract(BigInteger.ONE)
-								)
-								.shiftLeft( // shift the value to its desired place
-									member.getBitOffset()
-									 + 8 * (offset - bitOffset)
-								)
-						);
-					
-					bitWidth += member.getBitWidth();
-					
-					// compact bitfields by skipping/postponing accumulation
-					if(i != initlen - 1 && members.get(i + 1).isBitfield())
-						continue;
-				}
-				else accumulator.accumulate(
+				accumulator.accumulate(
 					result,
 					integer.process(
 						pos,

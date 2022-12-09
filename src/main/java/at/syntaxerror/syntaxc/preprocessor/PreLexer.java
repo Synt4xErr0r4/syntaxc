@@ -99,10 +99,5 @@ public class PreLexer extends CommonLexer {
 		
 		return Token.ofUnparseable(getPosition(), c);
 	}
-	
-	// checks if the given codepoint is a decimal digit
-	private static boolean isDigit(int c) {
-		return c >= '0' && c <= '9';
-	}
 
 }

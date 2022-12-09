@@ -22,13 +22,10 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.Arrays;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of memory copies
@@ -36,33 +33,20 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public class MemcpyIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final Operand source;
-	private final Operand destination;
-	private final int sourceOffset;
-	private final int destinationOffset;
-	private final int length;
+	private Operand source;
+	private Operand destination;
+	private int sourceOffset;
+	private int destinationOffset;
+	private int length;
 
 	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.memcpy(
-			assemblyGenerator.target(destination),
-			assemblyGenerator.target(source),
-			destinationOffset,
-			sourceOffset,
-			length
-		);
-	}
-	
-	@Override
-	public List<Operand> getOperands() {
-		return Arrays.asList(source, destination);
-	}
+	public void withResult(Operand operand) { }
 	
 	@Override
 	public String toStringInternal() {

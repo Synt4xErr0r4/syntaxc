@@ -22,12 +22,28 @@
  */
 package at.syntaxerror.syntaxc.generator.asm;
 
+import java.util.List;
+
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 /**
  * @author Thomas Kasper
  * 
  */
-public interface AssemblyInstruction {
+@AllArgsConstructor
+@Getter
+public class AssemblyInstruction {
 	
-	String toAssembly();
+	private final AssemblyInstructionKind kind;
+	
+	private AssemblyTarget destination;
+	private List<AssemblyTarget> sources;
+	
+	@Override
+	public String toString() {
+		return "%s: %s <- %s".formatted(kind, destination, sources);
+	}
 	
 }

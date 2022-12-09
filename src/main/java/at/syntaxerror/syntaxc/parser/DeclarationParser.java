@@ -24,6 +24,7 @@ package at.syntaxerror.syntaxc.parser;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
@@ -214,11 +215,11 @@ public class DeclarationParser extends AbstractParser {
 			break;
 			
 		case CHAR:
-			type = NumericValueType.CHAR.asType();
+			type = Type.CHAR;
 			break;
 			
 		case SIGNED | CHAR:
-			type = Type.CHAR;
+			type = Type.SCHAR;
 			break;
 			
 		case UNSIGNED | CHAR:
@@ -227,9 +228,12 @@ public class DeclarationParser extends AbstractParser {
 			
 		case SHORT:
 		case SHORT | INT:
+			type = Type.SHORT;
+			break;
+			
 		case SIGNED | SHORT:
 		case SIGNED | SHORT | INT:
-			type = Type.SHORT;
+			type = Type.SSHORT;
 			break;
 			
 		case UNSIGNED | SHORT:
@@ -238,11 +242,14 @@ public class DeclarationParser extends AbstractParser {
 			break;
 			
 		case 0:
+		case INT:
+			type = Type.INT;
+			break;
+			
 		case SIGNED:
 			warn(pos, Warning.IMPLICIT_INT, "Type is implicitly »signed int«");
-		case INT:
 		case SIGNED | INT:
-			type = Type.INT;
+			type = Type.SINT;
 			break;
 
 		case UNSIGNED:
@@ -607,7 +614,7 @@ public class DeclarationParser extends AbstractParser {
 	}
 	
 	private List<DeclaratorPostfix> nextDeclaratorPostfixes(Positioned pos, boolean allowKAndR) {
-		List<DeclaratorPostfix> postfixes = new ArrayList<>();
+		LinkedList<DeclaratorPostfix> postfixes = new LinkedList<>();
 		
 		while(true) {
 			if(equal("[")) {
@@ -640,7 +647,7 @@ public class DeclarationParser extends AbstractParser {
 				
 				next();
 				
-				postfixes.add(new ArrayDeclaratorPostfix(length));
+				postfixes.addFirst(new ArrayDeclaratorPostfix(length));
 				continue;
 			}
 			
@@ -745,7 +752,7 @@ public class DeclarationParser extends AbstractParser {
 					
 				}
 
-				postfixes.add(new FunctionDeclaratorPostfix(parameters, variadic, kAndR));
+				postfixes.addFirst(new FunctionDeclaratorPostfix(parameters, variadic, kAndR));
 				continue;
 			}
 

@@ -22,15 +22,12 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.List;
-
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction.BuiltinArgument;
-import at.syntaxerror.syntaxc.builtin.BuiltinFunction.ExpressionArgument;
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of builtin functions (e.g. va_start)
@@ -38,32 +35,24 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public class BuiltinIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final BuiltinFunction function;
+	private Operand result;
+	private BuiltinFunction function;
 
 	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		// TODO
-	}
-	
-	@Override
-	public List<Operand> getOperands() {
-		return function.getArgs()
-			.stream()
-			.filter(ExpressionArgument.class::isInstance)
-			.map(ExpressionArgument.class::cast)
-			.map(ExpressionArgument::getOperand)
-			.toList();
+	public void withResult(Operand operand) {
+		result = operand;
 	}
 	
 	@Override
 	public String toStringInternal() {
-		return "/*builtin*/ __builtin_%s(%s)".formatted(
+		return "%s = /*builtin*/ __builtin_%s(%s)".formatted(
+			result,
 			function.getName(),
 			String.join(
 				", ",

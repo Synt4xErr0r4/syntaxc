@@ -22,6 +22,8 @@
  */
 package at.syntaxerror.syntaxc.generator.asm.target;
 
+import java.util.List;
+
 import at.syntaxerror.syntaxc.type.Type;
 
 /**
@@ -31,5 +33,17 @@ import at.syntaxerror.syntaxc.type.Type;
 public interface AssemblyTarget {
 
 	Type getType();
+	
+	default List<AssemblyTarget> getNestedTargets() {
+		return List.of();
+	}
+	
+	default boolean isRegister() {
+		return false;
+	}
+
+	default boolean isMemory() {
+		return false;
+	}
 	
 }

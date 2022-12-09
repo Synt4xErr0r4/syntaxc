@@ -27,7 +27,7 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
-import at.syntaxerror.syntaxc.generator.asm.target.AssemblyLabel;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
 import at.syntaxerror.syntaxc.type.Type;
 
@@ -40,10 +40,10 @@ public class X86FloatTable {
 	private final Map<BigInteger, Integer> floats = new HashMap<>();
 	private int previousId = 0;
 	
-	public AssemblyLabel get(BigDecimal dec, Type type) {
+	public X86LabelTarget get(Type type, BigDecimal value) {
 		
 		BigInteger bytes = IEEE754Utils.decimalToFloat(
-			dec,
+			value,
 			type.toNumber()
 				.getNumericType()
 				.getFloatingSpec()
@@ -51,19 +51,7 @@ public class X86FloatTable {
 		
 		int id = floats.computeIfAbsent(bytes, x -> ++previousId);
 		
-		return new AssemblyLabel() {
-			
-			@Override
-			public Type getType() {
-				return type;
-			}
-			
-			@Override
-			public String getName() {
-				return ".F" + id;
-			}
-			
-		};
+		return new X86LabelTarget(type, ".F" + id);
 	}
 	
 }

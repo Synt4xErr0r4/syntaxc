@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.type;
 
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import lombok.Getter;
 
 /**
@@ -50,6 +51,8 @@ public class NumberType extends Type {
 		case LDOUBLE ->			LDOUBLE;
 		};
 	}
+
+	protected boolean explicitSign;
 	
 	private NumericValueType numericType;
 
@@ -73,23 +76,33 @@ public class NumberType extends Type {
 			numericType = numericType.getAsUnsigned();
 		
 		size = numericType.getSize();
+		explicitSign = true;
 	}
 	
 	protected NumberType(TypeKind kind) {
 		this(kind, false);
+		explicitSign = false;
 	}
 	
-	public boolean isUnsigned() {
-		return !numericType.isSigned();
-	}
-	
+	@Override
 	public boolean isSigned() {
+		if(!explicitSign) {
+			if(isBitfield())
+				return !ArchitectureRegistry.isUnsignedBitfields();
+			
+			return numericType != NumericValueType.SIGNED_CHAR
+				|| NumericValueType.CHAR.isSigned();
+		}
+		
 		return numericType.isSigned();
 	}
 	
 	@Override
 	protected Type clone() {
-		return new NumberType(getKind(), isUnsigned());
+		NumberType clone = new NumberType(getKind(), isUnsigned());
+		clone.explicitSign = explicitSign;
+		
+		return inheritProperties(clone);
 	}
 	
 	@Override

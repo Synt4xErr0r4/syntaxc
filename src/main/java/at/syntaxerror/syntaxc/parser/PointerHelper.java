@@ -118,7 +118,11 @@ public class PointerHelper implements Logable {
 				expr,
 				idx.getTarget(),
 				idx.getIndex(),
-				Punctuator.ADD
+				Punctuator.ADD,
+				(idx.isSwapped()
+					? idx.getIndex()
+					: idx.getTarget())
+					.getType()
 			);
 		
 		return newUnary(

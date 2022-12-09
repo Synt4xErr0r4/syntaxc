@@ -77,7 +77,7 @@ public class ArrayType extends PointerLikeType {
 	
 	@Override
 	protected Type clone() {
-		return new ArrayType(getBase(), length);
+		return inheritProperties(new ArrayType(getBase(), length));
 	}
 	
 	@Override

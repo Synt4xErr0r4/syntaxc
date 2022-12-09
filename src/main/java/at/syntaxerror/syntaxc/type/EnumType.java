@@ -195,7 +195,7 @@ public class EnumType extends Type {
 		cloned.enumerators = enumerators;
 		cloned.incomplete = incomplete;
 		
-		return cloned;
+		return inheritProperties(cloned);
 	}
 	
 	@Override

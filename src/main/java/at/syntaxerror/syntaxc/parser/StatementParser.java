@@ -377,6 +377,14 @@ public class StatementParser extends AbstractParser {
 		return Pair.of(expr, nextStatement());
 	}
 	
+	private ExpressionNode negate(ExpressionNode condition) {
+		return ExpressionParser.newUnary(
+			condition,
+			condition,
+			Punctuator.LOGICAL_NOT
+		);
+	}
+	
 	/*
 	 * The statement
 	 * 
@@ -443,6 +451,8 @@ public class StatementParser extends AbstractParser {
 			return stmtThen;
 		}
 
+		condition = negate(condition);
+		
 		List<StatementNode> statements = new ArrayList<>();
 		
 		String labelEnd = nextLabel();
@@ -625,19 +635,14 @@ public class StatementParser extends AbstractParser {
 
 		statements.add(body);
 		
-		Position unreachablePos = null;
-		
 		if(!body.getStatements().isEmpty()) {
 			
 			StatementNode first = body.getStatements().get(0);
 			
 			if(!(first instanceof LabeledStatementNode))
-				unreachablePos = first.getPosition();
+				warn(first.getPosition(), Warning.DEAD_CODE, "Code before first switch label is unreachable");
 			
 		}
-		
-		if(unreachablePos != null)
-			warn(unreachablePos, Warning.DEAD_CODE, "Code before first switch label is unreachable");
 		
 		statements.add( // brk: ;
 			newLabel(
@@ -718,7 +723,7 @@ public class StatementParser extends AbstractParser {
 				getLabelContinue(),
 				newJump( // if(!condition) goto brk;
 					pos,
-					condition,
+					negate(condition),
 					getLabelBreak()
 				)
 			));
@@ -1067,7 +1072,8 @@ public class StatementParser extends AbstractParser {
 							: Linkage.INTERNAL,
 						false,
 						external,
-						internal
+						internal,
+						true
 					)
 				);
 				
@@ -1079,7 +1085,9 @@ public class StatementParser extends AbstractParser {
 				else if(!external)
 					declarations.add(obj);
 				
-				if(init != null && !internal)
+				if(init != null && !internal) {
+					obj.setInitialized(true);
+					
 					statements.addAll(
 						InitializerSerializer.toAssignment(
 							expressionParser,
@@ -1088,6 +1096,7 @@ public class StatementParser extends AbstractParser {
 							init
 						)
 					);
+				}
 				
 				consume(",", ";");
 				
@@ -1185,14 +1194,14 @@ public class StatementParser extends AbstractParser {
 		
 		int offset = 0;
 		
-		for(int i = length - 1; i >= 0; --i) {
+		for(int i = 0; i < length; ++i) {
 			SymbolObject decl = declarations.get(i);
 			
 			if(decl.isFunction())
 				continue;
-
-			offset += decl.getType().sizeof();
 			
+			offset += decl.getType().sizeof();
+
 			decl.setOffset(offset);
 		}
 		

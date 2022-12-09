@@ -60,6 +60,9 @@ public class ArchitectureRegistry {
 
 	@Getter @Setter
 	private static int alignment = -1;
+
+	@Getter @Setter
+	private static boolean unsignedBitfields = false;
 	
 	static {
 		register(new X86Architecture());

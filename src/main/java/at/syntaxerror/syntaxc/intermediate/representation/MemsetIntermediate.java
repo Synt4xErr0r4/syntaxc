@@ -22,13 +22,10 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.Arrays;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of memory writes
@@ -36,31 +33,19 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public class MemsetIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final Operand target;
-	private final int offset;
-	private final int length;
-	private final int value;
-
-	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.memset(
-			assemblyGenerator.target(target),
-			offset,
-			length,
-			value
-		);
-	}
+	private Operand target;
+	private int offset;
+	private int length;
+	private int value;
 	
 	@Override
-	public List<Operand> getOperands() {
-		return Arrays.asList(target);
-	}
+	public void withResult(Operand operand) { }
 	
 	@Override
 	public String toStringInternal() {

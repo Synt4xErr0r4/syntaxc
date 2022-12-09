@@ -106,6 +106,7 @@ public enum Warning implements NamedToggle {
 	UNINITIALIZED			("uninitialized",			"Warns when a variable might not have been initialized yet"),
 	VARARGS					("varargs",					"Warns when »§c__builtin_va_start§f« is not used with the last function parameter"),
 	EMPTY_DECLARATION		("empty-declaration",		"Warns when a struct member declares an unnamed »§cenum§f«"),
+	DIVISION_BY_ZERO		("div-by-zero",				"Warns when trying to divide floating point numbers by zero"),
 	
 	/**
 	 * ===== OPTIMIZATION =====

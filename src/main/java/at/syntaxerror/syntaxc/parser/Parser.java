@@ -150,7 +150,7 @@ public class Parser extends AbstractParser {
 
 	public ExpressionNode nextAssignmentExpression() {
 		try {
-			return expressionParser.nextAssignment();
+			return ExpressionOptimizer.optimize(expressionParser.nextAssignment());
 		} finally {
 			next();
 		}
@@ -383,7 +383,7 @@ public class Parser extends AbstractParser {
 				type,
 				decl.getName(),
 				init,
-				new DeclarationState(linkage, typedef, external, internal)
+				new DeclarationState(linkage, typedef, external, internal, false)
 			);
 			
 			if(obj != null)

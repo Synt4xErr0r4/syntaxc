@@ -22,11 +22,9 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
 
@@ -42,10 +40,10 @@ import lombok.Getter;
 @Getter
 public class JumpIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final Optional<Operand> condition;
-	private final String label;
+	private Optional<Operand> condition;
+	private String label;
 	
 	public JumpIntermediate(Position position, String label) {
 		this(position, Optional.empty(), label);
@@ -66,33 +64,19 @@ public class JumpIntermediate extends Intermediate {
 	}
 
 	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		if(isConditional())
-			assemblyGenerator.jump(
-				assemblyGenerator.target(condition.get()),
-				label
-			);
-		
-		else assemblyGenerator.jump(label);
-	}
-	
-	@Override
-	public List<Operand> getOperands() {
-		return condition.map(Arrays::asList)
-			.orElseGet(List::of);
-	}
+	public void withResult(Operand operand) { }
 	
 	@Override
 	public String toStringInternal() {
 		return toString("<undefined>");
 	}
 	
-	public String toString(String labelTrue) {
-		if(condition.isPresent())
+	public String toString(String labelFalse) {
+		if(isConditional())
 			return "if(%s)\n     goto %s;\nelse\n     goto %s;".formatted(
 				condition.get(),
-				labelTrue,
-				label
+				label,
+				labelFalse
 			);
 		
 		return "goto %s;".formatted(label);

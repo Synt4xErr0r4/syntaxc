@@ -443,7 +443,7 @@ public abstract class CommonLexer implements Logable {
 				return nextIdentifier();
 			
 			// punctuators
-			if(PUNCTUATOR_START.contains(c))
+			if(PUNCTUATOR_START.contains(c) && !(c == '.' && isDigit(peek())))
 				return nextPunctuator();
 			
 			// additional tokens provided by child class
@@ -470,6 +470,11 @@ public abstract class CommonLexer implements Logable {
 	protected static boolean isIdentifierPart(int c) {
 		return isIdentifierStart(c)
 			|| (c >= '0' && c <= '9');
+	}
+	
+	// checks if the given codepoint is a decimal digit
+	protected static boolean isDigit(int c) {
+		return c >= '0' && c <= '9';
 	}
 
 	// checks if the given codepoint is an octal digit

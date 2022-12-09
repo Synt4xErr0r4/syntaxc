@@ -65,6 +65,7 @@ public abstract class Architecture {
 	}
 	
 	public abstract CodeGenerator getCodeGenerator(String inputFileName);
+	public abstract Alignment getAlignment();
 	
 	public List<String> getSyntaxes() {
 		return List.of();
@@ -340,6 +341,11 @@ public abstract class Architecture {
 			
 			@Override
 			public CodeGenerator getCodeGenerator(String inputFileName) {
+				return null;
+			}
+			
+			@Override
+			public Alignment getAlignment() {
 				return null;
 			}
 			

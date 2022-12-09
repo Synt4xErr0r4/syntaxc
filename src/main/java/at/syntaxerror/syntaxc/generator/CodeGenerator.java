@@ -22,38 +22,15 @@
  */
 package at.syntaxerror.syntaxc.generator;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
-import at.syntaxerror.syntaxc.generator.alloc.RegisterProvider;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
-import at.syntaxerror.syntaxc.generator.asm.FunctionMetadata;
-import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
-import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.StringUtils;
-import at.syntaxerror.syntaxc.misc.Warning;
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
-import at.syntaxerror.syntaxc.symtab.global.AddressInitializer;
-import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
-import at.syntaxerror.syntaxc.symtab.global.IntegerInitializer;
-import at.syntaxerror.syntaxc.symtab.global.ListInitializer;
-import at.syntaxerror.syntaxc.symtab.global.StringInitializer;
-import at.syntaxerror.syntaxc.symtab.global.ZeroInitializer;
-import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.type.NumericValueType;
-import lombok.Getter;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@SuppressWarnings("preview")
-public abstract class CodeGenerator implements Logable {
+public abstract class CodeGenerator {
 
+	/*
 	@Getter
 	private final List<AssemblyInstruction> instructions = new ArrayList<>();
 
@@ -110,15 +87,11 @@ public abstract class CodeGenerator implements Logable {
 		AssemblyGenerator asm = getAssembler();
 		
 		asm.enter(
-			new RegisterAllocator(
-				getRegisterProvider(),
-				intermediates,
-				metadata.stackOffset()
-			),
+			null,
 			metadata
 		);
 		
-		intermediates.forEach(ir -> ir.generate(asm));
+		//intermediates.forEach(ir -> ir.generate(asm));
 		
 		asm.leave(metadata);
 	}
@@ -188,7 +161,8 @@ public abstract class CodeGenerator implements Logable {
 		}
 	}
 	
-	public abstract AssemblyGenerator getAssembler();
-	public abstract RegisterProvider getRegisterProvider();
+	public abstract RegisterProvider getRegisterProvider();*/
+
+	public abstract AssemblyGenerator getAssemblyGenerator();
 	
 }

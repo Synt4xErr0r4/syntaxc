@@ -26,10 +26,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import at.syntaxerror.syntaxc.generator.arch.Alignment;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.AlignmentUtils;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
 import lombok.AccessLevel;
@@ -64,7 +63,6 @@ public class StructType extends Type {
 	private final boolean anonymous;
 	
 	private boolean incomplete = true;
-	private boolean packed; // currently not implemented
 	private boolean inherited;
 	
 	private List<Member> members = new ArrayList<>();
@@ -92,10 +90,6 @@ public class StructType extends Type {
 		inherited = false;
 	}
 	
-	public void setPacked() {
-		packed = true;
-	}
-	
 	public List<Member> getMembers() {
 		return Collections.unmodifiableList(members);
 	}
@@ -111,106 +105,87 @@ public class StructType extends Type {
 		if(bitfield && bitWidth == 0 && name != null)
 			Logger.softError(pos, "Bitfield with width 0 must not have a name");
 		
-		/*
-		 * Calculation of the offset and alignment:
-		 * 
-		 * - the offset for union members is always 0
-		 * 
-		 * - '-fpacked' disables alignment for struct members
-		 *   - multiple bitfields can reside within the same byte
-		 * 
-		 * - '-falign' does NOT affect members, but the overall size of the structure/union 
-		 *   - zero bytes/bits are 'appended' to the struct to achive the alignment
-		 *   - the default alignment is equal to 'sizeof(unsigned long int)'
-		 */
-		
-		final boolean packed = Flag.PACKED.isEnabled() || isPacked();
+		if(name != null)
+			members.stream()
+				.map(Member::getName)
+				.filter(memName -> memName != null && memName.equals(name))
+				.findFirst()
+				.ifPresent(x -> Logger.softError(pos, "Duplicate member named »%s«", name));
 		
 		int padding = 0;
 		int offset = 0;
 		int bitOffset = 0;
-		int size;
 		int align;
-		
-		if(bitfield)
-			size = Math.ceilDiv(bitWidth, 8);
-		
-		else size = type.sizeof();
-		
-		align = packed ? 0 : AlignmentUtils.align(size);
 		
 		if(!isUnion() && previous != null) {
 
-			boolean prevBit = previous.isBitfield();
-			
-			if(prevBit) {
+			if(previous.isBitfield()) {
 				bitOffset = previous.bitOffset + previous.bitWidth;
 				offset = previous.offset + (bitOffset >> 3);
 				bitOffset &= 7;
 				
-				if(bitfield) {
-					size = Math.ceilDiv(bitOffset + bitWidth, 8);
-					
-					if(!packed)
-						align = AlignmentUtils.align(size);
-				}
-				else {
-					offset += Math.ceilDiv(bitOffset, 8); // account for partial bytes
-					bitOffset = 0;
-				}
+				if(!bitfield && bitOffset != 0)
+					++offset; // account for partial bytes
 			}
 			else offset = previous.offset + previous.sizeof();
 			
-			if(packed && bitfield && prevBit) {
-				
-				if(previous.bitWidth == 0) {
-					bitOffset = 0;
-					offset = previous.offset + 1;
-				}
-				
-			}
-			
-			else if(!packed) {
-
-				int pad = offset % align;
-				
-				if(pad != 0)
-					padding = align - pad;
-				
-				offset += padding;
-				
-			}
-			
 		}
+		
+		if(bitfield)
+			type = type.asBitfield(); // mark type as bitfield
+		
+		var alignment = ArchitectureRegistry.getArchitecture()
+			.getAlignment()
+			.getMemberAlignment(
+				this,
+				type,
+				offset,
+				bitOffset,
+				bitWidth
+			);
+		
+		System.out.print(name + " => " + offset + "~" + alignment.offset() + ":" + type.sizeof() + " [" 
+			+ ArchitectureRegistry.getArchitecture()
+				.getAlignment()
+				.getAlignment(type)
+			+ "] / " + bitOffset + "~" + alignment.bitOffset() + ":" + bitWidth);
+		
+		offset = alignment.offset();
+		bitOffset = alignment.bitOffset();
 		
 		members.add(previous = new Member(
 			padding,
 			offset,
 			pos.getPosition(),
 			name,
-			bitfield
-				? type.asBitfield() // mark type as bitfield
-				: type,
+			type,
 			bitOffset,
 			bitWidth
 		));
 		
-		this.size = offset + size;
-		
-		/**
-		 * align struct to byte/word/... boundary (unless -fpacked is present)
-		 */
-		if(!packed) {
-			align = ArchitectureRegistry.getAlignment();
+		int sz = size;
+
+		if(bitfield) {
+			if(bitOffset != 0)
+				bitWidth -= bitOffset;
 			
-			if(align < 0)
-				align = Type.ULONG.sizeof();
-			
-			int pad = this.size % align;
-			
-			if(pad != 0)
-				this.size += align - pad;
+			if(bitWidth > 0)
+				size = offset + Math.ceilDiv(bitWidth, 8);
 		}
+			
+		else size = offset + type.sizeof();
+		
+		/* align struct to byte/word/... boundary */
+		
+		int sz0 = size;
+		
+		align = ArchitectureRegistry.getArchitecture()
+			.getAlignment()
+			.getAlignment(this);
+		
+		size = Alignment.alignAt(size, align);
+		
+		System.out.println(" // " + toStringPrefix() + " => " + sz + "~" + sz0 + "~" + size + " [" + align + "]");
 	}
 	
 	public void addAnonymousMember(Positioned pos, Type type, boolean bitfield, int bitWidth) {
@@ -301,13 +276,11 @@ public class StructType extends Type {
 		StructType structType = new StructType(getKind(), name);
 		
 		structType.incomplete = incomplete;
-		structType.packed = packed;
 		structType.inherited = inherited;
 		structType.members = members;
 		structType.previous = previous;
-		structType.size = size;
 		
-		return structType;
+		return inheritProperties(structType);
 	}
 	
 	@Override

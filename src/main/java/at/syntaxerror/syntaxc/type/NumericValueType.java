@@ -48,8 +48,8 @@ public enum NumericValueType {
 	SIGNED_LONG		(true,	8, "long"),				// long, signed long, long int, signed long int
 	UNSIGNED_LONG	(false,	8, "unsigned long"),	// unsigned long, unsigned long int
 	
-	FLOAT			(4,	FloatingSpec.SINGLE, "float"),		// float
-	DOUBLE			(8,	FloatingSpec.DOUBLE, "double"),		// double
+	FLOAT			(4,	FloatingSpec.SINGLE, "float"),			// float
+	DOUBLE			(8,	FloatingSpec.DOUBLE, "double"),			// double
 	LDOUBLE			(8,	FloatingSpec.DOUBLE, "long double");	// long double (equivalent to double by default)
 
 	public static NumericValueType CHAR = SIGNED_CHAR;		// char			(equivalent to 'signed char' by default)

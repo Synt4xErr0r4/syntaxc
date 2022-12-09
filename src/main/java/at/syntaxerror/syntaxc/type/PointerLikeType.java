@@ -29,13 +29,18 @@ import lombok.Getter;
  * 
  */
 @Getter
-public class PointerLikeType extends Type {
+public abstract class PointerLikeType extends Type {
 
 	private final Type base;
 	
 	protected PointerLikeType(TypeKind kind, Type base) {
 		super(kind);
 		this.base = base;
+	}
+	
+	@Override
+	public boolean isSigned() {
+		return NumericValueType.POINTER.isSigned();
 	}
 
 }

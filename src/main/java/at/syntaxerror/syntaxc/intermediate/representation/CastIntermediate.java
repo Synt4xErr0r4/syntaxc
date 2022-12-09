@@ -22,13 +22,10 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.Arrays;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of type casts ('(type) a')
@@ -36,31 +33,18 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public class CastIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final Operand result;
-	private final Operand target;
-	
-	private final boolean resultFloat;
-	private final boolean targetFloat;
-
-	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.cast(
-			assemblyGenerator.target(result),
-			assemblyGenerator.target(target),
-			resultFloat,
-			targetFloat
-		);
-	}
+	private Operand result;
+	private Operand target;
 	
 	@Override
-	public List<Operand> getOperands() {
-		return Arrays.asList(result, target);
+	public void withResult(Operand operand) {
+		target = operand;
 	}
 	
 	@Override
@@ -69,7 +53,7 @@ public class CastIntermediate extends Intermediate {
 			? "(<illegal cast>) %s".formatted(target)
 			: "%s = (%s%d_t) %s;".formatted(
 				result,
-				resultFloat
+				result.getType().isFloating()
 					? "float"
 					: "int",
 				result.getSize() * 8,

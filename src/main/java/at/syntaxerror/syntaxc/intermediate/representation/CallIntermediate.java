@@ -23,12 +23,11 @@
 package at.syntaxerror.syntaxc.intermediate.representation;
 
 import java.util.List;
-import java.util.stream.Stream;
 
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of function calls ('fun(a, b, c)')
@@ -36,33 +35,19 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public class CallIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final Operand target;
-	private final Operand function;
-	private final List<Operand> arguments;
+	private Operand target;
+	private Operand function;
+	private List<Operand> arguments;
 
 	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.call(
-			assemblyGenerator.target(target),
-			assemblyGenerator.target(function),
-			arguments.stream()
-				.map(assemblyGenerator::target)
-				.toList()
-		);
-	}
-	
-	@Override
-	public List<Operand> getOperands() {
-		return Stream.concat(
-			Stream.of(target, function),
-			arguments.stream()
-		).toList();
+	public void withResult(Operand operand) {
+		target = operand;
 	}
 	
 	@Override

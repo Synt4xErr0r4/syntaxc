@@ -85,6 +85,9 @@ public class Lexer extends CommonLexer {
 			sb.append("0.");
 			floating = true;
 			period = true;
+
+			while(isDigit(peek())) // read as many decimal digits as possible
+				sb.append((char) next());
 		}
 		else if(previous == '0') {
 			c = peek();
@@ -359,11 +362,6 @@ public class Lexer extends CommonLexer {
 			return nextNumber();
 		
 		return null;
-	}
-	
-	// checks if the given codepoint is a decimal digit
-	private static boolean isDigit(int c) {
-		return c >= '0' && c <= '9';
 	}
 	
 	// checks if the given codepoint is a binary digit

@@ -312,14 +312,14 @@ public class ExpressionChecker implements Logable {
 				Type rbase = right.dereference();
 				
 				if(!lbase.isConst() && rbase.isConst())
-					error(
+					softError(
 						pos,
 						"%s discards »const« qualifier from target type",
 						isReturn ? "»return«" : "Assignment"
 					);
 				
 				if(!lbase.isVolatile() && rbase.isVolatile())
-					error(
+					softError(
 						pos,
 						"%s discards »volatile« qualifier from target type",
 						isReturn ? "»return«" : "Assignment"

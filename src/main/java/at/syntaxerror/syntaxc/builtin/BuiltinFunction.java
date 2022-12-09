@@ -27,7 +27,7 @@ import static at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode.child;
 import java.util.ArrayList;
 import java.util.List;
 
-import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.Operand;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;

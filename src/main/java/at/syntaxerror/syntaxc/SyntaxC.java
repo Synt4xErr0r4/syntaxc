@@ -40,8 +40,8 @@ import at.syntaxerror.syntaxc.analysis.ControlFlowAnalyzer;
 import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
+import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
-import at.syntaxerror.syntaxc.generator.asm.FunctionMetadata;
 import at.syntaxerror.syntaxc.intermediate.IntermediateGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator.FunctionData;
@@ -252,12 +252,14 @@ public class SyntaxC {
 		if(controlFlowGraph != null)
 			ControlFlowGraphGenerator.generate(controlFlowGraph, intermediate);
 		
-		/* Code Generation */
+		/*** Code Generation ***/
 		
 		CodeGenerator codeGen = ArchitectureRegistry.getArchitecture()
 			.getCodeGenerator(inputFileName);
 		
-		codeGen.getAssembler().begin();
+		/* Instruction Selection */
+		
+		AssemblyGenerator asmGen = codeGen.getAssemblyGenerator();
 		
 		for(SymbolObject sym : symbols) {
 			
@@ -265,31 +267,38 @@ public class SyntaxC {
 			if(sym.isPrototype() || sym.isTypedef())
 				continue;
 			
-			codeGen.generateObject(sym);
+		//	codeGen.generateObject(sym);
 			
 			if(sym.isFunction()) {
-				FunctionMetadata metadata = new FunctionMetadata(sym, 0); // TODO size
+			//	FunctionMetadata metadata = new FunctionMetadata(sym, 0); // TODO size
 				
-				codeGen.generateBody(
+				List<AssemblyInstruction> asm = asmGen.generate(
 					intermediate.get(sym.getName())
-						.intermediate(),
-					metadata
+						.intermediate()
 				);
+				
+				System.out.println(" -- " + sym.getName() + " -- ");
+				
+				asm.forEach(System.out::println);
 			}
 		}
 		
-		codeGen.getAssembler().end();
+		/*
+		 * TODO: IR -> assembly
+		 * TODO: register allocation
+		 * TODO: object serialization
+		 */
 
 		checkTerminationState();
 		
-		List<AssemblyInstruction> assembly = codeGen.getInstructions();
+		// List<AssemblyInstruction> assembly = codeGen.getInstructions();
 		
 		File asmOut = uniqueFile(outputFileName, ".s");
 		
 		try(PrintStream writer = new PrintStream(asmOut)) {
 			
-			for(AssemblyInstruction instruction : assembly)
-				writer.println(instruction.toAssembly());
+			/*for(AssemblyInstruction instruction : assembly)
+				writer.println(instruction.toAssembly());*/
 			
 		} catch (Exception e) {
 			outputFailed(e);

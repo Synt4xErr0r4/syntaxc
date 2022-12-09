@@ -27,6 +27,7 @@ import java.math.BigInteger;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.misc.Optimization;
 import at.syntaxerror.syntaxc.parser.ConstantExpressionEvaluator;
+import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
@@ -51,6 +52,9 @@ import lombok.experimental.UtilityClass;
 public class ExpressionOptimizer {
 
 	private static ExpressionNode eval(ExpressionNode expr) {
+		if(!ConstantExpressionEvaluator.isConstant(expr))
+			return expr;
+		
 		return new NumberLiteralExpressionNode(
 			expr.getPosition(),
 			ConstantExpressionEvaluator.evalArithmetic(expr),
@@ -69,7 +73,7 @@ public class ExpressionOptimizer {
 	public static ExpressionNode optimize(ExpressionNode expr) {
 		Position pos = expr.getPosition();
 		boolean eval = false;
-		
+
 		if(expr instanceof VariableExpressionNode var) {
 			
 			if(Optimization.CONST_FOLDING.isEnabled() && var.hasConstQualifier()) {
@@ -90,9 +94,6 @@ public class ExpressionOptimizer {
 		}
 		
 		else if(expr instanceof BinaryExpressionNode binary) {
-			if(binary.getOperation() == Punctuator.ASSIGN)
-				return expr;
-			
 			ExpressionNode left = optimize(binary.getLeft());
 			ExpressionNode right = optimize(binary.getRight());
 			
@@ -103,15 +104,12 @@ public class ExpressionOptimizer {
 				binary.getOperation(),
 				binary.getType()
 			);
-			
-			eval = isNumber(left, right);
+
+			eval = binary.getOperation() != Punctuator.ASSIGN
+				&& isNumber(left, right);
 		}
 
 		else if(expr instanceof UnaryExpressionNode unary) {
-			if(unary.getOperation() == Punctuator.INDIRECTION
-				|| unary.getOperation() == Punctuator.ADDRESS_OF)
-				return expr;
-
 			ExpressionNode target = optimize(unary.getTarget());
 			
 			expr = new UnaryExpressionNode(
@@ -179,6 +177,16 @@ public class ExpressionOptimizer {
 				optimize(mem.getTarget()),
 				mem.getMember(),
 				mem.getType()
+			);
+		
+		else if(expr instanceof ArrayIndexExpressionNode idx)
+			expr = new ArrayIndexExpressionNode(
+				idx.getPosition(),
+				optimize(idx.getTarget()),
+				optimize(idx.getIndex()),
+				idx.isSwapped(),
+				idx.isArray(),
+				idx.getType()
 			);
 		
 		return eval ? eval(expr) : expr;

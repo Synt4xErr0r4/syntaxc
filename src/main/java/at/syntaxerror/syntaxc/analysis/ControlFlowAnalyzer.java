@@ -31,11 +31,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
-import at.syntaxerror.syntaxc.intermediate.representation.Intermediate.FreeIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
 import at.syntaxerror.syntaxc.logger.Logable;
-import at.syntaxerror.syntaxc.misc.Flag;
 import at.syntaxerror.syntaxc.misc.Warning;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.RequiredArgsConstructor;
@@ -110,7 +108,7 @@ public class ControlFlowAnalyzer implements Logable {
 			.stream()
 			.map(
 				node -> node.dead || node.code == null
-					? node.free
+					? List.<Intermediate>of()
 					: node.code
 			).reduce(
 				new ArrayList<>(),
@@ -153,13 +151,6 @@ public class ControlFlowAnalyzer implements Logable {
 			
 			Intermediate intermediate = intermediates.get(i);
 			
-			if(!Flag.CFG_VERBOSE.isEnabled()) {
-				
-				if(intermediate instanceof FreeIntermediate)
-					continue;
-				
-			}
-			
 			code.add(intermediate);
 			
 			if(intermediate instanceof LabelIntermediate label) {
@@ -187,8 +178,7 @@ public class ControlFlowAnalyzer implements Logable {
 				continue;
 			}
 
-			if(!(intermediate instanceof FreeIntermediate))
-				wasGoto = wasJump = false;
+			wasGoto = wasJump = false;
 			
 			if(intermediate instanceof JumpIntermediate jump) {
 
@@ -197,32 +187,26 @@ public class ControlFlowAnalyzer implements Logable {
 
 				String current = name;
 				
-				int nextIdx = i + 1;
-				Intermediate next;
-				
-				do {
-					next = intermediates.get(nextIdx++);
-				} while(next instanceof FreeIntermediate);
-				
+				Intermediate next = intermediates.get(i + 1);
 				
 				if(next instanceof LabelIntermediate label)
 					name = label.getLabel();
 				
 				else name = ".synthetic_" + counterLabel++;
 				
-				if(wasJump) // this -> true
-					linkInfo(current, name, LinkKind.THEN);
+				if(wasJump) // this -> false
+					linkInfo(current, name, LinkKind.ELSE);
 				
 				addBlock(makeBlock(current));
 
 				code.clear();
 				
-				// this -> false
+				// this -> true
 				linkInfo(
 					current,
 					jump.getLabel(),
 					wasJump
-						? LinkKind.ELSE
+						? LinkKind.THEN
 						: LinkKind.NEXT
 				);
 				
@@ -314,11 +298,6 @@ public class ControlFlowAnalyzer implements Logable {
 		while(iter.hasNext()) {
 			Intermediate intermediate = iter.next();
 			
-			if(intermediate instanceof FreeIntermediate free) {
-				block.free.add(free);
-				continue;
-			}
-			
 			if(dead != null)
 				continue;
 			
@@ -390,8 +369,6 @@ public class ControlFlowAnalyzer implements Logable {
 		public final String name;
 		public final List<Intermediate> code;
 		public final NodeKind kind;
-		
-		private final List<Intermediate> free = new ArrayList<>();
 		
 		public boolean dead;
 		

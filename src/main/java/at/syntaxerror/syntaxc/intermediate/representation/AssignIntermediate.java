@@ -22,13 +22,10 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.Arrays;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of assignments
@@ -36,26 +33,18 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 public class AssignIntermediate extends Intermediate {
 
-	private final Position position;
+	private Position position;
 
-	private final Operand target;
-	private final Operand value;
+	private Operand target;
+	private Operand value;
 
 	@Override
-	public void generate(AssemblyGenerator assemblyGenerator) {
-		assemblyGenerator.assign(
-			assemblyGenerator.target(target),
-			assemblyGenerator.target(value)
-		);
-	}
-	
-	@Override
-	public List<Operand> getOperands() {
-		return Arrays.asList(target, value);
+	public void withResult(Operand operand) {
+		target = operand;
 	}
 	
 	@Override

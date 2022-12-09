@@ -51,6 +51,10 @@ public class SymbolObject implements Symbol, Positioned {
 	
 	private static long temporaryId = 0;
 	private static long localStaticId = 0;
+	
+	public static long getNextTemporaryId() {
+		return temporaryId++;
+	}
 
 	/*
 	 * Helper method for possibly uninitialized symbols
@@ -138,7 +142,7 @@ public class SymbolObject implements Symbol, Positioned {
 		return uninitialized(
 			pos,
 			type,
-			Long.toString(temporaryId++),
+			Long.toString(getNextTemporaryId()),
 			SymbolKind.VARIABLE_TEMPORARY
 		);
 	}
@@ -246,6 +250,7 @@ public class SymbolObject implements Symbol, Positioned {
 	 */
 	public static SymbolObject global(Positioned pos, String name, Type type,
 			Linkage linkage, GlobalVariableInitializer initializer) {
+		
 		return initialized(
 			pos,
 			type,

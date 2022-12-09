@@ -41,7 +41,7 @@ import lombok.experimental.Delegate;
 @RequiredArgsConstructor
 public class SymbolHelper implements Logable {
 
-	@Delegate
+	@Delegate(types = Logable.class)
 	private final Parser parser;
 	
 	public SymbolTable getSymbolTable() {
@@ -172,6 +172,17 @@ public class SymbolHelper implements Logable {
 		else if(state.external())
 			obj = SymbolObject.extern(pos, name, type);
 		
+		else if(state.local()) {
+			obj = SymbolObject.local(
+				pos,
+				name,
+				type
+			);
+			
+			if(hasInit)
+				obj.setInitialized(true);
+		}
+		
 		// e.g. static int array[256];
 		else {
 			obj = SymbolObject.global(
@@ -197,7 +208,7 @@ public class SymbolHelper implements Logable {
 		
 	}
 
-	public static record DeclarationState(Linkage linkage, boolean typedef, boolean external, boolean internal) {
+	public static record DeclarationState(Linkage linkage, boolean typedef, boolean external, boolean internal, boolean local) {
 		
 		public boolean acceptsInitializer() {
 			return !typedef && !external;

@@ -385,6 +385,15 @@ public class IEEE754Utils {
 		return BigDecimal.valueOf(spec.mantissa() - 1).multiply(LOG10_2).round(FLOOR).intValue();
 	}
 	
+	/**
+	 * Describes the encoding of an IEEE 754 floating point number:
+	 * 
+	 * - {@code exponent} specifies the number of bits used for the exponent
+	 * - {@code mantissa} specifies the number of bits used for the mantissa (significand bits)
+	 * - {@code implicit} specifies whether the mantissa include have an implicit '1' at the beginning
+	 * 
+	 * @author Thomas Kasper
+	 */
 	public static record FloatingSpec(int exponent, int mantissa, boolean implicit) {
 		
 		public static final FloatingSpec HALF =			new FloatingSpec(5,		10,		true); // 16-bit

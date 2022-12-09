@@ -52,6 +52,7 @@ import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
+import at.syntaxerror.syntaxc.type.ArrayType;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
 import at.syntaxerror.syntaxc.type.NumericValueType;
@@ -282,21 +283,90 @@ public class ExpressionParser extends AbstractParser {
 				
 				// must be either 'pointer[index]' or 'index[pointer]'
 				
-				boolean swapped = false;
-				
 				if(!exprType.isPointerLike() && !indexType.isPointerLike())
 					error(op, "Indexed type is not a pointer");
 				
 				if(!exprType.isInteger() && !indexType.isInteger())
 					error(op, "Index is not an integer");
 				
-				if(swapped = indexType.isPointerLike()) {
+				if((expr instanceof ArrayIndexExpressionNode idx && idx.isArray()) ||
+					(index instanceof ArrayIndexExpressionNode idx && idx.isArray())) {
+					
+					/* nested subscript operators:
+					 * 
+					 * The expression
+					 * 
+					 * 	type_t arr[n][m][o];
+					 * 	type_t val = arr[i][j][k];
+					 * 
+					 * returns an element of an multi-dimensional array.
+					 * It is effectively equal to:
+					 * 
+					 * 	type_t arr[n*m*o];
+					 * 	type_t val = arr[(i*m+j)*o+k];
+					 * 
+					 * However, the expressions
+					 * 
+					 * 	type_t arr[n][m][o];
+					 * 	type_t *ptr1 = arr[i];
+					 * 	type_t *ptr2 = arr[i][j]; // arr[i*m+j]
+					 * 
+					 * would both create pointers to the array.
+					 */
+
+					boolean swapped = false;
+					ArrayIndexExpressionNode subscript;
+
+					if(index instanceof ArrayIndexExpressionNode idx) {
+						swapped = true;
+						subscript = idx;
+						index = expr;
+					}
+					else subscript = (ArrayIndexExpressionNode) expr;
+					
+					ArrayType type = subscript
+						.getRawType()
+						.toArray();
+					
+					index = checker.checkAdditive(
+						pos,
+						checker.checkArithmetic(
+							Token.ofPunctuator(pos, Punctuator.MULTIPLY),
+							subscript.getIndex(),
+							newNumber(
+								pos,
+								BigInteger.valueOf(type.getLength()),
+								subscript.getIndex()
+									.getType()
+							),
+							"subscript"
+						),
+						index,
+						false
+					);
+					
+					expr = new ArrayIndexExpressionNode(
+						pos,
+						subscript.getTarget(),
+						index,
+						swapped,
+						type.dereference().isArray(),
+						type.dereference()
+					);
+					continue;
+				}
+				
+				boolean swapped = indexType.isPointerLike();
+				
+				if(swapped) {
 					ExpressionNode temp = index;
 					index = expr;
 					expr = temp;
 					
 					exprType = expr.getType();
 				}
+				
+				boolean isArray = exprType.isArray();
 				
 				exprType = exprType.dereference();
 				
@@ -307,7 +377,9 @@ public class ExpressionParser extends AbstractParser {
 					pos,
 					expr,
 					index,
-					swapped
+					swapped,
+					isArray && exprType.isArray(),
+					exprType
 				);
 				continue;
 			}
@@ -554,9 +626,9 @@ public class ExpressionParser extends AbstractParser {
 								newNumber(
 									pos,
 									BigInteger.ONE,
-									exprType
+									NumericValueType.POINTER.asType()
 								),
-								increment
+								!increment
 							),
 							false
 						),
@@ -629,14 +701,12 @@ public class ExpressionParser extends AbstractParser {
 			
 			if(op.is("!")) {
 				if(!type.isScalar())
-					error(op, "Expected number or pointer for bitwise complement");
+					error(op, "Expected number or pointer for logical NOT");
 
-				// '!x' is equivalent to 'x == 0'
-				return newBinary(
+				return newUnary(
 					op,
 					expr,
-					Constants.zero(op),
-					Punctuator.EQUAL,
+					Punctuator.LOGICAL_NOT,
 					Type.INT
 				);
 			}

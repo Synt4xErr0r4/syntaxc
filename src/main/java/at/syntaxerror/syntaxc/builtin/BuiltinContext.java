@@ -28,6 +28,7 @@ import at.syntaxerror.syntaxc.builtin.BuiltinFunction.TypeArgument;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
+import at.syntaxerror.syntaxc.optimizer.ExpressionOptimizer;
 import at.syntaxerror.syntaxc.parser.ExpressionParser;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -87,7 +88,7 @@ public class BuiltinContext implements Logable {
 	public ExpressionArgument nextExpression() {
 		ensureNotExhausted();
 		
-		ExpressionNode node = expr.nextAssignment();
+		ExpressionNode node = ExpressionOptimizer.optimize(expr.nextAssignment());
 		expr.next();
 		
 		return new ExpressionArgument(node);

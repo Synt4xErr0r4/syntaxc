@@ -127,7 +127,7 @@ public class FunctionType extends Type {
 		cloned.parameters = parameters;
 		cloned.variadic = variadic;
 		
-		return cloned;
+		return inheritProperties(cloned);
 	}
 	
 	@Override

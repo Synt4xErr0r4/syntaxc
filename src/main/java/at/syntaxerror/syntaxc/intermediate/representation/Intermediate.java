@@ -22,17 +22,9 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.tracking.Positioned;
-import at.syntaxerror.syntaxc.type.Type;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Subclasses of this class represent the intermediate representation
@@ -43,9 +35,9 @@ import lombok.RequiredArgsConstructor;
  */
 public abstract class Intermediate implements Positioned {
 
-	public abstract void generate(AssemblyGenerator assemblyGenerator);
+	public abstract Position getPosition();
 	
-	public abstract List<Operand> getOperands();
+	public abstract void withResult(Operand operand);
 	
 	/**
 	 * Converts this intermediate representation into C-like code
@@ -65,272 +57,18 @@ public abstract class Intermediate implements Positioned {
 	
 	protected abstract String toStringInternal();
 	
-	/**
-	 * not actually a intermediate representation, but signales to the code generator that
-	 * the memory used by a temporary operand is no longer in use and can be reallocated again  
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@RequiredArgsConstructor
-	@Getter
-	public static class FreeIntermediate extends Intermediate {
+	public static abstract class BinaryIntermediate extends Intermediate {
 		
-		private final TemporaryOperand operand;
-		private boolean discarded;
-		
-		@Override
-		public Position getPosition() {
-			return null;
-		}
-		
-		@Override
-		public void generate(AssemblyGenerator assemblyGenerator) { }
-		
-		@Override
-		public List<Operand> getOperands() {
-			return List.of();
-		}
-		
-		@Override
-		public String toStringInternal() {
-			return discarded
-				? "/* */"
-				: "/*synthetic: free _%d*/".formatted(operand.id);
-		}
-		
-	}
-	
-	/**
-	 * operand for the intermediate representation of a machine code instruction
-	 * 
-	 * @author Thomas Kasper
-	 */
-	public static interface Operand {
-
-		Type getType();
-		
-		default int getSize() {
-			return getType().sizeof();
-		}
-		
-		default boolean isFloating() {
-			return getType().isFloating();
-		}
-		
-		void unfree();
-		
-		default List<Intermediate> free() {
-			return List.of();
-		}
-		
-	}
-	
-	/**
-	 * operand telling the code generator that the result of an operation should be discarded  
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@Getter
-	public static class DiscardOperand implements Operand {
-		
-		@Override
-		public Type getType() {
-			return Type.VOID;
-		}
-		
-		@Override
-		public void unfree() { }
-		
-		@Override
-		public String toString() {
-			return "<discard>";
-		}
-		
-	}
-	
-	/**
-	 * operand representing an index into an array
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@RequiredArgsConstructor
-	@Getter
-	public static class IndexOperand implements Operand {
-		
-		private final Operand target;
-		private final long index;
-		private final Type type;
-		
-		public IndexOperand(Operand target, Type type) {
-			this(target, 0, type);
-		}
-		
-		@Override
-		public List<Intermediate> free() {
-			List<Intermediate> freed = new ArrayList<>();
-			
-			freed.addAll(target.free());
-			
-			return freed;
-		}
-		
-		@Override
-		public void unfree() {
-			target.unfree();
-		}
-		
-		@Override
-		public String toString() {
-			return index == 0
-				? "*%s".formatted(target)
-				: "%s[%d]".formatted(target, index);
-		}
-		
-	}
-	
-	/**
-	 * global variable or function operand, typically resides in memory relative
-	 * to the instruction pointer or is resolved via the Procedure Linkage Table (PLT)
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@RequiredArgsConstructor
-	@Getter
-	public static class GlobalOperand implements Operand {
-		
-		private final String name;
-		private final boolean extern;
-		private final Type type;
-		
-		@Override
-		public void unfree() { }
-		
-		@Override
-		public String toString() {
-			return name;
-		}
+		public abstract Operand getResult();
+		public abstract Operand getLeft();
+		public abstract Operand getRight();
 		
 	}
 
-	/**
-	 * local variable operand, typically resides in memory relative to the base pointer
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@RequiredArgsConstructor
-	@Getter
-	public static class LocalOperand implements Operand {
-		
-		private final String name;
-		private final int offset;
-		private final Type type;
-		
-		@Override
-		public void unfree() { }
-		
-		@Override
-		public String toString() {
-			return name;
-		}
-		
-	}
+	public static abstract class UnaryIntermediate extends Intermediate {
 
-	/**
-	 * temporarily allocated memory, typically using a register
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@Getter
-	@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
-	public static class TemporaryOperand implements Operand {
-		
-		private static long PREVIOUS_ID = 0;
-
-		private final long id;
-		private final Type type;
-		private boolean freed;
-		private FreeIntermediate freeIntermediate;
-		
-		public TemporaryOperand(Type type) {
-			this(++PREVIOUS_ID, type);
-		}
-		
-		@Override
-		public List<Intermediate> free() {
-			if(freed)
-				return List.of();
-			
-			freed = true;
-			
-			return List.of(
-				freeIntermediate = new FreeIntermediate(this)
-			);
-		}
-		
-		@Override
-		public void unfree() {
-			if(freed) {
-				freeIntermediate.discarded = true;
-				freed = false;
-			}
-		}
-		
-		@Override
-		public String toString() {
-			return "_" + id;
-		}
-		
-	}
-
-	/**
-	 * a constant number literal operand
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@RequiredArgsConstructor
-	@Getter
-	public static class ConstantOperand implements Operand {
-		
-		private final Number value;
-		private final Type type;
-		
-		@Override
-		public void unfree() { }
-		
-		@Override
-		public String toString() {
-			return value.toString();
-		}
-		
-	}
-
-	/**
-	 * operand designating the return value
-	 * 
-	 * @author Thomas Kasper
-	 */
-	@Getter
-	public static class ReturnValueOperand extends TemporaryOperand {
-		
-		public static final int ID = -1;
-		
-		public ReturnValueOperand(Type type) {
-			super(ID, type);
-			super.freed = true;
-		}
-		
-		@Override
-		public List<Intermediate> free() {
-			return List.of();
-		}
-		
-		@Override
-		public void unfree() { }
-		
-		@Override
-		public String toString() {
-			return SymbolObject.RETURN_VALUE_NAME;
-		}
+		public abstract Operand getTarget();
+		public abstract Operand getValue();
 		
 	}
 	

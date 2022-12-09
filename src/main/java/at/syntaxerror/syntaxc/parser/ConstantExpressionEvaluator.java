@@ -25,7 +25,9 @@ package at.syntaxerror.syntaxc.parser;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -145,9 +147,9 @@ public class ConstantExpressionEvaluator {
 		
 		if(DIVISION_OPERATIONS.containsKey(punct)) {
 			if(isZero(r))
-				error(pos, "Division by zero");
+				warn(pos, Warning.DIVISION_BY_ZERO, "Division by zero");
 			
-			return DIVISION_OPERATIONS.get(punct).getRight().calculate(l, r);
+			else return DIVISION_OPERATIONS.get(punct).getRight().calculate(l, r);
 		}
 		
 		if(ARITHMETIC_OPERATIONS.containsKey(punct))
@@ -534,14 +536,36 @@ public class ConstantExpressionEvaluator {
 		return null;
 	}
 	
+	private static final Set<ExpressionNode> ALREADY_WARNED = new HashSet<>();
+	
 	public static boolean isConstant(ExpressionNode expr) {
 		if(expr instanceof NumberLiteralExpressionNode)
 			return true;
 		
-		if(expr instanceof BinaryExpressionNode binary)
-			return binary.getOperation() != Punctuator.ASSIGN
-				&& isConstant(binary.getLeft())
-				&& isConstant(binary.getRight());
+		if(expr instanceof BinaryExpressionNode binary) {
+			Punctuator op = binary.getOperation();
+			
+			if(op == Punctuator.ASSIGN)
+				return false;
+			
+			if(isConstant(binary.getLeft()) &&
+				isConstant(binary.getRight())) {
+				
+				// floating point division by zero is evaluated at runtime
+				if(op == Punctuator.DIVIDE && binary.getType().isFloating()
+					&& isZero(evalArithmetic(binary.getRight()))) {
+					
+					if(ALREADY_WARNED.add(binary))
+						warn(binary, Warning.DIVISION_BY_ZERO, "Division by zero");
+					
+					return false;
+				}
+				
+				return true;
+			}
+			
+			return false;
+		}
 		
 		if(expr instanceof UnaryExpressionNode unary)
 			return unary.getOperation() != Punctuator.INDIRECTION
@@ -565,6 +589,10 @@ public class ConstantExpressionEvaluator {
 	
 	private static void error(Positioned pos, String message, Object...args) {
 		Logger.error(pos, Warning.SEM_NONE, message, args);
+	}
+	
+	private static void warn(Positioned pos, Warning warning, String message, Object...args) {
+		Logger.warn(pos, warning, message, args);
 	}
 	
 	@FunctionalInterface

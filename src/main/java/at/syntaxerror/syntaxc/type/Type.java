@@ -41,6 +41,10 @@ public class Type {
 	public static final NumberType SHORT =		new NumberType(TypeKind.SHORT);
 	public static final NumberType INT =		new NumberType(TypeKind.INT);
 	public static final NumberType LONG =		new NumberType(TypeKind.LONG);
+	public static final NumberType SCHAR =		new NumberType(TypeKind.CHAR, false);
+	public static final NumberType SSHORT =		new NumberType(TypeKind.SHORT, false);
+	public static final NumberType SINT =		new NumberType(TypeKind.INT, false);
+	public static final NumberType SLONG =		new NumberType(TypeKind.LONG, false);
 	public static final NumberType UCHAR =		new NumberType(TypeKind.CHAR, true);
 	public static final NumberType USHORT =		new NumberType(TypeKind.SHORT, true);
 	public static final NumberType UINT =		new NumberType(TypeKind.INT, true);
@@ -69,7 +73,6 @@ public class Type {
 	private final TypeKind kind;
 	
 	protected int size;
-	protected int align;
 	
 	@Getter
 	protected boolean bitfield;
@@ -83,10 +86,6 @@ public class Type {
 	
 	public final int sizeof() {
 		return size;
-	}
-	
-	public int getAlignment() {
-		return align;
 	}
 	
 	public boolean isConst() {
@@ -183,6 +182,14 @@ public class Type {
 	public boolean isIncomplete() {
 		return false;
 	}
+
+	public boolean isSigned() {
+		return false;
+	}
+
+	public boolean isUnsigned() {
+		return !isSigned();
+	}
 	
 	public NumberType toNumber() {
 		return (NumberType) this;
@@ -238,7 +245,6 @@ public class Type {
 		
 		Type cloned = clone();
 		cloned.constQualifier = true;
-		cloned.volatileQualifier = volatileQualifier;
 		
 		return cloned;
 	}
@@ -248,7 +254,6 @@ public class Type {
 			return this;
 		
 		Type cloned = clone();
-		cloned.constQualifier = constQualifier;
 		cloned.volatileQualifier = true;
 		
 		return cloned;
@@ -259,8 +264,8 @@ public class Type {
 			return this;
 		
 		Type cloned = clone();
-		cloned.constQualifier = constQualifier || other.constQualifier;
-		cloned.volatileQualifier = volatileQualifier || other.volatileQualifier;
+		cloned.constQualifier |= other.constQualifier;
+		cloned.volatileQualifier |= other.volatileQualifier;
 		
 		return cloned;
 	}
@@ -269,7 +274,11 @@ public class Type {
 		if(!constQualifier && !volatileQualifier)
 			return this;
 
-		return clone();
+		Type clone = clone();
+		clone.constQualifier = false;
+		clone.volatileQualifier = false;
+		
+		return clone;
 	}
 	
 	public Type asBitfield() {
@@ -284,7 +293,16 @@ public class Type {
 	
 	@Override
 	protected Type clone() {
-		return new Type(kind);
+		return inheritProperties(new Type(kind));
+	}
+	
+	protected <T extends Type> T inheritProperties(T clone) {
+		clone.bitfield = bitfield;
+		clone.constQualifier = constQualifier;
+		clone.volatileQualifier = volatileQualifier;
+		clone.size = clone.size;
+		
+		return clone;
 	}
 	
 	protected String toStringQualifiers() {
