@@ -60,7 +60,8 @@ public class X86Assembly {
 		if(!Flags.LONG_DOUBLE.isEnabled())
 			X86Register.disable(X86Register.GROUP_ST);
 		
-		if(bit32 = bits != BitSize.B64) {
+		if(bits != BitSize.B64) {
+			bit32 = true;
 			
 			X86Register.disable(
 				X86Register.RAX,
@@ -82,7 +83,8 @@ public class X86Assembly {
 				X86Register.GROUP_R12,
 				X86Register.GROUP_R13,
 				X86Register.GROUP_R14,
-				X86Register.GROUP_R15
+				X86Register.GROUP_R15,
+				X86Register.GROUP_XMM
 			);
 
 			RBP = X86Register.EBP;
@@ -99,6 +101,7 @@ public class X86Assembly {
 			
 		}
 		else {
+			bit32 = false;
 
 			RBP = X86Register.RBP;
 			RSP = X86Register.RSP;

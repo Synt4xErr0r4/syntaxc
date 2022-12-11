@@ -24,10 +24,14 @@ package at.syntaxerror.syntaxc.generator.arch.x86.target;
 
 import java.math.BigInteger;
 
+import at.syntaxerror.syntaxc.SystemUtils.BitSize;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
+import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -102,7 +106,7 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	public static X86MemoryTarget of(Type type, AssemblyTarget base) {
 		return ofSegmentedDisplaced(type, null, null, base, null, 0);
 	}
-
+	
 	private final Type type;
 	private final X86Size size;
 	private final AssemblyTarget segment;
@@ -124,6 +128,11 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	}
 	
 	@Override
+	public AssemblyTarget resized(Type type) {
+		return new X86MemoryTarget(type, size, segment, displacement, base, index, scale);
+	}
+	
+	@Override
 	public Type getType() {
 		return type;
 	}
@@ -131,6 +140,18 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	@Override
 	public boolean isMemory() {
 		return true;
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		return obj != null
+			&& obj instanceof X86MemoryTarget mem
+			&& TypeUtils.isEqual(type, mem.type)
+			&& equals(segment, mem.segment)
+			&& equals(displacement, mem.displacement)
+			&& equals(base, mem.base)
+			&& equals(index, mem.index)
+			&& scale == mem.scale;
 	}
 	
 	@Override
@@ -162,7 +183,13 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			sb = sb.append(')');
 		}
 		else {
-			/* Intel syntax: size PTR segment:[base+index*scale+disp] */
+			/*
+			 * Intel syntax:
+			 * 	32-bit: size PTR segment:base+disp+index*scale 	(no EIP addressing mode)
+			 * 	64-bit: size PTR segment:[base+index*scale+disp]
+			 */
+			
+			boolean bit32 = ArchitectureRegistry.getBitSize() == BitSize.B32;
 			
 			if(size != X86Size.UNKNOWN)
 				sb.append(size.getPointerName())
@@ -172,21 +199,52 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 				sb.append(segment)
 					.append(':');
 			
-			sb = sb.append('[')
-				.append(base);
-			
-			if(hasIndex()) {
-				sb = sb.append(toSignedString(index));
+			if(bit32) {
 				
-				if(scale != 1)
-					sb = sb.append('*')
-						.append(scale);
+				boolean hasPredecessor = base != X86Register.EIP;
+				
+				if(hasPredecessor)
+					sb = sb.append(base);
+				
+				if(hasDisplacement()) {
+					sb = sb.append(
+						hasPredecessor
+							? toSignedString(displacement)
+							: displacement
+					);
+					hasPredecessor = true;
+				}
+
+				if(hasIndex()) {
+					sb = sb.append(
+						hasPredecessor
+							? toSignedString(index)
+							: index
+					);
+
+					if(scale != 1)
+						sb = sb.append('*')
+							.append(scale);
+				}
 			}
+			else {
 			
-			if(hasDisplacement())
-				sb = sb.append(toSignedString(displacement));
-			
-			sb = sb.append(']');
+				sb = sb.append('[')
+					.append(base);
+				
+				if(hasIndex()) {
+					sb = sb.append(toSignedString(index));
+					
+					if(scale != 1)
+						sb = sb.append('*')
+							.append(scale);
+				}
+				
+				if(hasDisplacement())
+					sb = sb.append(toSignedString(displacement));
+
+				sb = sb.append(']');
+			}
 		}
 		
 		return sb.toString();

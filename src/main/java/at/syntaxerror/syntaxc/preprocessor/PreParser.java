@@ -32,6 +32,7 @@ import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.ExpressionParser;
+import at.syntaxerror.syntaxc.parser.helper.ExpressionHelper;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -152,7 +153,7 @@ public class PreParser extends ExpressionParser implements Logable {
 		
 		next();
 		
-		return ExpressionParser.newNumber(
+		return ExpressionHelper.newNumber(
 			pos,
 			preprocessor.resolveMacro(macro.getString()) == null
 				? BigInteger.ZERO
@@ -173,7 +174,7 @@ public class PreParser extends ExpressionParser implements Logable {
 			 */
 			if(current.hasBeenExpanded()) {
 				next();
-				return ExpressionParser.newNumber(
+				return ExpressionHelper.newNumber(
 					previous,
 					BigInteger.ZERO,
 					Type.INT

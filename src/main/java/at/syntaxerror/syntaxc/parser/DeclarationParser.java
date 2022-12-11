@@ -439,6 +439,8 @@ public class DeclarationParser extends AbstractParser {
 		
 		else type = type.asInherited();
 		
+		type.calculateAlignment();
+		
 		return type;
 	}
 	

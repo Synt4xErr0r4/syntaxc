@@ -137,12 +137,15 @@ public class ConfigRegistry {
 			if(entry instanceof Toggleable toggle)
 				toggle.setEnabled(state);
 			
-			if(value != null) {
-				if(!entry.acceptsValue())
-					Logger.warn("The %s »%s« does not accept values", genericName, name);
-				
-				entry.setValue(value);
+			else if(!state) {
+				Logger.warn("Unrecognized %s »no-%s«", genericName, name);
+				return;
 			}
+			
+			if(value != null && !entry.acceptsValue())
+				Logger.warn("The %s »%s« does not accept values", genericName, name);
+			
+			entry.setValue(value);
 		}
 		
 	}

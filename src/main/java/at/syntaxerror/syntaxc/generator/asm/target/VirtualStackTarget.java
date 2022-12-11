@@ -23,6 +23,7 @@
 package at.syntaxerror.syntaxc.generator.asm.target;
 
 import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -44,13 +45,26 @@ public class VirtualStackTarget implements AssemblyTarget {
 	}
 	
 	@Override
-	public boolean isRegister() {
+	public VirtualStackTarget resized(Type type) {
+		return new VirtualStackTarget(type, id);
+	}
+	
+	@Override
+	public boolean isMemory() {
 		return true;
 	}
 	
 	@Override
+	public boolean equals(Object obj) {
+		return obj != null
+			&& obj instanceof VirtualStackTarget vst
+			&& id == vst.id
+			&& TypeUtils.isEqual(type, vst.type);
+	}
+	
+	@Override
 	public String toString() {
-		return "VReg(" + id + ")";
+		return "VMem(" + id + ":" + type + ")";
 	}
 	
 }

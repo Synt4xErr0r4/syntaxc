@@ -103,7 +103,8 @@ public class X86Alignment extends Alignment {
 	}
 	
 	@Override
-	public StructAlignment getMemberAlignment(StructType struct, Type type, int offset, int bitOffset, int bitWidth) {
+	public StructAlignment getMemberAlignment(StructType struct, Type type, int offset, int bitOffset, int bitWidth, boolean wasBitfield) {
+		
 		if((offset == 0 && bitOffset == 0) || struct.isUnion())
 			return StructAlignment.ZERO;
 		
@@ -111,20 +112,28 @@ public class X86Alignment extends Alignment {
 		 * http://www.sco.com/developers/devspecs/abi386-4.pdf
 		 * § 3 Low-Level System Information, Machine Interface, Data Representation, Aggregates and Unions
 		 */
-
+		
 		if(type.isBitfield()) {
-			/* align bitfield to next byte if
+			/* align bitfield to next dword if
 			 *  a. its bit width is zero
-			 *  b. the previous member was not a bitfield
-			 *  c. its width would exceed the word (4-byte) boundary
+			 *  b. its width would exceed the dword (4-byte) boundary
 			 */
-			if(bitWidth == 0 || bitOffset == 0 || offset % 4 * 8 + bitOffset + bitWidth > 32)
+			
+			int off = offset % 4;
+			
+			if(bitWidth == 0 || off * 8 + bitOffset + bitWidth > 32) {
+				
+				// make sure to actually align on next dword
+				if(bitOffset != 0 && off == 0)
+					++offset;
+				
 				return StructAlignment.of(alignAt(offset, 4));
+			}
 			
 			// use compact alignment otherwise
 			return StructAlignment.of(offset, bitOffset);
 		}
-
+		
 		return StructAlignment.of(
 			alignAt(
 				offset,

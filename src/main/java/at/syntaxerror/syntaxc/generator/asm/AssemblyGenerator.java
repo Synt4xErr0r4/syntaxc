@@ -22,7 +22,6 @@
  */
 package at.syntaxerror.syntaxc.generator.asm;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
@@ -33,16 +32,10 @@ import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
  */
 public abstract class AssemblyGenerator {
 
-	public List<AssemblyInstruction> generate(List<Intermediate> intermediate) {
-		return intermediate.stream()
-			.map(this::generate)
-			.collect(
-				ArrayList::new,
-				ArrayList::addAll,
-				ArrayList::addAll
-			);
+	public void generate(Instructions asm, List<Intermediate> intermediate) {
+		intermediate.forEach(ir -> generate(asm, ir));
 	}
 	
-	public abstract List<AssemblyInstruction> generate(Intermediate intermediate);
+	public abstract void generate(Instructions asm, Intermediate intermediate);
 
 }

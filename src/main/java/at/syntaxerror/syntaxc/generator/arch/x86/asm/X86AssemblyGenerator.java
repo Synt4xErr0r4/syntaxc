@@ -22,35 +22,35 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.asm;
 
-import java.math.BigDecimal;
+import static at.syntaxerror.syntaxc.generator.arch.x86.asm.X86OperandHelper.constant;
+
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
+import at.syntaxerror.syntaxc.SystemUtils.BitSize;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
+import at.syntaxerror.syntaxc.generator.arch.x86.X86Architecture;
 import at.syntaxerror.syntaxc.generator.arch.x86.X86FloatTable;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86BitfieldHelper.BitfieldSegment;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86OperandHelper.RegisterFlags;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Instruction;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionSelector;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
-import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
 import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
 import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
 import at.syntaxerror.syntaxc.intermediate.operand.ConditionOperand;
-import at.syntaxerror.syntaxc.intermediate.operand.ConstantOperand;
-import at.syntaxerror.syntaxc.intermediate.operand.DiscardOperand;
-import at.syntaxerror.syntaxc.intermediate.operand.GlobalOperand;
-import at.syntaxerror.syntaxc.intermediate.operand.IndexOperand;
-import at.syntaxerror.syntaxc.intermediate.operand.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.MemberOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
-import at.syntaxerror.syntaxc.intermediate.operand.TemporaryOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.AssignIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BinaryIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BuiltinIntermediate;
@@ -64,33 +64,48 @@ import at.syntaxerror.syntaxc.intermediate.representation.MemsetIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.UnaryIntermediate;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.StructType;
-import at.syntaxerror.syntaxc.type.StructType.Member;
 import at.syntaxerror.syntaxc.type.Type;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.Delegate;
 
 /**
  * @author Thomas Kasper
  * 
  */
 @RequiredArgsConstructor
+@Getter
 public class X86AssemblyGenerator extends AssemblyGenerator {
 
 	private final X86FloatTable floatTable;
 	private final X86Assembly x86;
+	private final X86Architecture architecture;
 	
 	private Instructions asm;
+	private AssemblyInstruction asmHead;
 	
 	private boolean isFPUControlWordStored;
 	
 	private VirtualStackTarget fpuCWOld;
 	private VirtualStackTarget fpuCWNew;
 	
+	@Delegate
+	private X86OperandHelper operandHelper;
+	
+	private ConditionFlags conditionFlag;
+	
 	@SuppressWarnings("preview")
 	@Override
-	public List<AssemblyInstruction> generate(Intermediate intermediate) {
-		asm = new Instructions(new ArrayList<>());
+	public void generate(Instructions instructions, Intermediate intermediate) {
+		asm = instructions;
+		asm.setConstructor(X86Instruction::new);
+		asmHead = asm.getHead();
+		
+		operandHelper = new X86OperandHelper(asm, x86, floatTable);
+		
 		isFPUControlWordStored = false;
 		
 		switch(intermediate) {
@@ -108,8 +123,6 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			Logger.error("Illegal intermediate: %s", intermediate.getClass());
 			break;
 		}
-		
-		return asm.assembly();
 	}
 	
 	private void storeFPUControlWord() {
@@ -121,19 +134,35 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		fpuCWOld = new VirtualStackTarget(Type.SHORT);
 		fpuCWNew = new VirtualStackTarget(Type.SHORT);
 		
-		var asm = this.asm.assembly();
-		
 		/*
 		 * Store the current FPU control word and set bits 10 and 11
 		 * (rounding control: round toward zero)
 		 */
 		
-		asm.addAll(0, List.of(
-			new X86Instruction(X86InstructionKinds.FNSTCW, fpuCWOld),
-			new X86Instruction(X86InstructionKinds.MOVZX, X86Register.EAX, fpuCWOld),
-			new X86Instruction(X86InstructionKinds.OR, X86Register.AH, constant(12)),
-			new X86Instruction(X86InstructionKinds.MOV, fpuCWNew, X86Register.AX)
-		));
+		var insns = List.of(
+			new X86Instruction(asm, X86InstructionKinds.FNSTCW, fpuCWOld),
+			new X86Instruction(asm, X86InstructionKinds.MOVZX, X86Register.EAX, fpuCWOld),
+			new X86Instruction(asm, X86InstructionKinds.OR, X86Register.AH, constant(12)),
+			new X86Instruction(asm, X86InstructionKinds.MOV, fpuCWNew, X86Register.AX)
+		);
+		
+		AssemblyInstruction head = asmHead;
+		
+		if(asmHead == null) {
+			
+			head = asm.getHead();
+			
+			if(head == null)
+				insns.forEach(asm::add);
+			
+			else for(X86Instruction insn : insns)
+				head.insertBefore(insn);
+		}
+		
+		else for(X86Instruction insn : insns) {
+			head.insertAfter(insn);
+			head = insn;
+		}
 	}
 
 	private void overrideFPUState() {
@@ -145,218 +174,31 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		asm.add(X86InstructionKinds.FLDCW, fpuCWOld);
 	}
 	
-	private AssemblyTarget constant(Type type, Number value) {
-		return new X86IntegerTarget(
-			type,
-			value instanceof BigInteger bi
-				? bi
-				: BigInteger.valueOf(value.longValue())
-		);
+	private boolean useFPU(Type type) {
+		return (ArchitectureRegistry.getBitSize() == BitSize.B32 && type.isFloating())
+			|| (Flags.LONG_DOUBLE.isEnabled() && isLongDouble(type));
 	}
 	
-	private AssemblyTarget constant(Number value) {
-		return constant(Type.LONG, value);
+	private boolean isLongDouble(Type type) {
+		return type.toNumber().getNumericType() == NumericValueType.LDOUBLE;
 	}
 	
-	private AssemblyTarget label(String name) {
-		return new X86LabelTarget(Type.VOID, name);
+	private boolean isDouble(Type type) {
+		return type.toNumber().getNumericType() == NumericValueType.DOUBLE;
 	}
 	
-	private Pair<AssemblyTarget, Long> mergeOffsets(BigInteger a, long scaleA, BigInteger b, long scaleB) {
-		if(scaleA == 0)
-			return Pair.of(constant(b), scaleB);
-		
-		if(scaleB == 0)
-			return Pair.of(constant(a), scaleA);
-		
-		long newScale = Math.min(scaleA, scaleB);
-		
-		return Pair.of(
-			constant(
-				a.multiply(BigInteger.valueOf(scaleA / newScale))
-					.add(b.multiply(BigInteger.valueOf(scaleB / newScale)))
-			),
-			newScale
-		);
+	private boolean isFloat(Type type) {
+		return type.toNumber().getNumericType() == NumericValueType.FLOAT;
 	}
 	
-	@SuppressWarnings("preview")
-	private AssemblyTarget generateOperand(Operand operand) {
-		switch(operand) {
-		case TemporaryOperand temp:
-			return new VirtualRegisterTarget(temp.getType(), temp.getId());
-			
-		case ConditionOperand cond:
-			return null; // TODO
-			
-		case ConstantOperand cnst:
-			if(cnst.isFloating())
-				return X86MemoryTarget.ofDisplaced(
-					cnst.getType(),
-					floatTable.get(
-						cnst.getType(),
-						(BigDecimal) cnst.getValue()
-					),
-					x86.RIP
-				);
-			
-			return new X86IntegerTarget(
-				cnst.getType(),
-				(BigInteger) cnst.getValue()
-			);
-			
-		case DiscardOperand discard:
-			return null;
-			
-		case GlobalOperand global: // name[rip]
-			return X86MemoryTarget.ofDisplaced(
-				global.getType(),
-				label(global.getName()),
-				x86.RIP
-			);
-			
-		case IndexOperand index: { // [target+index*scale]
-			AssemblyTarget displacement = null;
-			AssemblyTarget base = generateOperand(index.getTarget());
-			AssemblyTarget offset = generateOperand(index.getOffset());
-			long idxScale = index.getScale();
-			
-			if(idxScale != 0 && idxScale != 1 && idxScale != 2 && idxScale != 4 && idxScale != 8) {
-				
-				if(offset instanceof X86IntegerTarget idxOff) {
-					offset = constant(
-						idxOff.getValue()
-							.multiply(BigInteger.valueOf(idxScale))
-					);
-					idxScale = 1;
-				}
-				else {
-					offset = toRegister(offset);
-					
-					asm.add(
-						X86InstructionSelector.select(X86InstructionKinds.IMUL, offset.getType()),
-						offset,
-						constant(idxScale)
-					);
-				}
-				
-			}
-			
-			boolean toRegister = true;
-			
-			if(base instanceof X86MemoryTarget mem) {
-
-				displacement = mem.getDisplacement();
-				
-				if(mem.hasIndex()) {
-					
-					AssemblyTarget memIdx = mem.getIndex();
-					
-					if(offset instanceof X86IntegerTarget idxOff &&
-						memIdx instanceof X86IntegerTarget memOff) {
-						
-						var merged = mergeOffsets(
-							idxOff.getValue(),
-							idxScale,
-							memOff.getValue(),
-							mem.getScale()
-						);
-						
-						offset = merged.getLeft();
-						idxScale = merged.getRight();
-
-						base = mem.getBase();
-						toRegister = false;
-					}
-					
-				}
-				else {
-					base = mem.getBase();
-					toRegister = false;
-				}
-				
-			}
-			
-			if(toRegister) {
-				offset = toRegister(offset);
-				base = toRegister(base);
-				
-				displacement = null;
-			}
-			
-			return X86MemoryTarget.ofDisplaced(
-				index.getType(),
-				displacement,
-				base,
-				offset,
-				idxScale
-			);
-		}
-			
-		case LocalOperand local:
-			return X86MemoryTarget.ofDisplaced( // -offset[rbp]
-				local.getType(),
-				new X86IntegerTarget(
-					NumericValueType.PTRDIFF.asType(),
-					BigInteger.valueOf(-local.getOffset())
-				),
-				x86.RBP
-			);
-			
-		case MemberOperand member:
-			return null; // TODO
-			
-		default:
-			Logger.error("Unknown operand type: %s", operand.getClass());
-			return null;
-		}
-	}
-	
-	private AssemblyTarget toRegister(AssemblyTarget target) {
-		if(target == null || !target.isMemory())
-			return target;
-		
-		Type type = target.getType();
-		
-		VirtualRegisterTarget virt = new VirtualRegisterTarget(type);
-		
-		asm.add(
-			X86InstructionSelector.select(X86InstructionKinds.MOV, type),
-			virt,
-			target
-		);
-		
-		return virt;
-	}
-	
-	private AssemblyTarget toMemory(AssemblyTarget target) {
-		if(target == null || target.isMemory())
-			return target;
-		
-		Type type = target.getType();
-		
-		VirtualStackTarget virt = new VirtualStackTarget(type);
-		
-		asm.add(
-			X86InstructionSelector.select(X86InstructionKinds.MOV, type),
-			virt,
-			target
-		);
-		
-		return virt;
-	}
-	
-	private void generateAssignStruct(AssignIntermediate assign, StructType type) {
+	private void generateAssignStruct(StructType type, AssemblyTarget dst, AssemblyTarget src) {
 		int size = type.sizeof();
 		
 		if(size < 1)
 			return;
 		
-		AssemblyTarget dst = generateOperand(assign.getTarget());
-		AssemblyTarget src = generateOperand(assign.getValue());
-		
 		if(!dst.isMemory() || !src.isMemory())
-			Logger.error(assign, "Expected structure to be stored in memory");
+			Logger.error("Expected structure to be stored in memory");
 		
 		/* use memcpy for structs larger than 64 bytes */
 		if(size > 64) {
@@ -470,37 +312,58 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		 *  
 		 *  BYTE_OFFSET = 1234, BIT_OFFSET = 3, BIT_WIDTH = 15
 		 * 
-		 * 
-		 * assigning to a signed bitfield:
-		 * 
-		 * 	
-		 * 
-		 * assigning to an unsigned bitfield (up to 4 bytes):
-		 * 
-		 * 	mov/movzx eax, <src>
-		 * 	mov/movzx ebx, <dst>
-		 * 	and eax, <(1 << BIT_WIDTH) - 1>
-		 * 	and edx, <((1 << BIT_WIDTH) - 1) << BIT_OFFSET>
-		 * 	sal eax, <BIT_OFFSET>
-		 * 	or edx, edx
-		 * 	mov <dst>, eax/ax/al
-		 * 
-		 * assigning to an unsigned bitfield (5 bytes)
-		 * 
-		 * 	
-		 * 
 		 */
 		
-		Member member = target.getMember();
+		AssemblyTarget destBase = generateOperand(target.getTarget());
 		
-		int offset = member.getOffset();
-		int bitOffset = member.getBitOffset();
-		int bitWidth = member.getBitWidth();
+		BitfieldSegment[] segments = X86BitfieldHelper.determineBitfieldSegments(target.getMember());
 		
-		// TODO
+		for(BitfieldSegment segment : segments) {
+			Type memType = segment.memSize().getType();
+			
+			/* mov/movzx eax, <src>
+			 * mov/movzx edx, [<dst>+OFFSET]
+			 * and eax, <(1 << BIT_WIDTH) - 1>
+			 * and edx, <~(((1 << BIT_WIDTH) - 1) << BIT_OFFSET)>
+			 * sal eax, <BIT_OFFSET>
+			 * or edx, eax
+			 * mov [<dst>+OFFEST], eax/ax/al
+			 */
+			
+			AssemblyTarget dest = mergeMemory(
+				memType,
+				destBase,
+				constant(segment.offset() - segment.memOffset()),
+				1
+			);
+			
+			AssemblyTarget valueOld = toRegister(
+				dest,
+				RegisterFlags.ZERO_EXTEND
+			).resized(memType);
+			
+			AssemblyTarget valueNew = toRegister(
+				value,
+				RegisterFlags.ZERO_EXTEND,
+				segment.isLast()
+					? null
+					: RegisterFlags.REASSIGN
+			).resized(memType);
+			
+			int mask = segment.bitMask();
+			int bitOffset = segment.bitOffset();
+			
+			asm.add(X86InstructionKinds.AND, valueNew, constant(mask));
+			asm.add(X86InstructionKinds.AND, valueOld, constant(~(mask << bitOffset)));
+			asm.add(X86InstructionKinds.SAL, valueNew, constant(bitOffset));
+			asm.add(X86InstructionKinds.OR, valueOld, valueNew);
+			asm.add(X86InstructionKinds.MOV, dest, valueOld);
+		}
 	}
 	
 	private void generateAssignBody(AssemblyTarget dst, AssemblyTarget src) {
+		Type typeDst = dst.getType();
+		
 		if(dst.isMemory() && src.isMemory()) {
 			/*
 			 * When moving values across memory, there is no need to
@@ -512,73 +375,657 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			 * 	mov rax, <src>
 			 * 	mov <dst>, rax
 			 * 
-			 * For long doubles, the XMM registers are used since they are
-			 * the only registers capable of holding 80-bit values
-			 * (alongside the FPU stack)
+			 * For long doubles, use the FPU stack instead:
 			 * 
-			 * 	mov xmm0, <src>
-			 * 	mov <dst>, xmm0
+			 * 	fld <src>
+			 * 	fstp <dst>
 			 */
 			
-			List<? extends RegisterTarget> hints;
-			X86InstructionKinds insn;
-			
-			if(dst.getType() == Type.LDOUBLE) {
-				hints = X86Register.GROUP_XMM;
-				insn = X86InstructionKinds.MOVSS;
+			if(Flags.LONG_DOUBLE.isEnabled() && isLongDouble(typeDst)) {
+				asm.add(X86InstructionKinds.FLD, src);
+				asm.add(X86InstructionKinds.FSTP, dst);
 			}
 			else {
-				hints = List.of();
-				insn = X86InstructionKinds.MOV;
+				VirtualRegisterTarget tmp = new VirtualRegisterTarget(typeDst);
+				
+				asm.add(X86InstructionKinds.MOV, tmp, src);
+				asm.add(X86InstructionKinds.MOV, dst, tmp);
 			}
 			
-			VirtualRegisterTarget tmp = new VirtualRegisterTarget(dst.getType(), hints);
-			
-			asm.add(insn, tmp, src);
-			asm.add(insn, dst, tmp);
+			return;
 		}
 		
-		X86InstructionKinds insn = X86InstructionSelector.select(X86InstructionKinds.MOV, dst.getType());
-		
-		if(insn == X86InstructionKinds.FSTP) {
+		if(useFPU(typeDst)) {
 			/*
 			 * long double:
+			 * float/double (32-bit):
 			 * 
 			 * fld <src>
 			 * fstp <dst>
-			 * 
-			 * src/dst: either ST(i) or TBYTE memory operand
 			 */
 			
-			asm.add(X86InstructionKinds.FLD, src);
-			asm.add(X86InstructionKinds.FSTP, dst);
+			asm.add(X86InstructionKinds.FLD, toMemory(src));
+			
+			if(dst.isMemory())
+				asm.add(X86InstructionKinds.FSTP, dst);
+			
+			else { // float/double residing in registers (32-bit)
+				/*
+				 * fstp [esp+off]
+				 * mov <dst>, [esp+off]
+				 */
+				
+				VirtualStackTarget memory = new VirtualStackTarget(typeDst);
+				
+				asm.add(X86InstructionKinds.FSTP, memory);
+				asm.add(
+					X86InstructionKinds.MOV,
+					dst,
+					memory
+				);
+			}
 			
 			return;
 		}
 		
 		else asm.add( // mov <dst>, <src>
-			insn,
+			X86InstructionSelector.select(X86InstructionKinds.MOV, typeDst),
 			dst,
-			src
+			src.resized(dst.getType())
 		);
 	}
 	
 	private void generateAssign(AssignIntermediate assign) {
-		Type type = assign.getTarget().getType();
+		assign(
+			assign.getTarget(),
+			generateOperand(assign.getValue())
+		);
+	}
+	
+	private void assign(Operand target, AssemblyTarget value) {
+		Type type = target.getType();
 		
-		if(type.isStructLike()) {
-			generateAssignStruct(assign, type.toStructLike());
+		if(type.isBitfield()) {
+			generateAssignBitfield(
+				(MemberOperand) target,
+				value
+			);
 			return;
 		}
 		
-		AssemblyTarget dst = generateOperand(assign.getTarget());
-		AssemblyTarget src = generateOperand(assign.getValue());
+		AssemblyTarget destination = generateOperand(target);
+		
+		if(type.isStructLike())
+			generateAssignStruct(
+				type.toStructLike(),
+				destination,
+				value
+			);
+		
+		else generateAssignBody(
+			destination,
+			value
+		);
+	}
+	
+	private void assignDynamicMemory(Operand target, Consumer<AssemblyTarget> assignment) {
+		Type type = target.getType();
+		
+		if(target.isMemory() && !type.isBitfield())
+			assignment.accept(generateOperand(target));
+		
+		else {
+			VirtualStackTarget memory = new VirtualStackTarget(type);
+			
+			assignment.accept(memory);
+			
+			assign(target, memory);
+		}
+	}
+	
+	private void assignDynamicRegister(Operand target, Consumer<AssemblyTarget> assignment) {
+		if(!target.isMemory())
+			assignment.accept(generateOperand(target));
+		
+		else {
+			VirtualRegisterTarget register = new VirtualRegisterTarget(target.getType());
+			
+			assignment.accept(register);
+			
+			assign(target, register);
+		}
+	}
+	
+	private void assignDynamic(Operand target, Consumer<AssemblyTarget> assignment) {
+		if(target.isMemory())
+			assignDynamicMemory(target, assignment);
+		else assignDynamicRegister(target, assignment);
+	}
+	
+	private void generateBinaryArithmetic(Operand dst, AssemblyTarget left, AssemblyTarget right, X86InstructionKinds insnBase) {
+		Type type = left.getType();
+		
+		if(useFPU(type)) {
+			
+			/*
+			 * long double:
+			 * float/double (32-bit):
+			 * 
+			 * fld <A>
+			 * fld <B>
+			 * faddp st(1), st(0)
+			 * fstp <R>
+			 */
+			
+			asm.add(X86InstructionKinds.FLD, toMemory(left));
+			asm.add(X86InstructionKinds.FLD, toMemory(right));
+			asm.add(
+				X86InstructionSelector.select(insnBase, Type.LDOUBLE),
+				X86Register.ST1,
+				X86Register.ST0
+			);
+			
+			assignDynamicMemory(dst, mem -> asm.add(X86InstructionKinds.FSTP, mem));
+			
+			return;
+		}
 
-		generateAssignBody(dst, src);
+		X86InstructionKinds insn = X86InstructionSelector.select(insnBase, type);
+
+		if(type.isFloating()) {
+			
+			/*
+			 * float/double:
+			 * 
+			 * movss/movsd xmm0, <A>
+			 * movss/movsd xmm1, <B>
+			 * addss/addsd xmm0, xmm1
+			 * movss/movsd <R>, xmm0
+			 */
+
+			// create new variables to make sure left and right are effectively final (required by the callback below)
+			AssemblyTarget leftTarget = toRegister(left);
+			AssemblyTarget rightTarget = toRegister(right);
+			
+			asm.add(
+				insn,
+				leftTarget,
+				rightTarget
+			);
+			
+			assign(dst, leftTarget);
+			
+			return;
+		}
+		
+		/*
+		 * int:
+		 * 
+		 * mov eax, <A>
+		 * add eax, <B>
+		 * mov <R>, eax
+		 * 
+		 * 'compact' specifies the following optimization:
+		 * 
+		 * A = A +- B
+		 * A = B +- A
+		 * 
+		 * 	mov eax, <B>
+		 * 	add <A>, eax
+		 */
+
+		assignDynamic(dst, result -> {
+			AssemblyTarget leftTarget = left;
+			AssemblyTarget rightTarget = right;
+			
+			boolean compact = false;
+			
+			if(compact = rightTarget.equals(result)) {
+				// swap left and right
+				rightTarget = leftTarget;
+				leftTarget = result;
+			}
+			else compact = leftTarget.equals(result);
+			
+			if(leftTarget.isMemory()) {
+				
+				if(!compact)
+					leftTarget = toRegister(leftTarget);
+				
+				else if(rightTarget.isMemory())
+					rightTarget = toRegister(rightTarget);
+				
+			}
+			
+			asm.add(
+				insn,
+				leftTarget,
+				rightTarget
+			);
+			
+			if(!compact)
+				generateAssignBody(result, leftTarget);
+		});
 	}
 
-	private void generateBinary(BinaryIntermediate binary) {
+	private void generateBinaryDivision(Operand dst, AssemblyTarget left, AssemblyTarget right, boolean modulo) {
+		Type type = left.getType();
 		
+		if(type.isFloating()) {
+			generateBinaryArithmetic(dst, left, right, X86InstructionKinds.DIV);
+			return;
+		}
+		
+		/*
+		 * signed integer division:
+		 * 
+		 * 	mov eax, <A>
+		 * 	cwd/cdq/cqo		(clobbers edx, not required for BYTE)
+		 * 	idiv <B>
+		 * 
+		 * unsigned integer division:
+		 * 
+		 * 	mov eax, <A>
+		 * 	xor edx, edx	(not required for BYTE)
+		 * 	div <B>
+		 * 
+		 * division result:
+		 * 	
+		 * 	mov <R>, rax/eax/ax/al
+		 * 
+		 * modulo result:
+		 * 
+		 * 	mov <R>, rdx/edx/dx/ah
+		 */
+
+		X86Size size = X86Size.of(type);
+		boolean unsigned = type.isUnsigned();
+		
+		asm.add(
+			size == X86Size.BYTE
+				? unsigned
+					? X86InstructionKinds.MOVZX
+					: X86InstructionKinds.MOVSX
+				: X86InstructionKinds.MOV,
+			X86Register.EAX.resized(type).minimum(Type.INT),
+			left
+		);
+		
+		if(size != X86Size.BYTE) {
+			if(unsigned)
+				asm.add(X86InstructionKinds.XOR, X86Register.EDX, X86Register.EDX);
+			
+			else {
+				X86InstructionKinds signExtend = X86InstructionKinds.CWD;
+				
+				if(size == X86Size.DWORD)
+					signExtend = X86InstructionKinds.CDQ;
+				
+				else if(size == X86Size.QWORD)
+					signExtend = X86InstructionKinds.CQO;
+				
+				asm.add(signExtend);
+				asm.add(X86InstructionKinds.CLOBBER, X86Register.EDX);
+			}
+		}
+		
+		asm.add(
+			unsigned
+				? X86InstructionKinds.DIV
+				: X86InstructionKinds.IDIV,
+			right
+		);
+		
+		if(size == X86Size.BYTE)
+			assign(
+				dst,
+				modulo
+					? X86Register.AH
+					: X86Register.AL
+			);
+		else assign(
+			dst,
+			(modulo
+				? X86Register.EDX
+				: X86Register.EAX)
+				.resized(dst.getType())
+		);
+	}
+
+	private void generateBinaryMultiplication(Operand dst, AssemblyTarget left, AssemblyTarget right) {
+		Type type = left.getType();
+		
+		if(type.isFloating()) {
+			generateBinaryArithmetic(dst, left, right, X86InstructionKinds.IMUL);
+			return;
+		}
+		
+		/*
+		 * integer multiplication:
+		 * 
+		 * 	mov eax, <A>
+		 * 	imul eax, <B>
+		 * 	mov <R>, eax
+		 * 
+		 * if <B> is constant:
+		 * 
+		 * 	imul eax, <A>, <B>
+		 * 	mov <R>, eax
+		 */
+		
+		if(right instanceof X86IntegerTarget)
+			assignDynamicRegister(dst, result -> asm.add(X86InstructionKinds.IMUL, result.minimum(Type.SHORT), left, right));
+		
+		else assignDynamicRegister(dst, result -> {
+			asm.add(X86InstructionKinds.MOV, result, left);
+			asm.add(X86InstructionKinds.IMUL, result.minimum(Type.SHORT), right);
+		});
+	}
+
+	private void generateBinaryComparison(Operand dst, AssemblyTarget left, AssemblyTarget right,
+			ConditionFlags flagSint, ConditionFlags flagUint, ConditionFlags flagFloat,
+			boolean swapUint, boolean swapFloat) {
+		
+		Type type = left.getType();
+		ConditionFlags flag;
+		
+		AssemblyTarget first = left;
+		AssemblyTarget second = right;
+		
+		if(type.isFloating()) {
+			flag = flagFloat;
+			
+			if(swapFloat) {
+				first = right;
+				second = left;
+			}
+			
+			if(useFPU(type)) {
+				
+				/* 
+				 * long double comparison:
+				 * float/double comparison (32-bit):
+				 * 
+				 * fld <a>
+				 * fld <b>
+				 * fcomip st, st(1)
+				 * fstp st(1)
+				 */
+				
+				asm.add(X86InstructionKinds.FLD, first);
+				asm.add(X86InstructionKinds.FLD, second);
+				asm.add(X86InstructionKinds.FCOMIP, X86Register.ST0, X86Register.ST1);
+				asm.add(X86InstructionKinds.FSTP, X86Register.ST0);
+				
+			}
+			else {
+				
+				/*
+				 * float/double comparison (64-bit):
+				 * 
+				 * movss/movsd xmm0, <a>
+				 * comiss/comisd xmm0, <b>
+				 */
+				
+				asm.add(
+					X86InstructionSelector.select(
+						X86InstructionKinds.COMISS,
+						type
+					),
+					toRegister(first),
+					second
+				);
+				
+			}
+			
+		}
+		
+		else {
+			/*
+			 * integer comparison:
+			 * 
+			 * mov eax, <a>
+			 * cmp eax, <b>
+			 */
+			
+			if(type.isUnsigned()) {
+				flag = flagUint;
+
+				if(swapUint) {
+					first = right;
+					second = left;
+				}
+			}
+			else flag = flagSint;
+			
+			if(first.isMemory() && second.isMemory())
+				first = toRegister(first);
+			
+			asm.add(X86InstructionKinds.CMP, first, second);
+			
+		}
+		
+		if(dst instanceof ConditionOperand) // flag is used by jump instruction
+			conditionFlag = flag;
+		
+		/*
+		 * set<cc>, al
+		 * movzx <dst>, al
+		 */
+		else assignDynamicRegister(
+			dst,
+			reg -> {
+				AssemblyTarget reg32 = reg.resized(Type.INT);
+				
+				asm.add(X86InstructionKinds.XOR, reg32, reg32);
+				asm.add(flag.getSetInstruction(), reg.resized(Type.CHAR));
+			}
+		);
+		
+	}
+	
+	private void generateBinaryBitwise(Operand dst, AssemblyTarget leftTarget, AssemblyTarget rightTarget, X86InstructionKinds insn) {
+		
+		/*
+		 * 	mov eax, <A>
+		 * 	and/or/xor eax, <B>
+		 * 	mov <R>, eax
+		 * 
+		 * 'compact' specifies the following optimization:
+		 * 
+		 * A = A &|^ B
+		 * A = B &|^ A
+		 * 
+		 * 	and/or/xor eax, <B>
+		 * 	and/or/xor <A>, eax
+		 */
+		
+		assignDynamic(dst, result -> {
+			AssemblyTarget left = leftTarget;
+			AssemblyTarget right = rightTarget;
+			
+			boolean compact;
+			
+			if(compact = right.equals(result)) {
+				// swap left and right
+				right = left;
+				left = result;
+			}
+			else compact = left.equals(result);
+			
+			if(left.isMemory()) {
+				
+				if(!compact)
+					left = toRegister(left);
+				
+				else if(right.isMemory())
+					right = toRegister(right);
+				
+			}
+			
+			asm.add(insn, left, right);
+			
+			if(!compact)
+				generateAssignBody(result, left);
+		});
+	}
+	
+	private void generateBinaryShift(Operand dst, AssemblyTarget leftTarget, AssemblyTarget rightTarget,
+			X86InstructionKinds insnSint, X86InstructionKinds insnUint) {
+
+		/*
+		 * 	mov eax, <A>
+		 * 	mov ecx, <B>
+		 * 	sal/shl/sar/shr eax, cl
+		 * 	mov <R>, eax
+		 * 
+		 * 'compact' specifies the following optimization:
+		 * 
+		 * A = A << B
+		 * 
+		 * 	mov ecx, <B>
+		 * 	sal/shl/sar/shr <A>, cl
+		 */
+		
+		assignDynamic(dst, result -> {
+			AssemblyTarget left = leftTarget;
+			AssemblyTarget right = rightTarget;
+			
+			boolean unsigned = left.getType().isUnsigned();
+			boolean compact = left.equals(result);
+			
+			if(left.isMemory() && !compact)
+				left = toRegister(left);
+			
+			generateAssignBody(X86Register.ECX.resized(right.getType()), right);
+			
+			X86InstructionKinds insn = unsigned
+				? insnUint
+				: insnSint;
+			
+			asm.add(insn, left, X86Register.CL);
+	
+			if(!compact)
+				generateAssignBody(result, left);
+		});
+	}
+	
+	private void generateBinaryEquality(Operand dst, AssemblyTarget left, AssemblyTarget right, boolean inverted) {
+		
+		// TODO
+		
+		/*
+		 * long double:
+		 * float/double (32-bit):
+		 * 
+		 * 	xor eax, eax
+		 * 	mov edx, 0/1
+		 * 	fld <A>
+		 * 	fld <B>
+		 * 	fucomip st, st(1)
+		 * 	fstp st(0)
+		 * 	setnp al
+		 * 	cmovne eax, edx
+		 * 	mov <R>, eax
+		 */
+		
+		/*
+		 * float/double:
+		 * 
+		 * 	xor eax, eax
+		 * 	mov edx, 0/1
+		 * 	movss/movsd xmm0, <A>
+		 * 	ucomiss xmm0, <B>
+		 * 	setnp al
+		 * 	cmovne eax, edx
+		 * 	mov <R>, eax
+		 */
+		
+		/*
+		 * int:
+		 * 
+		 * 	mov eax, <A>
+		 * 	cmp eax, <B>
+		 * 	sete al
+		 * 	movzx eax, al
+		 * 	mov <R>, eax
+		 */
+		
+	}
+	
+	private void generateBinary(BinaryIntermediate binary) {
+		Operand dst = binary.getResult();
+		AssemblyTarget left = generateOperand(binary.getLeft());
+		AssemblyTarget right = generateOperand(binary.getRight());
+
+		switch(binary.getOp()) {
+		case ADD: generateBinaryArithmetic(dst, left, right, X86InstructionKinds.ADD); break;
+		case SUBTRACT: generateBinaryArithmetic(dst, left, right, X86InstructionKinds.SUB); break;
+		
+		case MULTIPLY: generateBinaryMultiplication(dst, left, right); break;
+		
+		case DIVIDE: generateBinaryDivision(dst, left, right, false); break;
+		case MODULO: generateBinaryDivision(dst, left, right, true); break;
+			
+		case BITWISE_AND: generateBinaryBitwise(dst, left, right, X86InstructionKinds.AND); break;
+		case BITWISE_OR: generateBinaryBitwise(dst, left, right, X86InstructionKinds.OR); break;
+		case BITWISE_XOR: generateBinaryBitwise(dst, left, right, X86InstructionKinds.XOR); break;
+		
+		case SHIFT_LEFT: generateBinaryShift(dst, left, right, X86InstructionKinds.SAL, X86InstructionKinds.SHL); break;
+		case SHIFT_RIGHT: generateBinaryShift(dst, left, right, X86InstructionKinds.SAR, X86InstructionKinds.SHR); break;
+		
+		case EQUAL: generateBinaryEquality(dst, left, right, false); break;
+		case NOT_EQUAL: generateBinaryEquality(dst, left, right, true); break;
+				
+		case GREATER:
+			generateBinaryComparison(
+				dst, left, right,
+				ConditionFlags.GREATER,
+				ConditionFlags.BELOW,
+				ConditionFlags.ABOVE,
+				true, false
+			);
+			break;
+			
+		case GREATER_EQUAL:
+			generateBinaryComparison(
+				dst, left, right,
+				ConditionFlags.GREATER_EQUAL,
+				ConditionFlags.NOT_BELOW,
+				ConditionFlags.NOT_BELOW,
+				false, false
+			);
+			break;
+			
+		case LESS:
+			generateBinaryComparison(
+				dst, left, right,
+				ConditionFlags.LESS,
+				ConditionFlags.BELOW,
+				ConditionFlags.ABOVE,
+				false, true
+			);
+			break;
+			
+		case LESS_EQUAL:
+			generateBinaryComparison(
+				dst, left, right,
+				ConditionFlags.LESS_EQUAL,
+				ConditionFlags.NOT_BELOW,
+				ConditionFlags.NOT_BELOW,
+				true, true
+			);
+			break;
+			
+			
+		case LOGICAL_AND:
+			// TODO
+			break;
+			
+		case LOGICAL_OR:
+			// TODO
+			break;
+		}
 		
 	}
 
@@ -594,7 +1041,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 	}
 
 	private void generateCast(CastIntermediate cast) {
-		AssemblyTarget dst = generateOperand(cast.getResult());
+		Operand dst = cast.getResult();
 		AssemblyTarget src = generateOperand(cast.getTarget());
 
 		Type typeDst = dst.getType();
@@ -603,15 +1050,22 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		X86Size sizeDst = X86Size.of(typeDst);
 		X86Size sizeSrc = X86Size.of(typeSrc);
 		
-		boolean ldoubleSrc =	typeSrc == Type.LDOUBLE;
-		boolean doubleSrc =		typeSrc == Type.DOUBLE;
-		boolean floatSrc =		typeSrc == Type.FLOAT;
+		boolean ldoubleSrc =	useFPU(typeSrc);
+		boolean doubleSrc =		isDouble(typeSrc);
+		boolean floatSrc =		isFloat(typeSrc);
 		boolean intSrc =		!typeSrc.isFloating();
 
-		boolean ldoubleDst =	typeDst == Type.LDOUBLE;
-		boolean doubleDst =		typeDst == Type.DOUBLE;
-		boolean floatDst =		typeDst == Type.FLOAT;
+		boolean ldoubleDst =	useFPU(typeDst);
+		boolean doubleDst =		isDouble(typeDst);
+		boolean floatDst =		isFloat(typeDst);
 		boolean intDst =		!typeDst.isFloating();
+		
+		if(!Flags.LONG_DOUBLE.isEnabled()) {
+			doubleDst |= ldoubleDst;
+			doubleSrc |= ldoubleSrc;
+			
+			ldoubleDst = ldoubleSrc = false;
+		}
 		
 		if(intDst && intSrc && sizeDst != sizeSrc) {
 			// cast from int to int
@@ -657,27 +1111,32 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 
 				asm.add(mov, X86Register.EAX, src);
 				asm.add(insn);
-				asm.add(X86InstructionKinds.MOV, dst, reg);
+				
+				assign(dst, reg);
 				return;
 			}
 			
-			VirtualRegisterTarget virt = new VirtualRegisterTarget(
-				bytesSrc > 4
-					? Type.LONG // e.g. rax
-					: Type.INT  // e.g. eax
-			);
+			if(bytesSrc > bytesDst) {
+				assign(dst, src);
+				return;
+			}
 			
-			asm.add(
-				bytesSrc < 4
-					? X86InstructionKinds.MOVZX // explicit zeroing of upper bits
-					: X86InstructionKinds.MOV,  // implicit zeroing of upper bits (when writing to 32-bit registers)
-				virt,
-				src
-			);
-			
-			if(bytesSrc < bytesDst) {
-			
-				if(signedSrc) {
+			assignDynamicRegister(dst, result -> {
+				result = result.resized(
+					bytesSrc > 4
+						? Type.LONG // e.g. rax
+						: Type.INT  // e.g. eax
+				);
+				
+				asm.add(
+					bytesSrc < 4
+						? X86InstructionKinds.MOVZX // explicit zeroing of upper bits
+						: X86InstructionKinds.MOV,  // implicit zeroing of upper bits (when writing to 32-bit registers),
+					result,
+					src
+				);
+				
+				if(bytesSrc < bytesDst && signedSrc) {
 					/*
 					 * signed integers: sign extension
 					 * 
@@ -688,52 +1147,32 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 					
 					asm.add(
 						X86InstructionKinds.MOVSX,
-						virt,
-						virt.resized(sizeSrc)
+						result,
+						result.resized(typeSrc)
 					);
 				}
-				else if(!(bytesSrc == 4 && bytesDst == 8)) {
-					/*
-					 * unsigned integers: zero extension
-					 * 
-					 * 	movzx/mov rax/eax, <src>
-					 * 	movzx eax, ax/al
-					 * 	mov <dst>, eax/ax/al
-					 * 
-					 * this is not performed when casting from
-					 * int to long; the zero extension implicitly
-					 * occurs in this case
-					 */
-					
-					asm.add(
-						X86InstructionKinds.MOVZX,
-						virt,
-						virt.resized(sizeSrc)
-					);
-				}
-			
-			}
-
-			asm.add(X86InstructionKinds.MOV, dst, virt.resized(sizeDst));
+			});
 			
 			return;
 		}
 		
 		if((ldoubleDst && ldoubleSrc) || (doubleDst && doubleSrc) || (floatDst && floatSrc) || (intDst && intSrc)) {
-			generateAssignBody(dst, src);
+			assign(dst, src);
 			return;
 		}
 		
 		if(ldoubleDst) {
 			/* double/float to long double:
+			 * double/float to double/float (32-bit):
 			 * 
 			 * 	fld <double/float>
 			 * 	fstp <long double>
 			 * 
 			 * 
 			 * int to long double:
+			 * int to double/float (32-bit):
 			 * 
-			 * 	fild <float>
+			 * 	fild <int>
 			 * 	fstp <long double>
 			 */
 			
@@ -742,13 +1181,15 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 				: X86InstructionKinds.FLD;
 			
 			asm.add(insn, toMemory(src));
-			asm.add(X86InstructionKinds.FSTP, dst);
+			
+			assignDynamicMemory(dst, mem -> asm.add(X86InstructionKinds.FSTP, mem));
 			
 			return;
 		}
 
 		if(ldoubleSrc) {
 			/* long double to double/float
+			 * double/float to double/float (32-bit):
 			 * 
 			 * 	fld <long double>
 			 * 	fstp <double/float>
@@ -762,6 +1203,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			 * 
 			 * 
 			 * long double to int:
+			 * double/float to int (32-bit):
 			 * 
 			 * 	fld <long double>
 			 * 	fldcw fpu_round_toward_zero[rbp]
@@ -778,29 +1220,18 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			 * 	mov <int>, offset[rbp]
 			 */
 			
-			AssemblyTarget destination;
-			
-			boolean outsource = !dst.isMemory();
-			
-			if(outsource)
-				destination = toMemory(dst);
-			else destination = dst;
-			
 			asm.add(X86InstructionKinds.FLD, src);
 			
-			if(intDst) {
-				overrideFPUState();
-				asm.add(X86InstructionKinds.FISTP, destination);
-				restoreFPUState();
-			}
-			else asm.add(X86InstructionKinds.FSTP, destination);
-
-			if(outsource)
-				asm.add(
-					X86InstructionSelector.select(X86InstructionKinds.MOV, typeDst),
+			if(intDst)
+				assignDynamicMemory(
 					dst,
-					destination
+					mem -> {
+						overrideFPUState();
+						asm.add(X86InstructionKinds.FISTP, mem);
+						restoreFPUState();
+					}
 				);
+			else assignDynamicMemory(dst, mem -> asm.add(X86InstructionKinds.FSTP, mem));
 			
 			return;
 		}
@@ -832,14 +1263,6 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			 * 	movss/movsd <float/double>, xmm0
 			 */
 			
-			AssemblyTarget destination;
-			
-			boolean outsource = dst.isMemory();
-			
-			if(outsource)
-				destination = toRegister(dst);
-			else destination = dst;
-			
 			X86InstructionKinds insn = floatDst
 				? intSrc
 					? X86InstructionKinds.CVTSI2SS // (float) int
@@ -847,11 +1270,8 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 				: intSrc
 					? X86InstructionKinds.CVTSI2SD // (double) int
 					: X86InstructionKinds.CVTSS2SD;// (double) float
-
-			asm.add(insn, destination, src);
 			
-			if(outsource)
-				asm.add(X86InstructionKinds.MOVSD, dst, destination);
+			assignDynamicMemory(dst, mem -> asm.add(insn, mem, src));
 			
 			return;
 		}
@@ -872,24 +1292,11 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		 * 	mov <int>, rax
 		 */
 		
-		AssemblyTarget destination;
-		
-		boolean outsource = dst.isMemory();
-		
-		if(outsource)
-			destination = toRegister(dst);
-		else destination = dst;
-		
-		asm.add(
-			floatSrc
-				? X86InstructionKinds.CVTTSS2SI
-				: X86InstructionKinds.CVTTSD2SI,
-			destination,
-			src
-		);
+		X86InstructionKinds insn = floatSrc
+			? X86InstructionKinds.CVTTSS2SI
+			: X86InstructionKinds.CVTTSD2SI;
 
-		if(outsource)
-			asm.add(X86InstructionKinds.MOV, dst, destination);
+		assignDynamicMemory(dst, mem -> asm.add(insn, mem, src));
 	}
 
 	private void generateJump(JumpIntermediate jump) {
@@ -932,14 +1339,26 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			asm.add(X86InstructionKinds.LEA, dst, target);
 			
 			if(outsource)
-				asm.add(
-					X86InstructionKinds.MOV, result, dst);
+				asm.add(X86InstructionKinds.MOV, result, dst);
 			
 			break;
 		}
-		}
 		
-		// TODO
+		case BITWISE_NOT:
+			break;
+			
+		case INDIRECTION:
+			break;
+			
+		case LOGICAL_NOT:
+			break;
+			
+		case MINUS:
+			break;
+			
+		default:
+			break;
+		}
 	}
 	
 	private void generateMemcpyTail(int size) {
@@ -989,7 +1408,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 	private void generateMemsetTail(int size, int value) {
 		var opSize = calculateMemoryOperationSize(size);
 		
-		X86Register valueRegister = X86Register.RAX.getFor(opSize.getRight());
+		X86Register valueRegister = X86Register.RAX.resized(opSize.getRight());
 		
 		asm.add( // mov rcx, n
 			X86InstructionKinds.MOV,
@@ -1119,21 +1538,25 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		return Pair.of(byteCount, wordSize);
 	}
 	
-	private static record Instructions(List<AssemblyInstruction> assembly) {
+	@RequiredArgsConstructor
+	@Getter
+	private static enum ConditionFlags {
 		
-		public Instructions add(AssemblyInstruction instruction) {
-			assembly.add(instruction);
-			return this;
-		}
+		ABOVE			("a",	X86InstructionKinds.SETA,	X86InstructionKinds.JA),
+		BELOW			("b",	X86InstructionKinds.SETB,	X86InstructionKinds.JB),
+		EQUAL			("e",	X86InstructionKinds.SETE,	X86InstructionKinds.JE),
+		GREATER			("g",	X86InstructionKinds.SETG,	X86InstructionKinds.JG),
+		GREATER_EQUAL	("ge",	X86InstructionKinds.SETGE,	X86InstructionKinds.JGE),
+		LESS			("l",	X86InstructionKinds.SETL,	X86InstructionKinds.JL),
+		LESS_EQUAL		("le",	X86InstructionKinds.SETLE,	X86InstructionKinds.JLE),
+		PARITY			("p",	X86InstructionKinds.SETP,	X86InstructionKinds.JP),
+		NOT_BELOW		("nb",	X86InstructionKinds.SETNB,	X86InstructionKinds.JNB),
+		NOT_PARITY		("np",	X86InstructionKinds.SETNP,	X86InstructionKinds.JNP);
 		
-		public Instructions add(X86InstructionKinds kind, AssemblyTarget destination, AssemblyTarget...sources) {
-			return add(new X86Instruction(kind, destination, sources));
-		}
-		
-		public Instructions add(X86InstructionKinds kind) {
-			return add(new X86Instruction(kind, null));
-		}
+		private final String code;
+		private final X86InstructionKinds setInstruction;
+		private final X86InstructionKinds jumpInstruction;
 		
 	}
-	
+		
 }

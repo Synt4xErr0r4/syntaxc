@@ -20,10 +20,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser;
+package at.syntaxerror.syntaxc.parser.helper;
 
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newBinary;
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newComma;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newBinary;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newComma;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;

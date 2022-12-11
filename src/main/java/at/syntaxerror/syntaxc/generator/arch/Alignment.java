@@ -33,7 +33,7 @@ public abstract class Alignment {
 
 	public abstract int getAlignment(Type type);
 	
-	public abstract StructAlignment getMemberAlignment(StructType struct, Type type, int offset, int bitOffset, int bitWidth);
+	public abstract StructAlignment getMemberAlignment(StructType struct, Type type, int offset, int bitOffset, int bitWidth, boolean wasBitfield);
 	
 	public static int alignAt(int offset, int alignment) {
 		if(alignment < 2)

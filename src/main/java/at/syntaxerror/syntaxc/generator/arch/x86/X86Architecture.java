@@ -56,7 +56,7 @@ public class X86Architecture extends Architecture {
 	
 	@Override
 	public CodeGenerator getCodeGenerator(String inputFileName) {
-		return new X86CodeGenerator(inputFileName);
+		return new X86CodeGenerator(inputFileName, this);
 	}
 	
 	@Override

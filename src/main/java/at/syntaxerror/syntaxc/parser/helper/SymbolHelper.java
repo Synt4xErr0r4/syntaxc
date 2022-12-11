@@ -20,11 +20,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser;
+package at.syntaxerror.syntaxc.parser.helper;
 
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
+import at.syntaxerror.syntaxc.parser.Parser;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
+import at.syntaxerror.syntaxc.serial.InitializerSerializer;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;

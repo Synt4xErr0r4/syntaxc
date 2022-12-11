@@ -61,8 +61,17 @@ public class ArchitectureRegistry {
 	@Getter @Setter
 	private static int alignment = -1;
 
+	/* When true, bitfields declared without either 'signed' or 'unsigned' are implicitly 'unsigned' */
 	@Getter @Setter
 	private static boolean unsignedBitfields = false;
+
+	/* 
+	 * When true, serialization of global structs will not split large bitfield values.
+	 * This is useful when the output assembly supports defining integer constants larger
+	 * than the architecture's maximum supported integer lengths
+	 */
+	@Getter @Setter
+	private static boolean unrestrictedBitfieldSerialization = false;
 	
 	static {
 		register(new X86Architecture());

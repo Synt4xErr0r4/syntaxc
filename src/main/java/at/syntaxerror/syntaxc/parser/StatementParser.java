@@ -38,7 +38,8 @@ import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
-import at.syntaxerror.syntaxc.parser.SymbolHelper.DeclarationState;
+import at.syntaxerror.syntaxc.parser.helper.ExpressionHelper;
+import at.syntaxerror.syntaxc.parser.helper.SymbolHelper.DeclarationState;
 import at.syntaxerror.syntaxc.parser.node.declaration.Declarator;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
@@ -52,6 +53,7 @@ import at.syntaxerror.syntaxc.parser.node.statement.JumpStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.LabeledStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.NullStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.StatementNode;
+import at.syntaxerror.syntaxc.serial.InitializerSerializer;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
@@ -378,7 +380,7 @@ public class StatementParser extends AbstractParser {
 	}
 	
 	private ExpressionNode negate(ExpressionNode condition) {
-		return ExpressionParser.newUnary(
+		return ExpressionHelper.newUnary(
 			condition,
 			condition,
 			Punctuator.LOGICAL_NOT

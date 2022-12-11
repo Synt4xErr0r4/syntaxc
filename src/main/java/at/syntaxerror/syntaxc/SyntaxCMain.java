@@ -99,7 +99,7 @@ public class SyntaxCMain {
 				"-S",
 				"-Wall",
 				"-Wno-implicit-function", "-Wno-pragma",
-				"-m64"
+				"-m32"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()

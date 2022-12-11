@@ -22,11 +22,17 @@
  */
 package at.syntaxerror.syntaxc.parser;
 
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.isNullPointer;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newCast;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newComma;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newNumber;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newPromote;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newUnary;
+
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 import at.syntaxerror.syntaxc.builtin.BuiltinContext;
@@ -36,22 +42,22 @@ import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;
 import at.syntaxerror.syntaxc.lexer.TokenType;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
+import at.syntaxerror.syntaxc.parser.helper.AssignmentHelper;
+import at.syntaxerror.syntaxc.parser.helper.ExpressionChecker;
+import at.syntaxerror.syntaxc.parser.helper.PointerHelper;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BuiltinExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.CallExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ConditionalExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.MemberAccessExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.NumberLiteralExpressionNode;
-import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.symtab.SymbolTable;
 import at.syntaxerror.syntaxc.symtab.global.GlobalVariableInitializer;
 import at.syntaxerror.syntaxc.tracking.Position;
-import at.syntaxerror.syntaxc.tracking.Positioned;
 import at.syntaxerror.syntaxc.type.ArrayType;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
@@ -1242,66 +1248,6 @@ public class ExpressionParser extends AbstractParser {
 		}
 		
 		return exprLeft;
-	}
-	
-	protected static NumberLiteralExpressionNode newNumber(Positioned pos, Number value, Type type) {
-		return new NumberLiteralExpressionNode(pos.getPosition(), value, type);
-	}
-	
-	protected static ExpressionNode newPromote(ExpressionNode expr) {
-		Type promoted = TypeUtils.promoteInteger(expr.getType());
-		
-		return newCast(expr, expr, promoted);
-	}
-	
-	protected static ExpressionNode newCast(Positioned pos, ExpressionNode expr, Type type) {
-		Type current = expr.getType();
-		
-		if(TypeUtils.isCompatible(current, type))
-			return expr;
-		
-		return new CastExpressionNode(pos.getPosition(), expr, type);
-	}
-	
-	protected static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op) {
-		return newUnary(pos, expr, op, expr.getType());
-	}
-
-	protected static UnaryExpressionNode newUnary(Positioned pos, ExpressionNode expr, Punctuator op, Type type) {
-		return new UnaryExpressionNode(pos.getPosition(), expr, op, type);
-	}
-
-	protected static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
-		return newArithmetic(pos, left, right, op, null);
-	}
-
-	protected static BinaryExpressionNode newArithmetic(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
-		Type lType = left.getType();
-		Type rType = right.getType();
-		
-		Type usual = TypeUtils.convertUsualArithmetic(lType, rType);
-		
-		left = newCast(pos, left, usual);
-		right = newCast(pos, right, usual);
-		
-		return newBinary(pos, left, right, op, Objects.requireNonNullElse(type, usual));
-	}
-
-	protected static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op) {
-		return newBinary(pos, left, right, op, left.getType());
-	}
-
-	protected static BinaryExpressionNode newBinary(Positioned pos, ExpressionNode left, ExpressionNode right, Punctuator op, Type type) {
-		return new BinaryExpressionNode(pos.getPosition(), left, right, op, type);
-	}
-
-	protected static BinaryExpressionNode newComma(Positioned pos, ExpressionNode left, ExpressionNode right) {
-		return newBinary(pos, left, right, Punctuator.COMMA, right.getType());
-	}
-	
-	public static boolean isNullPointer(ExpressionNode expr) {
-		return ConstantExpressionEvaluator.isConstant(expr)
-			&& ConstantExpressionEvaluator.evalInteger(expr).compareTo(BigInteger.ZERO) == 0;
 	}
 	
 }

@@ -25,6 +25,8 @@ package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 import java.util.HashMap;
 import java.util.Map;
 
+import at.syntaxerror.syntaxc.SystemUtils.BitSize;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
@@ -60,6 +62,7 @@ public class X86InstructionSelector {
 		register(IDIV,	DIV,	DIVSS,		DIVSD,		FDIVP);
 		register(CMP,	CMP,	UCOMISS,	UCOMISD,	FUCOMIP);
 		register(MOV,	MOV,	MOVSS,		MOVSD,		FSTP);
+		register(null,	null,	COMISS,		COMISD,		FCOMIP);
 	}
 	
 	public static X86InstructionKinds select(X86InstructionKinds base, Type type) {
@@ -68,32 +71,38 @@ public class X86InstructionSelector {
 		
 		if(!MAPPINGS.containsKey(base))
 			return base;
-		
-		NumericValueType num;
-		
-		if(type.isEnum())
-			num = type.toEnum().getNumericType();
-			
-		else if(type.isPointerLike())
-			num = NumericValueType.POINTER;
-			
-		else num = type.toNumber().getNumericType();
-		
+
 		int index;
 		
-		switch(num) {
-		case FLOAT:		index = INDEX_F32; break;
-		case DOUBLE:	index = INDEX_F64; break;
-		case LDOUBLE:
-			if(!Flags.LONG_DOUBLE.isEnabled())
-				index = INDEX_F64;
-			else index = INDEX_F80;
-			break;
-		default:
-			if(num.isSigned())
-				index = INDEX_SINT;
-			else index = INDEX_UINT;
-			break;
+		if(ArchitectureRegistry.getBitSize() == BitSize.B32 && type.isFloating())
+			index = INDEX_F80;
+		
+		else {
+			NumericValueType num;
+			
+			if(type.isEnum())
+				num = type.toEnum().getNumericType();
+				
+			else if(type.isPointerLike())
+				num = NumericValueType.POINTER;
+				
+			else num = type.toNumber().getNumericType();
+			
+			
+			switch(num) {
+			case FLOAT:		index = INDEX_F32; break;
+			case DOUBLE:	index = INDEX_F64; break;
+			case LDOUBLE:
+				if(!Flags.LONG_DOUBLE.isEnabled())
+					index = INDEX_F64;
+				else index = INDEX_F80;
+				break;
+			default:
+				if(num.isSigned())
+					index = INDEX_SINT;
+				else index = INDEX_UINT;
+				break;
+			}
 		}
 		
 		return MAPPINGS.get(base)[index];

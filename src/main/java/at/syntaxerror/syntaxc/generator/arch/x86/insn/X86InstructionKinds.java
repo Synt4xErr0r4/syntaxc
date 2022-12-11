@@ -33,6 +33,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum X86InstructionKinds implements AssemblyInstructionKind {
 
+	CLOBBER, /* not an actual instruction, but tells the register allocator that a register now contains undefined data */
+	
 	MOV(true),		/* int = int */
 	MOVSS,			/* float = float */
 	MOVSD,			/* double = double */
@@ -76,9 +78,10 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	XOR(true),  /* int ^ int */
 	PXOR, 		/* clear XMMn */
 	
-	SAL(true),	/* int << int */
-	SAR(true),	/* int >> int */
-	SHR(true),	/* int >> int */
+	SAL(true),	/* int << int (arithmetic) */
+	SAR(true),	/* int >> int (arithmetic; preserve sign) */
+	SHL(true),  /* int << int (logical; identical to SAL) */
+	SHR(true),	/* int >>> int (logical; ignore sign) */
 	
 	NOT(true),	/* ~int */
 	NEG(true),	/* -num */
@@ -107,6 +110,7 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	UCOMISD,	/* double == double */
 	COMISD,		/* double == double */
 	FUCOMIP,	/* long double == long double */
+	FCOMIP,		/* long double == long double */
 
 	SETA,  /* if(above) a = 1 */
 	SETB,  /* if(below) a = 1 */
@@ -118,9 +122,17 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	SETP,  /* if(parity) a = 1 */
 	SETNB, /* if(not below) a = 1 */
 	SETNP, /* if(not parity) a = 1 */
-	
-	JNZ, /* if(not zero) goto a */
-	JP,  /* if(positive) goto a */
+
+	JA,  /* if(above) goto a */
+	JB,  /* if(below) goto a */
+	JE,  /* if(equal) goto a */
+	JG,  /* if(greater) goto a */
+	JGE, /* if(greater or equal) goto a */
+	JL,  /* if(less) goto a */
+	JLE, /* if(less or equal) goto a */
+	JP,  /* if(parity) goto a */
+	JNB, /* if(not below) goto a */
+	JNP, /* if(not parity) goto a */
 	JMP, /* goto a */
 	
 	REP_MOVS(true), /* memcpy */

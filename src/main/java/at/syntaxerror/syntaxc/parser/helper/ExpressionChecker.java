@@ -20,12 +20,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser;
+package at.syntaxerror.syntaxc.parser.helper;
 
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.isNullPointer;
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newArithmetic;
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newBinary;
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newPromote;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.isNullPointer;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newArithmetic;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newBinary;
+import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newPromote;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.lexer.Token;

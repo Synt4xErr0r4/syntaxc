@@ -23,9 +23,12 @@
 package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86AssemblyTarget;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.AssemblyInstructionKind;
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 
 /**
@@ -34,11 +37,22 @@ import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
  */
 public class X86Instruction extends AssemblyInstruction {
 
-	public X86Instruction(X86InstructionKinds kind, AssemblyTarget destination, AssemblyTarget... sources) {
-		super(kind, destination, List.of(sources));
+	public X86Instruction(Instructions asm, AssemblyInstructionKind kind, AssemblyTarget destination, AssemblyTarget... sources) {
+		super(asm, kind, destination, List.of(sources));
 	}
 	
 	public String toAssemblyString(boolean att) {
+		if(getKind() == X86InstructionKinds.CLOBBER)
+			return "; CLOBBER { "
+				+ Stream.concat(
+					Stream.of(getDestination()),
+					getSources().stream()
+				)
+					.map(AssemblyTarget::toString)
+					.reduce((a, b) -> a + ", " + b)
+					.orElse("")
+				+ " }";
+		
 		if(att) {
 			// TODO
 			

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.AccessLevel;
@@ -54,15 +55,15 @@ public class X86Register implements RegisterTarget {
 
 	/* --- REGISTER GROUPS --- */
 	
-	public static final List<X86Register> GROUP_A = makeGPRWithLH("A");
-	public static final List<X86Register> GROUP_B = makeGPRWithLH("B");
-	public static final List<X86Register> GROUP_C = makeGPRWithLH("C");
-	public static final List<X86Register> GROUP_D = makeGPRWithLH("D");
+	public static final List<X86Register> GROUP_A = makeGPRWithLH("a");
+	public static final List<X86Register> GROUP_B = makeGPRWithLH("b");
+	public static final List<X86Register> GROUP_C = makeGPRWithLH("c");
+	public static final List<X86Register> GROUP_D = makeGPRWithLH("d");
 	
-	public static final List<X86Register> GROUP_SI = makeGPR("SI");
-	public static final List<X86Register> GROUP_DI = makeGPR("DI");
-	public static final List<X86Register> GROUP_BP = makeGPR("BP");
-	public static final List<X86Register> GROUP_SP = makeGPR("SP");
+	public static final List<X86Register> GROUP_SI = makeGPR("si");
+	public static final List<X86Register> GROUP_DI = makeGPR("di");
+	public static final List<X86Register> GROUP_BP = makeGPR("bp");
+	public static final List<X86Register> GROUP_SP = makeGPR("sp");
 	
 	/* x64 only */
 	public static final List<X86Register> GROUP_R8 = makeGPRNumeric("8");
@@ -242,11 +243,11 @@ public class X86Register implements RegisterTarget {
 	private static List<X86Register> makeGPRWithLH(String name) {
 		List<X86Register> intersections = new ArrayList<>();
 		
-		X86Register RxX = reg("R" + name + "X",	8, intersections);
-		X86Register ExX = reg("E" + name + "X",	4, intersections);
-		X86Register xX =  reg(name + "X",		2, intersections);
-		X86Register xH =  reg(name + "H",		1, intersections);
-		X86Register xL =  reg(name + "L",		1, intersections);
+		X86Register RxX = reg("r" + name + "x",	8, intersections);
+		X86Register ExX = reg("e" + name + "x",	4, intersections);
+		X86Register xX =  reg(name + "x",		2, intersections);
+		X86Register xH =  reg(name + "h",		1, intersections);
+		X86Register xL =  reg(name + "l",		1, intersections);
 		
 		intersections.addAll(List.of(RxX, ExX, xX, xH, xL));
 		
@@ -273,10 +274,10 @@ public class X86Register implements RegisterTarget {
 	private static List<X86Register> makeGPR(String name) {
 		List<X86Register> intersections = new ArrayList<>();
 		
-		X86Register Rx = reg("R" + name,	8, intersections);
-		X86Register Ex = reg("E" + name,	4, intersections);
+		X86Register Rx = reg("r" + name,	8, intersections);
+		X86Register Ex = reg("e" + name,	4, intersections);
 		X86Register x =  reg(name,			2, intersections);
-		X86Register xL = reg(name + "L",	1, intersections);
+		X86Register xL = reg(name + "l",	1, intersections);
 		
 		intersections.addAll(List.of(Rx, Ex, x, xL));
 		
@@ -303,10 +304,10 @@ public class X86Register implements RegisterTarget {
 	private static List<X86Register> makeGPRNumeric(String name) {
 		List<X86Register> intersections = new ArrayList<>();
 		
-		X86Register Rx =  reg("R" + name,		8, intersections);
-		X86Register RxD = reg("R" + name + "D",	4, intersections);
-		X86Register RxW = reg("R" + name + "W",	2, intersections);
-		X86Register RxB = reg("R" + name + "B",	1, intersections);
+		X86Register Rx =  reg("r" + name,		8, intersections);
+		X86Register RxD = reg("r" + name + "d",	4, intersections);
+		X86Register RxW = reg("r" + name + "w",	2, intersections);
+		X86Register RxB = reg("r" + name + "n",	1, intersections);
 		
 		intersections.addAll(List.of(Rx, RxD, RxW, RxB));
 		
@@ -339,9 +340,9 @@ public class X86Register implements RegisterTarget {
 	private static List<X86Register> makeIP() {
 		List<X86Register> intersections = new ArrayList<>();
 		
-		X86Register RIP = reg("RIP",	8, intersections);
-		X86Register EIP = reg("EIP",	4, intersections);
-		X86Register IP =  reg("IP",		2, intersections);
+		X86Register RIP = reg("rip",	8, intersections);
+		X86Register EIP = reg("eip",	4, intersections);
+		X86Register IP =  reg("ip",		2, intersections);
 		
 		intersections.addAll(List.of(RIP, EIP, IP));
 		
@@ -355,7 +356,7 @@ public class X86Register implements RegisterTarget {
 		final int size = Type.LDOUBLE.sizeof();
 		
 		return IntStream.range(0, 8)
-				.mapToObj(i -> reg("ST" + i, size, List.of()))
+				.mapToObj(i -> reg("st(" + i + ")", size, List.of()))
 				.toList();
 	}
 
@@ -364,7 +365,7 @@ public class X86Register implements RegisterTarget {
 	 */
 	private static List<X86Register> makeXMM() {
 		return IntStream.range(0, 8)
-			.mapToObj(i -> reg("XMM" + i, 16, List.of()))
+			.mapToObj(i -> reg("xmm" + i, 16, List.of()))
 			.toList();
 	}
 	
@@ -379,14 +380,19 @@ public class X86Register implements RegisterTarget {
 		usable = false;
 	}
 	
-	public X86Register getFor(X86Size size) {
+	public X86Register resized(X86Size size) {
 		int sz = size.getType().sizeof();
 		
 		for(X86Register reg : intersections)
-			if(reg.size == sz && !reg.name.endsWith("H")) // prefer ?L over ?H
+			if(reg.size == sz && !reg.name.endsWith("h")) // prefer ?l over ?h
 				return reg;
 		
 		return null;
+	}
+	
+	@Override
+	public AssemblyTarget resized(Type type) {
+		return resized(X86Size.of(type));
 	}
 	
 	@Override

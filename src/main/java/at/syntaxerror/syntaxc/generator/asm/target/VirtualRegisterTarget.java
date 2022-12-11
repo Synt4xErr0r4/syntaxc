@@ -24,9 +24,9 @@ package at.syntaxerror.syntaxc.generator.asm.target;
 
 import java.util.List;
 
-import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.Getter;
 
 /**
@@ -39,21 +39,14 @@ public class VirtualRegisterTarget implements AssemblyTarget {
 	private final Type type;
 	private final long id;
 	
-	private final X86Size size;
-	
 	private final List<? extends RegisterTarget> registerHints;
 
-	private VirtualRegisterTarget(Type type, long id, X86Size size, List<? extends RegisterTarget> registerHints) {
+	private VirtualRegisterTarget(Type type, long id, List<? extends RegisterTarget> registerHints) {
 		this.type = type;
 		this.id = id;
-		this.size = size;
 		this.registerHints = registerHints;
 	}
 	
-	private VirtualRegisterTarget(Type type, long id, List<? extends RegisterTarget> registerHints) {
-		this(type, id, X86Size.of(type), List.of());
-	}
-
 	public VirtualRegisterTarget(Type type, long id) {
 		this(type, id, List.of());
 	}
@@ -74,8 +67,9 @@ public class VirtualRegisterTarget implements AssemblyTarget {
 		return !registerHints.isEmpty();
 	}
 
-	public VirtualRegisterTarget resized(X86Size size) {
-		return new VirtualRegisterTarget(type, id, size, registerHints);
+	@Override
+	public VirtualRegisterTarget resized(Type type) {
+		return new VirtualRegisterTarget(type, id, registerHints);
 	}
 	
 	@Override
@@ -84,8 +78,16 @@ public class VirtualRegisterTarget implements AssemblyTarget {
 	}
 	
 	@Override
+	public boolean equals(Object obj) {
+		return obj != null
+			&& obj instanceof VirtualRegisterTarget vrt
+			&& id == vrt.id
+			&& TypeUtils.isEqual(type, vrt.type);
+	}
+	
+	@Override
 	public String toString() {
-		return "VReg(" + id + ":" + size.getPointerName() + ")";
+		return "VReg(" + id + ":" + type + ")";
 	}
 	
 }

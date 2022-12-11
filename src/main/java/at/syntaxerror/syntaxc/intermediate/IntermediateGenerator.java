@@ -534,11 +534,11 @@ public class IntermediateGenerator {
 		
 		ctx = ctx.reset();
 		
-		Operand left = processExpression(expr.getLeft(), ctx.asLvalue());
+		Operand left = processExpression(expr.getLeft(), ctx);
 		Operand right = processExpression(expr.getRight(), ctx);
 
 		ir.add(new BinaryIntermediate(pos, result, left, right, op));
-
+		
 		return result;
 	}
 

@@ -64,10 +64,9 @@ public class StructType extends Type {
 	
 	private boolean incomplete = true;
 	private boolean inherited;
+	private boolean alignmentCalculated;
 	
 	private List<Member> members = new ArrayList<>();
-	
-	private Member previous;
 	
 	private StructType(TypeKind kind, String name) {
 		super(kind);
@@ -95,6 +94,8 @@ public class StructType extends Type {
 	}
 	
 	public void addMember(Positioned pos, String name, Type type, boolean bitfield, int bitWidth) {
+		alignmentCalculated = false;
+		
 		if(type.isIncomplete())
 			incomplete = true;
 
@@ -112,86 +113,101 @@ public class StructType extends Type {
 				.findFirst()
 				.ifPresent(x -> Logger.softError(pos, "Duplicate member named »%s«", name));
 		
-		int padding = 0;
-		int offset = 0;
-		int bitOffset = 0;
-		int align;
-		
-		if(!isUnion() && previous != null) {
-
-			if(previous.isBitfield()) {
-				bitOffset = previous.bitOffset + previous.bitWidth;
-				offset = previous.offset + (bitOffset >> 3);
-				bitOffset &= 7;
-				
-				if(!bitfield && bitOffset != 0)
-					++offset; // account for partial bytes
-			}
-			else offset = previous.offset + previous.sizeof();
-			
-		}
-		
 		if(bitfield)
 			type = type.asBitfield(); // mark type as bitfield
 		
-		var alignment = ArchitectureRegistry.getArchitecture()
-			.getAlignment()
-			.getMemberAlignment(
-				this,
-				type,
-				offset,
-				bitOffset,
-				bitWidth
-			);
-		
-		System.out.print(name + " => " + offset + "~" + alignment.offset() + ":" + type.sizeof() + " [" 
-			+ ArchitectureRegistry.getArchitecture()
-				.getAlignment()
-				.getAlignment(type)
-			+ "] / " + bitOffset + "~" + alignment.bitOffset() + ":" + bitWidth);
-		
-		offset = alignment.offset();
-		bitOffset = alignment.bitOffset();
-		
-		members.add(previous = new Member(
-			padding,
-			offset,
+		members.add(new Member(
 			pos.getPosition(),
 			name,
 			type,
-			bitOffset,
 			bitWidth
 		));
-		
-		int sz = size;
-
-		if(bitfield) {
-			if(bitOffset != 0)
-				bitWidth -= bitOffset;
-			
-			if(bitWidth > 0)
-				size = offset + Math.ceilDiv(bitWidth, 8);
-		}
-			
-		else size = offset + type.sizeof();
-		
-		/* align struct to byte/word/... boundary */
-		
-		int sz0 = size;
-		
-		align = ArchitectureRegistry.getArchitecture()
-			.getAlignment()
-			.getAlignment(this);
-		
-		size = Alignment.alignAt(size, align);
-		
-		System.out.println(" // " + toStringPrefix() + " => " + sz + "~" + sz0 + "~" + size + " [" + align + "]");
 	}
 	
 	public void addAnonymousMember(Positioned pos, Type type, boolean bitfield, int bitWidth) {
 		addMember(pos, null, type, bitfield, bitWidth);
 	}
 
+	public void calculateAlignment() {
+		if(alignmentCalculated)
+			return;
+		
+		alignmentCalculated = true;
+		
+		var alignment = ArchitectureRegistry.getArchitecture().getAlignment();
+
+		Member previous = null;
+		
+		for(Member member : members) {
+
+			boolean bitfield = member.isBitfield();
+			int bitWidth = member.getBitWidth();
+			Type type = member.getType();
+			
+			int offset = 0;
+			int bitOffset = 0;
+			
+			if(!isUnion() && previous != null) {
+				
+				int prevOff = previous.getOffset();
+
+				if(previous.isBitfield()) {
+					bitOffset = previous.getBitOffset() + previous.getBitWidth();
+					offset = prevOff + (bitOffset >> 3);
+					bitOffset &= 7;
+					
+					if(!bitfield) {
+						if(bitOffset != 0)
+							++offset; // account for partial bytes
+						
+						bitOffset = 0;
+					}
+				}
+				else offset = prevOff + previous.sizeof();
+				
+			}
+			
+			var memberAlignment = alignment.getMemberAlignment(
+				this,
+				type,
+				offset,
+				bitOffset,
+				bitWidth,
+				previous != null && previous.isBitfield()
+			);
+			
+			int newOffset = memberAlignment.offset();
+			
+			member.padding = newOffset - offset;
+			
+			if(bitOffset != 0 && member.padding > 0)
+				--member.padding;
+			
+			member.offset = offset = newOffset;
+			member.bitOffset = bitOffset = memberAlignment.bitOffset();
+			
+			if(bitfield) {
+				if(bitOffset != 0)
+					bitWidth -= bitOffset;
+				
+				if(bitWidth > 0)
+					size = offset + Math.ceilDiv(bitWidth, 8);
+			}
+				
+			else size = offset + type.sizeof();
+			
+			previous = member;
+		}
+		
+		/* align struct boundary */
+		
+		int align = ArchitectureRegistry.getArchitecture()
+			.getAlignment()
+			.getAlignment(this);
+		
+		size = Alignment.alignAt(size, align);
+	}
+	
 	/**
 	 * Searches the member associated with a given name.
 	 * The search is also performed on nested structures/unions.
@@ -201,6 +217,8 @@ public class StructType extends Type {
 	 * @return the member
 	 */
 	public Member getMember(String name) {
+		calculateAlignment();
+		
 		for(Member member : members) {
 			String memName = member.getName();
 			
@@ -231,6 +249,8 @@ public class StructType extends Type {
 	 * @return the member's offset
 	 */
 	public int offsetof(String name) {
+		calculateAlignment();
+		
 		for(Member member : members) {
 			String memName = member.getName();
 			
@@ -278,7 +298,7 @@ public class StructType extends Type {
 		structType.incomplete = incomplete;
 		structType.inherited = inherited;
 		structType.members = members;
-		structType.previous = previous;
+		structType.alignmentCalculated = alignmentCalculated;
 		
 		return inheritProperties(structType);
 	}
@@ -293,13 +313,14 @@ public class StructType extends Type {
 	@ToString(exclude = "position")
 	public static class Member implements Positioned { 
 
-		private final int padding;
-		private final int offset;
 		private final Position position;
 		private final String name;
 		private final Type type;
-		private final int bitOffset;
 		private final int bitWidth;
+		
+		private int offset;
+		private int bitOffset;
+		private int padding;
 		
 		public boolean isBitfield() {
 			return type.isBitfield();

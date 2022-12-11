@@ -42,7 +42,9 @@ public class X86CodeGenerator extends CodeGenerator {
 	private X86FloatTable floatTable;
 	private X86Assembly x86;
 	
-	public X86CodeGenerator(String inputFileName) {
+	private X86Architecture arch;
+	
+	public X86CodeGenerator(String inputFileName, X86Architecture arch) {
 		floatTable = new X86FloatTable();
 		
 		x86 = new X86Assembly(
@@ -52,7 +54,9 @@ public class X86CodeGenerator extends CodeGenerator {
 			ArchitectureRegistry.getBitSize()
 		);
 		
-		assemblyGenerator = new X86AssemblyGenerator(floatTable, x86);
+		this.arch = arch;
+		
+		assemblyGenerator = new X86AssemblyGenerator(floatTable, x86, arch);
 		registerProvider = new X86RegisterProvider();
 	}
 	

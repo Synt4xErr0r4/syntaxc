@@ -20,43 +20,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.arch.x86.target;
+package at.syntaxerror.syntaxc.serial.proc;
 
 import java.math.BigInteger;
 
-import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.type.Type;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import at.syntaxerror.syntaxc.tracking.Position;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Getter
-@RequiredArgsConstructor
-public class X86IntegerTarget extends X86AssemblyTarget {
+public interface StructIntegerProcessor<T> {
 
-	private final Type type;
-	private final BigInteger value;
-	
-	@Override
-	public AssemblyTarget resized(Type type) {
-		return new X86IntegerTarget(type, value);
-	}
-	
-	@Override
-	public boolean equals(Object obj) {
-		return obj != null
-			&& obj instanceof X86IntegerTarget igr
-			&& value.compareTo(igr.value) == 0;
-	}
-	
-	@Override
-	public String toAssemblyString(boolean attSyntax) {
-		// AT&T syntax: $123
-		// Intel syntax: 123
-		return (attSyntax ? "$" : "") + value;
-	}
+	T process(Position pos, BigInteger value, int offset, int length);
 	
 }

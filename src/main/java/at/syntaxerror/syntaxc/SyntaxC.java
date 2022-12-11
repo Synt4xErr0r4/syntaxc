@@ -41,7 +41,7 @@ import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.intermediate.IntermediateGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator.FunctionData;
@@ -272,14 +272,17 @@ public class SyntaxC {
 			if(sym.isFunction()) {
 			//	FunctionMetadata metadata = new FunctionMetadata(sym, 0); // TODO size
 				
-				List<AssemblyInstruction> asm = asmGen.generate(
+				Instructions insns = new Instructions();
+				
+				asmGen.generate(
+					insns,
 					intermediate.get(sym.getName())
 						.intermediate()
 				);
 				
 				System.out.println(" -- " + sym.getName() + " -- ");
 				
-				asm.forEach(System.out::println);
+				insns.stream().forEach(System.out::println);
 			}
 		}
 		

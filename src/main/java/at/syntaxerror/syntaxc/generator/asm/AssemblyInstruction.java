@@ -25,21 +25,59 @@ package at.syntaxerror.syntaxc.generator.asm;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NonNull;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@AllArgsConstructor
 @Getter
 public class AssemblyInstruction {
+	
+	private final Instructions parent;
+	
+	protected AssemblyInstruction previous;
+	protected AssemblyInstruction next;
 	
 	private final AssemblyInstructionKind kind;
 	
 	private AssemblyTarget destination;
 	private List<AssemblyTarget> sources;
+	
+	public AssemblyInstruction(@NonNull Instructions parent, AssemblyInstructionKind kind,
+			AssemblyTarget destination, List<AssemblyTarget> sources) {
+		this.parent = parent;
+		this.kind = kind;
+		this.destination = destination;
+		this.sources = sources;
+	}
+	
+	public final void insertBefore(AssemblyInstruction insn) {
+		insn.next = this;
+		insn.previous = previous;
+
+		if(previous != null)
+			previous.next = insn;
+		else parent.head = insn;
+		
+		previous = insn;
+		
+		++parent.count;
+	}
+
+	public final void insertAfter(AssemblyInstruction insn) {
+		insn.previous = this;
+		insn.next = next;
+		
+		if(next != null)
+			next.previous = insn;
+		else parent.tail = insn;
+		
+		next = insn;
+
+		++parent.count;
+	}
 	
 	@Override
 	public String toString() {

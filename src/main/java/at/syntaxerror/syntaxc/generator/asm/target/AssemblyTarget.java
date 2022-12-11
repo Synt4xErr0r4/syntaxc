@@ -34,6 +34,15 @@ public interface AssemblyTarget {
 
 	Type getType();
 	
+	AssemblyTarget resized(Type type);
+	
+	default AssemblyTarget minimum(Type type) {
+		if(getType().sizeof() < type.sizeof())
+			return resized(type);
+		
+		return this;
+	}
+	
 	default List<AssemblyTarget> getNestedTargets() {
 		return List.of();
 	}

@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.target;
 
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -36,10 +37,30 @@ public class X86LabelTarget extends X86AssemblyTarget {
 
 	private final Type type;
 	private final String name;
+	private final AssemblyTarget offset;
+	
+	public X86LabelTarget(Type type, String name) {
+		this(type, name, null);
+	}
+	
+	@Override
+	public AssemblyTarget resized(Type type) {
+		return new X86LabelTarget(type, name);
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		return obj != null
+			&& obj instanceof X86LabelTarget lbl
+			&& equals(name, lbl.name)
+			&& equals(offset, lbl.offset);
+	}
 	
 	@Override
 	public String toAssemblyString(boolean attSyntax) {
-		return name;
+		return offset == null
+			? name
+			: offset + "+" + offset;
 	}
 	
 }

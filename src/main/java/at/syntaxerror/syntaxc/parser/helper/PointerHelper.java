@@ -20,10 +20,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.parser;
-
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newBinary;
-import static at.syntaxerror.syntaxc.parser.ExpressionParser.newUnary;
+package at.syntaxerror.syntaxc.parser.helper;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.logger.Logable;
@@ -82,7 +79,7 @@ public class PointerHelper implements Logable {
 		if(type.isIncomplete())
 			error(pos, "Cannot dereference pointer to incomplete type");
 		
-		return newUnary(
+		return ExpressionHelper.newUnary(
 			pos,
 			expr,
 			Punctuator.INDIRECTION,
@@ -114,7 +111,7 @@ public class PointerHelper implements Logable {
 		
 		if(expr instanceof ArrayIndexExpressionNode idx)
 			/* convert '&ptr[off]' into 'ptr + off' */
-			return newBinary(
+			return ExpressionHelper.newBinary(
 				expr,
 				idx.getTarget(),
 				idx.getIndex(),
@@ -125,7 +122,7 @@ public class PointerHelper implements Logable {
 					.getType()
 			);
 		
-		return newUnary(
+		return ExpressionHelper.newUnary(
 			pos,
 			expr,
 			Punctuator.ADDRESS_OF,

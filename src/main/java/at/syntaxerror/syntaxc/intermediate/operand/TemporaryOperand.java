@@ -23,6 +23,7 @@
 package at.syntaxerror.syntaxc.intermediate.operand;
 
 import at.syntaxerror.syntaxc.generator.alloc0.Allocation;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -43,8 +44,6 @@ public class TemporaryOperand implements Operand {
 	public static TemporaryOperand forReturnValue(Type type) {
 		return new TemporaryOperand(RETURN_VALUE_ID, type);
 	}
-	
-	private static long PREVIOUS_ID = 0;
 
 	private final long id;
 	private final Type type;
@@ -53,7 +52,7 @@ public class TemporaryOperand implements Operand {
 	private Allocation allocation;
 	
 	public TemporaryOperand(Type type) {
-		this(++PREVIOUS_ID, type);
+		this(SymbolObject.getNextTemporaryId(), type);
 	}
 	
 	@Override

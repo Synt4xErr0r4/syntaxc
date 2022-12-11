@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 
+import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
@@ -41,7 +42,7 @@ public enum X86Size {
 	QWORD	("QWORD",	"q",	Type.LONG),
 	TBYTE	("TBYTE",	"",		Type.LDOUBLE),
 	XMMWORD	("XMMWORD",	"",		Type.VOID),
-	UNKNOWN	(null,		null,	Type.VOID);
+	UNKNOWN	("?WORD",	"?",	Type.VOID);
 
 	public static X86Size ofRaw(Type type) {
 		if(type.isArray())
@@ -58,13 +59,15 @@ public enum X86Size {
 	}
 	
 	public static X86Size of(int size) {
+		if(Flags.LONG_DOUBLE.isEnabled() && size == NumericValueType.LDOUBLE.getSize())
+			return TBYTE;
+		
 		return switch(size) {
-		case 1 -> X86Size.BYTE; // char
-		case 2 -> X86Size.WORD; // short
-		case 4 -> X86Size.DWORD; // float, int, pointer (x86)
-		case 8 -> X86Size.QWORD; // double, long, pointer (x64)
-		case 16 -> X86Size.TBYTE; // long double
-		default -> X86Size.UNKNOWN;
+		case 1 -> BYTE; // char
+		case 2 -> WORD; // short
+		case 4 -> DWORD; // float, int, pointer (x86)
+		case 8 -> QWORD; // double, long, pointer (x64)
+		default -> UNKNOWN;
 		};
 	}
 
