@@ -61,8 +61,8 @@ public class X86InstructionSelector {
 		register(IMUL,	IMUL,	MULSS,		MULSD,		FMULP);
 		register(IDIV,	DIV,	DIVSS,		DIVSD,		FDIVP);
 		register(CMP,	CMP,	UCOMISS,	UCOMISD,	FUCOMIP);
+		register(CMP,	CMP,	COMISS,		COMISD,		FCOMIP);
 		register(MOV,	MOV,	MOVSS,		MOVSD,		FSTP);
-		register(null,	null,	COMISS,		COMISD,		FCOMIP);
 	}
 	
 	public static X86InstructionKinds select(X86InstructionKinds base, Type type) {

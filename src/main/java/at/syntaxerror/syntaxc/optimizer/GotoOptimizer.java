@@ -41,7 +41,7 @@ import at.syntaxerror.syntaxc.misc.config.Optimizations;
 public class GotoOptimizer {
 
 	private Map<String, String> aliases = new HashMap<>();
-	private Map<String, Integer> jumps = new HashMap<>();
+	private Map<String, List<Integer>> jumps = new HashMap<>();
 	private List<Integer> redundants = new ArrayList<>();
 
 	private String resolveLabel(String label) {
@@ -65,7 +65,7 @@ public class GotoOptimizer {
 	 * - jump-to-jump
 	 * - goto followed by label jumped to
 	 */
-	public List<Intermediate> optimize(List<Intermediate> intermediates) {
+	public List<Intermediate> optimize(List<Intermediate> intermediates, String returnLabel) {
 		if(!Optimizations.GOTO.isEnabled() && !Optimizations.JUMP_TO_JUMP.isEnabled())
 			return intermediates;
 		
@@ -98,13 +98,14 @@ public class GotoOptimizer {
 			else if(intermediate instanceof JumpIntermediate jump) {
 				
 				jumpLabel = jump.getLabel();
+
+				jumps.computeIfAbsent(
+					jumpLabel,
+					l -> new ArrayList<>()
+				).add(index);
 				
-				if(!jump.isConditional()) {
-					jumps.put(jumpLabel, index);
-					
-					if(label != null)
-						aliases.put(label, jumpLabel);
-				}
+				if(!jump.isConditional() && label != null)
+					aliases.put(label, jumpLabel);
 				
 				label = null;
 			}
@@ -114,27 +115,32 @@ public class GotoOptimizer {
 			++index;
 		}
 		
+		/* remove trailing 'jmp .L0; .L0:' at the end of a function after a 'return' statement */
+		if(jumpLabel != null && returnLabel != null && jumpLabel.equals(returnLabel))
+			intermediates.remove(index - 1);
+		
 		if(Optimizations.JUMP_TO_JUMP.isEnabled())
 			for(var jump : jumps.entrySet()) {
 				
 				jumpLabel = jump.getKey();
-				index = jump.getValue();
 				
 				label = resolveLabel(jumpLabel);
 				
 				if(label.equals(jumpLabel))
 					continue;
 				
-				JumpIntermediate intermediate = (JumpIntermediate) intermediates.get(index);
-				
-				intermediates.set(
-					index,
-					new JumpIntermediate(
-						intermediate.getPosition(),
-						intermediate.getCondition(),
-						label
-					)
-				);
+				for(int idx : jump.getValue()) {
+					JumpIntermediate intermediate = (JumpIntermediate) intermediates.get(idx);
+					
+					intermediates.set(
+						idx,
+						new JumpIntermediate(
+							intermediate.getPosition(),
+							intermediate.getCondition(),
+							label
+						)
+					);
+				}
 			}
 		
 		if(Optimizations.GOTO.isEnabled()) {

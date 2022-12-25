@@ -53,6 +53,8 @@ import at.syntaxerror.syntaxc.intermediate.representation.UnaryIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.UnaryIntermediate.UnaryOperation;
 import at.syntaxerror.syntaxc.lexer.Punctuator;
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.parser.Constants;
+import at.syntaxerror.syntaxc.parser.helper.ExpressionHelper;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.BuiltinExpressionNode;
@@ -125,8 +127,6 @@ public class IntermediateGenerator {
 		binary(Punctuator.ADDRESS_OF,	BinaryOperation.BITWISE_AND);
 		binary(Punctuator.BITWISE_OR,	BinaryOperation.BITWISE_OR);
 		binary(Punctuator.BITWISE_XOR,	BinaryOperation.BITWISE_XOR);
-		binary(Punctuator.LOGICAL_AND,	BinaryOperation.LOGICAL_AND);
-		binary(Punctuator.LOGICAL_OR,	BinaryOperation.LOGICAL_OR);
 
 		
 		unary(Punctuator.BITWISE_NOT,	UnaryOperation.BITWISE_NOT);
@@ -145,13 +145,14 @@ public class IntermediateGenerator {
 	private static final Map<SymbolObject, Operand> OPERANDS = new HashMap<>();
 
 	private static int conditionLabelId = 0;
+	private static int logicalLabelId = 0;
 	
-	private static GlobalOperand global(String name, boolean extern, Type type) {
-		return new GlobalOperand(name, extern, type);
+	private static GlobalOperand global(SymbolObject object, boolean extern, Type type) {
+		return new GlobalOperand(object, extern, type);
 	}
 	
-	private static LocalOperand local(String name, int offset, Type type) {
-		return new LocalOperand(name, offset, type);
+	private static LocalOperand local(SymbolObject object, Type type) {
+		return new LocalOperand(object, type);
 	}
 	
 	private static ConstantOperand constant(Number number, Type type) {
@@ -190,7 +191,6 @@ public class IntermediateGenerator {
 		return OPERANDS.computeIfAbsent(
 			object,
 			x -> {
-				String name = object.getFullName();
 				Type type = object.getType();
 				
 				if(object.isReturnValue())
@@ -200,10 +200,10 @@ public class IntermediateGenerator {
 					return temporary(type);
 				
 				if(object.isLocalVariable())
-					return local(name, object.getOffset(), type);
+					return local(object, type);
 				
 				return global(
-					name,
+					object,
 					object.isFunction()
 						&& object.isPrototype()
 						&& !object.isInitialized(),
@@ -412,11 +412,99 @@ public class IntermediateGenerator {
 		processExpression(expr.getLeft(), ctx.withoutResult());
 		
 		return processExpression(
-			expr.getLeft(),
+			expr.getRight(),
 			needResult
 				? ctx
 				: ctx.withoutResult()
 		);
+	}
+
+	private Operand processLogicalExpression(BinaryExpressionNode expr, IRContext ctx, boolean logicalOR) {
+		
+		/*
+		 * -- Logical AND --
+		 * 
+		 * _1 = 0;
+		 * _2 = left;
+		 * if(!_2) goto .end;
+		 * _3 = right;
+		 * if(!_3) goto .end;
+		 * _1 = 1;
+		 * .end: ;
+		 * 
+		 * -- Logical OR --
+		 * 
+		 * _1 = 1;
+		 * _2 = left;
+		 * if(_2) goto .end;
+		 * _3 = right;
+		 * if(_3) goto .end;
+		 * _1 = 0;
+		 * .end: ;
+		 * 
+		 */
+		
+		Position pos = expr.getPosition();
+		
+		Type type = expr.getType();
+		
+		SymbolObject result = SymbolObject.temporary(pos, type);
+		
+		VariableExpressionNode var = new VariableExpressionNode(pos, result);
+		
+		String labelEnd = ".LG" + logicalLabelId++;
+		
+		processStatements(List.of(
+			new ExpressionStatementNode(
+				ExpressionHelper.newBinary(
+					pos,
+					var,
+					logicalOR // 0 for logical AND, 1 for logical OR
+						? Constants.one(pos, type)
+						: Constants.zero(pos, type),
+					Punctuator.ASSIGN
+				)
+			),
+			new JumpStatementNode(
+				pos,
+				logicalOR // if(!expr) for logical AND, if(expr) for logical OR
+					? expr.getLeft()
+					: ExpressionHelper.newUnary(
+						pos,
+						expr.getLeft(),
+						Punctuator.LOGICAL_NOT
+					),
+				labelEnd
+			),
+			new JumpStatementNode(
+				pos,
+				logicalOR // if(!expr) for logical AND, if(expr) for logical OR
+					? expr.getRight()
+					: ExpressionHelper.newUnary(
+						pos,
+						expr.getRight(),
+						Punctuator.LOGICAL_NOT
+					),
+				labelEnd
+			),
+			new ExpressionStatementNode(
+				ExpressionHelper.newBinary(
+					pos,
+					var,
+					logicalOR // 1 for logical AND, 0 for logical OR
+						? Constants.zero(pos, type)
+						: Constants.one(pos, type),
+					Punctuator.ASSIGN
+				)
+			),
+			new LabeledStatementNode( // .end: ;
+				pos,
+				labelEnd,
+				new NullStatementNode(pos)
+			)
+		));
+		
+		return variable(result);
 	}
 	
 	private Operand processPointerExpression(BinaryExpressionNode expr, IRContext ctx, BinaryOperation op) {
@@ -511,6 +599,12 @@ public class IntermediateGenerator {
 		case COMMA:
 			return processCommaExpression(expr, ctx);
 		
+		case LOGICAL_AND:
+			return processLogicalExpression(expr, ctx, false);
+			
+		case LOGICAL_OR:
+			return processLogicalExpression(expr, ctx, true);
+			
 		default:
 			break;
 		}
@@ -527,7 +621,10 @@ public class IntermediateGenerator {
 		Operand result = null;
 
 		if(op.isConditional() && ctx.condition())
-			result = new ConditionOperand(op, expr.getType());
+			result = new ConditionOperand(
+				op.getCondition(),
+				expr.getType()
+			);
 		
 		if(result == null)
 			result = result(expr, ctx, false);
@@ -536,7 +633,7 @@ public class IntermediateGenerator {
 		
 		Operand left = processExpression(expr.getLeft(), ctx);
 		Operand right = processExpression(expr.getRight(), ctx);
-
+		
 		ir.add(new BinaryIntermediate(pos, result, left, right, op));
 		
 		return result;
@@ -549,7 +646,7 @@ public class IntermediateGenerator {
 		expr.getFunction()
 			.getArgs()
 			.stream()
-			.filter(arg -> !(arg instanceof ExpressionArgument))
+			.filter(arg -> arg instanceof ExpressionArgument)
 			.map(ExpressionArgument.class::cast)
 			.map(arg -> {
 				Operand op = processExpression(arg.getExpression(), IRContext.DEFAULT); 
@@ -765,23 +862,33 @@ public class IntermediateGenerator {
 		
 		UnaryOperation op = UNARY_OPERATIONS.get(expr.getOperation());
 
-		Operand target = processExpression(
+		Operand target;
+		
+		if(ctx.condition() && op == UnaryOperation.LOGICAL_NOT) {
+			target = processExpression(
+				expr.getTarget(),
+				ctx.reset()
+					.asCondition()
+			);
+			
+			if(target instanceof ConditionOperand cond)
+				return new ConditionOperand(
+					cond.getCondition().negate(),
+					cond.getType()
+				);
+		}
+		else target = processExpression(
 			expr.getTarget(),
 			ctx.reset()
 		);
-		
-//		if(op == UnaryOperation.ADDRESS_OF)
-//			return index(target, expr.getType()); // TODO
-
-		Operand result = ctx.condition() && op == UnaryOperation.LOGICAL_NOT
-			? new ConditionOperand(BinaryOperation.NOT_EQUAL, expr.getType())
-			: result(expr, ctx, true);
 		
 		if(ctx.lvalue() && expr.isLvalue() && op == UnaryOperation.INDIRECTION)
 			return index(
 				target,
 				expr.getType()
 			);
+
+		Operand result = result(expr, ctx, true);
 
 		ir.add(new UnaryIntermediate(
 			expr.getPosition(),

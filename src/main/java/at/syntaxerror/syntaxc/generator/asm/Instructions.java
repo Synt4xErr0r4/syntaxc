@@ -22,24 +22,35 @@
  */
 package at.syntaxerror.syntaxc.generator.asm;
 
+import java.util.Iterator;
+import java.util.Spliterator;
 import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import lombok.Getter;
 import lombok.Setter;
 
 /**
+ * A kind of linked list capable of holding assembly instructions
+ * 
  * @author Thomas Kasper
  * 
  */
-public class Instructions {
+public class Instructions implements Iterable<AssemblyInstruction> {
 
-	protected AssemblyInstruction head;
-	protected AssemblyInstruction tail;
+	protected @Getter AssemblyInstruction head;
+	protected @Getter AssemblyInstruction tail;
 	
 	protected int count;
 	
 	@Setter
 	private InstructionConstructor constructor;
+	
+	public void clear() {
+		head = null;
+		tail = null;
+		count = 0;
+	}
 	
 	public void add(AssemblyInstructionKind kind) {
 		add(kind, null);
@@ -88,14 +99,6 @@ public class Instructions {
 		return node;
 	}
 	
-	public AssemblyInstruction getHead() {
-		return head;
-	}
-
-	public AssemblyInstruction getTail() {
-		return tail;
-	}
-	
 	public int size() {
 		return count;
 	}
@@ -106,6 +109,15 @@ public class Instructions {
 			node -> node != null,
 			AssemblyInstruction::getNext
 		);
+	}
+	
+	public Iterator<AssemblyInstruction> iterator() {
+		return stream().iterator();
+	}
+	
+	@Override
+	public Spliterator<AssemblyInstruction> spliterator() {
+		return stream().spliterator();
 	}
 	
 	public static interface InstructionConstructor {

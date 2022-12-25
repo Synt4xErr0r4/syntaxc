@@ -187,6 +187,11 @@ public class EnumType extends Type {
 	}
 	
 	@Override
+	public Type normalize() {
+		return asNumberType();
+	}
+	
+	@Override
 	protected Type clone() {
 		EnumType cloned = new EnumType(name);
 		

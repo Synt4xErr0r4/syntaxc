@@ -26,7 +26,6 @@ import at.syntaxerror.syntaxc.type.StructType.Member;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * operand representing a bitfield member of a struct
@@ -34,13 +33,18 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  */
 @Getter
-@RequiredArgsConstructor
 public class MemberOperand implements Operand {
 
 	private final Operand target;
 	private final Member member;
 	private final Type type;
 
+	public MemberOperand(Operand target, Member member, Type type) {
+		this.target = target;
+		this.member = member;
+		this.type = type.normalize();
+	}
+	
 	@Override
 	public boolean isMemory() {
 		return true;

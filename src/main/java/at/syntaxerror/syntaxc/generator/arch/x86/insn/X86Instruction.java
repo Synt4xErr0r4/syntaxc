@@ -38,14 +38,24 @@ import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 public class X86Instruction extends AssemblyInstruction {
 
 	public X86Instruction(Instructions asm, AssemblyInstructionKind kind, AssemblyTarget destination, AssemblyTarget... sources) {
-		super(asm, kind, destination, List.of(sources));
+		super(
+			asm,
+			kind,
+			destination == null
+				? List.of()
+				: List.of(destination),
+			List.of(sources)
+		);
+		
+		if(kind == null)
+			new Throwable().printStackTrace();
 	}
 	
 	public String toAssemblyString(boolean att) {
 		if(getKind() == X86InstructionKinds.CLOBBER)
 			return "; CLOBBER { "
 				+ Stream.concat(
-					Stream.of(getDestination()),
+					getDestinations().stream(),
 					getSources().stream()
 				)
 					.map(AssemblyTarget::toString)
@@ -53,17 +63,22 @@ public class X86Instruction extends AssemblyInstruction {
 					.orElse("")
 				+ " }";
 		
+		if(getKind() == X86InstructionKinds.LABEL)
+			return getDestinations().get(0) + ":";
+		
 		if(att) {
 			// TODO
 			
 			return "?";
 		}
 		
-		String strrep = getKind().toString();
+		String strrep = "\t" + getKind().toString();
 		
-		AssemblyTarget dest = getDestination();
+		List<AssemblyTarget> dests = getDestinations();
 		
-		if(dest != null) {
+		if(!dests.isEmpty()) {
+			AssemblyTarget dest = dests.get(0);
+			
 			strrep += " " + toString(dest, att);
 			
 			var src = getSources();

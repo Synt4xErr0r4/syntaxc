@@ -265,7 +265,8 @@ public class ControlFlowGraphGenerator {
 		
 	}
 	
-	public static record FunctionData(List<Intermediate> intermediate, CFGNode controlFlowGraph, boolean hasReturnValue) {
+	public static record FunctionData(List<SymbolObject> parameters, List<Intermediate> intermediate,
+			CFGNode controlFlowGraph, boolean hasReturnValue) {
 		
 	}
 	

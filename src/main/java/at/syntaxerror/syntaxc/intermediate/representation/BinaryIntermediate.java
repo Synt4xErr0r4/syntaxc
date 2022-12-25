@@ -22,7 +22,7 @@
  */
 package at.syntaxerror.syntaxc.intermediate.representation;
 
-import at.syntaxerror.syntaxc.intermediate.Negatable;
+import at.syntaxerror.syntaxc.intermediate.operand.ConditionOperand.Condition;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
 import at.syntaxerror.syntaxc.type.Type;
@@ -58,11 +58,11 @@ public class BinaryIntermediate extends Intermediate {
 	
 	@Override
 	public String toStringInternal() {
-		return "%s = %s %s %s;".formatted(result, left, op, right);
+		return toTargetString(result) + "%s %s %s;".formatted(left, op, right);
 	}
 	
 	@RequiredArgsConstructor
-	public static enum BinaryOperation implements Negatable<BinaryOperation> {
+	public static enum BinaryOperation {
 		ADD				("+"),
 		SUBTRACT		("-"),
 		MULTIPLY		("*"),
@@ -75,43 +75,25 @@ public class BinaryIntermediate extends Intermediate {
 		SHIFT_LEFT		("<<"),
 		SHIFT_RIGHT		(">>"),
 		
-		EQUAL			("==", true),
-		NOT_EQUAL		("!=", true),
-		LESS			("<", true),
-		LESS_EQUAL		("<=", true),
-		GREATER			(">", true),
-		GREATER_EQUAL	(">=", true),
-		LOGICAL_AND		("&&", true),
-		LOGICAL_OR		("||", true),
+		EQUAL			("==",	Condition.EQUAL),
+		NOT_EQUAL		("!=",	Condition.NOT_EQUAL),
+		LESS			("<",	Condition.LESS),
+		LESS_EQUAL		("<=",	Condition.LESS_EQUAL),
+		GREATER			(">",	Condition.GREATER),
+		GREATER_EQUAL	(">=",	Condition.GREATER_EQUAL)
 		;
-
-		static {
-			EQUAL.negated = NOT_EQUAL;
-			NOT_EQUAL.negated = EQUAL;
-			LESS.negated = GREATER_EQUAL;
-			GREATER.negated = LESS_EQUAL;
-			LESS_EQUAL.negated = GREATER;
-			GREATER_EQUAL.negated = LESS;
-		}
-		
-		private BinaryOperation negated = this;
 		
 		private final String strrep;
 		
 		@Getter
-		private final boolean conditional;
+		private final Condition condition;
 		
 		private BinaryOperation(String strrep) {
-			this(strrep, false);
+			this(strrep, null);
 		}
 		
-		public boolean isNegatable() {
-			return negated != this;
-		}
-		
-		@Override
-		public BinaryOperation negate() {
-			return negated;
+		public boolean isConditional() {
+			return condition != null;
 		}
 		
 		@Override

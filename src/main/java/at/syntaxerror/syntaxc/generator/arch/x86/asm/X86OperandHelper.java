@@ -24,15 +24,20 @@ package at.syntaxerror.syntaxc.generator.arch.x86.asm;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 
 import at.syntaxerror.syntaxc.generator.arch.x86.X86FloatTable;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86BitfieldHelper.BitfieldSegment;
+import at.syntaxerror.syntaxc.generator.arch.x86.call.X86CallingConvention;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionSelector;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
+import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86StringTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
@@ -48,7 +53,7 @@ import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.intermediate.operand.TemporaryOperand;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Pair;
-import at.syntaxerror.syntaxc.type.NumericValueType;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.StructType.Member;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.RequiredArgsConstructor;
@@ -98,6 +103,9 @@ public class X86OperandHelper {
 	private final Instructions asm;
 	private final X86Assembly x86;
 	private final X86FloatTable floatTable;
+	private final X86CallingConvention callingConvention;
+	
+	private final Map<SymbolObject, VirtualStackTarget> localVariables = new HashMap<>();
 	
 	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget index, long scale) {
 		
@@ -205,12 +213,21 @@ public class X86OperandHelper {
 	
 	@SuppressWarnings("preview")
 	public AssemblyTarget generateOperand(Operand operand) {
+		if(operand == null)
+			return null;
+		
 		switch(operand) {
 		case TemporaryOperand temp:
+			if(temp.getId() == TemporaryOperand.RETURN_VALUE_ID)
+				return callingConvention.getReturnValue();
+			
+			if(X86FPUHelper.useFPU(temp.getType()))
+				return X86Register.ST0;
+			
 			return new VirtualRegisterTarget(temp.getType(), temp.getId());
 			
 		case ConditionOperand cond:
-			return null; // TODO
+			return null;
 			
 		case ConstantOperand cnst:
 			if(cnst.isFloating())
@@ -231,7 +248,14 @@ public class X86OperandHelper {
 		case DiscardOperand discard:
 			return null;
 			
-		case GlobalOperand global: // name[rip]
+		case GlobalOperand global:
+			if(global.getObject().isString()) // OFFSET FLAT:name
+				return new X86StringTarget(
+					global.getType(),
+					global.getName()
+				);
+			
+			// name[rip]
 			return X86MemoryTarget.ofDisplaced(
 				global.getType(),
 				label(global.getName()),
@@ -253,15 +277,8 @@ public class X86OperandHelper {
 			);
 		}
 			
-		case LocalOperand local:
-			return X86MemoryTarget.ofDisplaced( // -offset[rbp]
-				local.getType(),
-				new X86IntegerTarget(
-					NumericValueType.PTRDIFF.asType(),
-					BigInteger.valueOf(-local.getOffset())
-				),
-				x86.RBP
-			);
+		case LocalOperand local: // -offset[rbp]
+			return generateLocalOperand(local.getObject());
 			
 		case MemberOperand member: {
 			AssemblyTarget target = generateOperand(member.getTarget());
@@ -279,6 +296,13 @@ public class X86OperandHelper {
 			Logger.error("Unknown operand type: %s", operand.getClass());
 			return null;
 		}
+	}
+	
+	public VirtualStackTarget generateLocalOperand(SymbolObject local) {
+		return localVariables.computeIfAbsent(
+			local,
+			obj -> new VirtualStackTarget(local.getType())
+		);
 	}
 	
 	public AssemblyTarget generateBitfieldOperand(Type type, AssemblyTarget target, Member member) {
@@ -403,6 +427,11 @@ public class X86OperandHelper {
 			return target;
 		}
 		
+		if(X86FPUHelper.useFPU(target.getType())) {
+			asm.add(X86InstructionKinds.FLD, target);
+			return X86Register.ST0;
+		}
+		
 		VirtualRegisterTarget virt = new VirtualRegisterTarget(type);
 		VirtualRegisterTarget dest = virt;
 		
@@ -433,7 +462,11 @@ public class X86OperandHelper {
 		
 		VirtualStackTarget virt = new VirtualStackTarget(type);
 		
-		asm.add(
+		if(X86FPUHelper.useFPU(type)) {
+			asm.add(X86InstructionKinds.FLD, target);
+			asm.add(X86InstructionKinds.FSTP, virt);
+		}
+		else asm.add(
 			X86InstructionSelector.select(X86InstructionKinds.MOV, type),
 			virt,
 			target

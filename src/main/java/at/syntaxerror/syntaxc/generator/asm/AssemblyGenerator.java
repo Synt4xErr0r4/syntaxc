@@ -24,7 +24,10 @@ package at.syntaxerror.syntaxc.generator.asm;
 
 import java.util.List;
 
+import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
  * @author Thomas Kasper
@@ -32,10 +35,21 @@ import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
  */
 public abstract class AssemblyGenerator {
 
-	public void generate(Instructions asm, List<Intermediate> intermediate) {
-		intermediate.forEach(ir -> generate(asm, ir));
+	public void onEntry(Instructions asm, FunctionType type, List<SymbolObject> parameters) { }
+	
+	public void onLeave(FunctionType type) { }
+	
+	public void generate(List<Intermediate> intermediate) {
+		if(intermediate.isEmpty())
+			generateNop();
+		
+		else intermediate.forEach(this::generate);
 	}
 	
-	public abstract void generate(Instructions asm, Intermediate intermediate);
-
+	public abstract void generate(Intermediate intermediate);
+	public abstract void generateNop();
+	
+	public abstract RegisterAllocator getRegisterAllocator(Instructions asm);
+	public abstract PrologueEpilogueInserter getPrologueEpilogueInserter();
+	
 }

@@ -20,48 +20,65 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.intermediate.operand;
+package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
+import java.util.Iterator;
+import java.util.List;
+
+import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
+import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
+import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
-import at.syntaxerror.syntaxc.type.Type;
-import at.syntaxerror.syntaxc.type.TypeUtils;
-import lombok.Getter;
+import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
- * local variable operand, typically resides in memory relative to the base pointer
+ * The default calling convention for 64-bit Windows
  * 
  * @author Thomas Kasper
+ * 
  */
-@Getter
-public class LocalOperand implements Operand {
+public class X86Microsoftx64Call extends X86CallingConvention {
 
-	private final SymbolObject object;
-	private final Type type;
-	
-	public LocalOperand(SymbolObject object, Type type) {
-		this.object = object;
-		this.type = type.normalize();
-	}
-	
-	public String getName() {
-		return object.getName();
+	public X86Microsoftx64Call(FunctionType function, Instructions asm, X86AssemblyGenerator generator, List<SymbolObject> parameters) {
+		super(function, asm, generator, parameters);
 	}
 
 	@Override
-	public boolean isMemory() {
-		return true;
+	public AssemblyTarget getReturnValue() {
+		return null;
+	}
+
+	@Override
+	public void onEntry() {
+		
+	}
+
+	@Override
+	public void onLeave() {
+		
+	}
+
+	@Override
+	public void call(AssemblyTarget functionTarget, FunctionType callee, Iterator<AssemblyTarget> args, AssemblyTarget destination) {
+		
 	}
 	
 	@Override
-	public boolean equals(Operand other) {
-		return other instanceof LocalOperand local
-			&& object.equals(local.object)
-			&& TypeUtils.isEqual(type, local.type);
+	public void vaStart(BuiltinVaStart vaStart) {
+		
 	}
 	
 	@Override
-	public String toString() {
-		return getName();
+	public void vaArg(BuiltinVaArg vaArg) {
+		
 	}
 	
+	@Override
+	public void vaEnd(BuiltinVaEnd vaEnd) {
+		
+	}
+
 }

@@ -22,6 +22,9 @@
  */
 package at.syntaxerror.syntaxc.parser.helper;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.Parser;
@@ -46,6 +49,8 @@ public class SymbolHelper implements Logable {
 	@Delegate(types = Logable.class)
 	private final Parser parser;
 	
+	private final List<SymbolObject> parameters = new ArrayList<>();
+	
 	public SymbolTable getSymbolTable() {
 		return parser.getSymbolTable();
 	}
@@ -55,12 +60,24 @@ public class SymbolHelper implements Logable {
 			warn(Warnings.USELESS, "Useless declaration does not declare anything");
 	}
 	
+	public void resetParameters() {
+		parameters.clear();
+	}
+	
+	public List<SymbolObject> getParameters() {
+		return new ArrayList<>(parameters);
+	}
+	
 	public SymbolObject registerLocal(Positioned pos, Type type, String name) {
 		SymbolObject obj = SymbolObject.local(pos, name, type);
 
 		SymbolTable symtab = getSymbolTable();
 		
-		symtab.addObject(obj);
+		if(!symtab.addObject(obj))
+			softError(obj, "Redeclaration of local variable »%s«", name);
+
+		obj.setUnused(false);
+		obj.setInitialized(true);
 		
 		return obj;
 	}

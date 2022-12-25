@@ -45,6 +45,7 @@ public class FunctionNode extends SymbolNode {
 
 	private final SymbolObject object;
 	private final List<SymbolObject> declarations;
+	private final List<SymbolObject> parameters;
 	private final CompoundStatementNode body;
 	
 	@Override
@@ -62,13 +63,7 @@ public class FunctionNode extends SymbolNode {
 					.map(sym -> new TreeListNode(
 						List.of(
 							child("name", sym.getDebugName()),
-							child("type", sym.getType()),
-							child(
-								"offset",
-								sym.getOffset() == SymbolObject.OFFSET_NONE
-									? "none"
-									: Integer.toString(sym.getOffset())
-							)
+							child("type", sym.getType())
 						)
 					))
 					.toList()

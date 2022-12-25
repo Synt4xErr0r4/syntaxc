@@ -56,7 +56,7 @@ public class UnaryIntermediate extends Intermediate {
 	
 	@Override
 	public String toStringInternal() {
-		return "%s = %s%s;".formatted(result, op, target);
+		return toTargetString(result) + op + target;
 	}
 	
 	@RequiredArgsConstructor

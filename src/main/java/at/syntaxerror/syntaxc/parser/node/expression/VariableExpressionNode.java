@@ -76,7 +76,8 @@ public class VariableExpressionNode extends ExpressionNode {
 	
 	@Override
 	public Type getType() {
-		return variable.getType();
+		return variable.getType()
+			.normalize();
 	}
 	
 	@Override

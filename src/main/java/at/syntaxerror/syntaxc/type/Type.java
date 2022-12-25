@@ -291,6 +291,10 @@ public class Type {
 		return cloned;
 	}
 	
+	public Type normalize() {
+		return this;
+	}
+	
 	@Override
 	protected Type clone() {
 		return inheritProperties(new Type(kind));

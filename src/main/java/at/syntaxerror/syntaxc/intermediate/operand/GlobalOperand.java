@@ -22,10 +22,10 @@
  */
 package at.syntaxerror.syntaxc.intermediate.operand;
 
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * global variable or function operand, typically resides in memory relative
@@ -33,13 +33,22 @@ import lombok.RequiredArgsConstructor;
  * 
  * @author Thomas Kasper
  */
-@RequiredArgsConstructor
 @Getter
 public class GlobalOperand implements Operand {
 
-	private final String name;
+	private final SymbolObject object;
 	private final boolean extern;
 	private final Type type;
+	
+	public GlobalOperand(SymbolObject object, boolean extern, Type type) {
+		this.object = object;
+		this.extern = extern;
+		this.type = type.normalize();
+	}
+	
+	public String getName() {
+		return object.getName();
+	}
 	
 	@Override
 	public boolean isMemory() {
@@ -49,13 +58,13 @@ public class GlobalOperand implements Operand {
 	@Override
 	public boolean equals(Operand other) {
 		return other instanceof GlobalOperand global
-			&& name.equals(global.getName())
+			&& object.equals(global.object)
 			&& TypeUtils.isEqual(type, global.type);
 	}
 	
 	@Override
 	public String toString() {
-		return name;
+		return getName();
 	}
 	
 }

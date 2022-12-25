@@ -127,7 +127,7 @@ public class X86Alignment extends Alignment {
 				if(bitOffset != 0 && off == 0)
 					++offset;
 				
-				return StructAlignment.of(alignAt(offset, 4));
+				return StructAlignment.of((int) alignAt(offset, 4));
 			}
 			
 			// use compact alignment otherwise
@@ -135,7 +135,7 @@ public class X86Alignment extends Alignment {
 		}
 		
 		return StructAlignment.of(
-			alignAt(
+			(int) alignAt(
 				offset,
 				getAlignment(type, true)
 			)

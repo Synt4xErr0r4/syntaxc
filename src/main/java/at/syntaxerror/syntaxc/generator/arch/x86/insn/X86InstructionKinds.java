@@ -33,7 +33,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum X86InstructionKinds implements AssemblyInstructionKind {
 
-	CLOBBER, /* not an actual instruction, but tells the register allocator that a register now contains undefined data */
+	CLOBBER, /* not actually an instruction, but tells the register allocator that a register now contains undefined data */
+	LABEL, /* not actually an instruction, but an assembly label */
+	RAW, /* signales that the instruction contains the raw assembly string */
+	
+	NOP, /* do nothing */
+	
+	RET, /* return from function */
+	
+	PUSH, /* push to stack */
+	POP, /* pop from stack */
 	
 	MOV(true),		/* int = int */
 	MOVSS,			/* float = float */
@@ -45,10 +54,13 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	FLD,		/* ST(0) = float */
 	FILD,		/* ST(0) = int */
 	FLDZ,		/* ST(0) = 0 */
+	FLD1,		/* ST(0) = 1 */
 	FSTP,		/* float = ST(0); ST(i) = ST(0) */
 	FISTP,		/* int = ST(0) */
 	FNSTCW,		/* int = FPUCW */
 	FLDCW,		/* FPUCW = int */
+	FXCH,		/* swap ST(0), ST(i) */
+	FFREE,		/* free ST(i) */
 
 	LEA(true),	/* &sym */
 	
@@ -112,28 +124,71 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	FUCOMIP,	/* long double == long double */
 	FCOMIP,		/* long double == long double */
 
-	SETA,  /* if(above) a = 1 */
-	SETB,  /* if(below) a = 1 */
-	SETE,  /* if(equal) a = 1 */
-	SETG,  /* if(greater) a = 1 */
-	SETGE, /* if(greater or equal) a = 1 */
-	SETL,  /* if(less) a = 1 */
-	SETLE, /* if(less or equal) a = 1 */
-	SETP,  /* if(parity) a = 1 */
-	SETNB, /* if(not below) a = 1 */
-	SETNP, /* if(not parity) a = 1 */
+	/* set byte if flag is set/clear */
+	SETA,
+	SETAE,
+	SETB,
+	SETBE,
+	SETC,
+	SETE,
+	SETG,
+	SETGE,
+	SETL,
+	SETLE,
+	SETNA,
+	SETNAE,
+	SETNB,
+	SETNBE,
+	SETNC,
+	SETNE,
+	SETNG,
+	SETNGE,
+	SETNL,
+	SETNLE,
+	SETNO,
+	SETNP,
+	SETNS,
+	SETNZ,
+	SETO,
+	SETP,
+	SETPE,
+	SETPO,
+	SETS,
+	SETZ,
 
-	JA,  /* if(above) goto a */
-	JB,  /* if(below) goto a */
-	JE,  /* if(equal) goto a */
-	JG,  /* if(greater) goto a */
-	JGE, /* if(greater or equal) goto a */
-	JL,  /* if(less) goto a */
-	JLE, /* if(less or equal) goto a */
-	JP,  /* if(parity) goto a */
-	JNB, /* if(not below) goto a */
-	JNP, /* if(not parity) goto a */
-	JMP, /* goto a */
+	/* jump if the flag is set/clear */
+	JA,
+	JAE,
+	JB,
+	JBE,
+	JC,
+	JE,
+	JG,
+	JGE,
+	JL,
+	JLE,
+	JNA,
+	JNAE,
+	JNB,
+	JNBE,
+	JNC,
+	JNE,
+	JNG,
+	JNGE,
+	JNL,
+	JNLE,
+	JNO,
+	JNP,
+	JNS,
+	JNZ,
+	JO,
+	JP,
+	JPE,
+	JPO,
+	JS,
+	JZ,
+	
+	JMP, /* unconditional jump */
 	
 	REP_MOVS(true), /* memcpy */
 	REP_STOS(true), /* memset */

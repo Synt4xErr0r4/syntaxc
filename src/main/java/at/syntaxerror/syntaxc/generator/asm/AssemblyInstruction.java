@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.generator.asm;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
@@ -42,15 +43,26 @@ public class AssemblyInstruction {
 	
 	private final AssemblyInstructionKind kind;
 	
-	private AssemblyTarget destination;
-	private List<AssemblyTarget> sources;
+	private final List<AssemblyTarget> destinations;
+	private final List<AssemblyTarget> sources;
+	
+	private String strrep;
 	
 	public AssemblyInstruction(@NonNull Instructions parent, AssemblyInstructionKind kind,
-			AssemblyTarget destination, List<AssemblyTarget> sources) {
+			List<AssemblyTarget> destinations, List<AssemblyTarget> sources) {
 		this.parent = parent;
 		this.kind = kind;
-		this.destination = destination;
-		this.sources = sources;
+		this.destinations = new ArrayList<>(destinations);
+		this.sources = new ArrayList<>(sources);
+	}
+	
+	public AssemblyInstruction(AssemblyInstruction copy) {
+		this.parent = copy.getParent();
+		this.kind = copy.getKind();
+		this.destinations = copy.getDestinations();
+		this.sources = copy.getSources();
+		
+		strrep = copy.toString();
 	}
 	
 	public final void insertBefore(AssemblyInstruction insn) {
@@ -80,8 +92,15 @@ public class AssemblyInstruction {
 	}
 	
 	@Override
+	public AssemblyInstruction clone() {
+		return new AssemblyInstruction(this);
+	}
+	
+	@Override
 	public String toString() {
-		return "%s: %s <- %s".formatted(kind, destination, sources);
+		return strrep == null
+			? "%s: %s <- %s".formatted(kind, destinations, sources)
+			: strrep;
 	}
 	
 }

@@ -20,48 +20,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.intermediate.operand;
+package at.syntaxerror.syntaxc.generator.alloc.impl;
 
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
-import at.syntaxerror.syntaxc.type.Type;
-import at.syntaxerror.syntaxc.type.TypeUtils;
+import java.util.ArrayList;
+import java.util.List;
+
+import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
 import lombok.Getter;
 
 /**
- * local variable operand, typically resides in memory relative to the base pointer
- * 
  * @author Thomas Kasper
+ * 
  */
 @Getter
-public class LocalOperand implements Operand {
+public class AnnotatedAssemblyInstruction extends AssemblyInstruction {
 
-	private final SymbolObject object;
-	private final Type type;
+	private List<VirtualStackTarget> freeableStacks = new ArrayList<>();
+	private List<VirtualRegisterTarget> freeableRegisters = new ArrayList<>();
 	
-	public LocalOperand(SymbolObject object, Type type) {
-		this.object = object;
-		this.type = type.normalize();
+	private AssemblyInstruction instruction;
+	
+	public AnnotatedAssemblyInstruction(AssemblyInstruction insn) {
+		super(insn);
+		instruction = insn;
 	}
 	
-	public String getName() {
-		return object.getName();
+	public void free(VirtualStackTarget target) {
+		freeableStacks.add(target);
 	}
 
-	@Override
-	public boolean isMemory() {
-		return true;
-	}
-	
-	@Override
-	public boolean equals(Operand other) {
-		return other instanceof LocalOperand local
-			&& object.equals(local.object)
-			&& TypeUtils.isEqual(type, local.type);
+	public void free(VirtualRegisterTarget target) {
+		freeableRegisters.add(target);
 	}
 	
 	@Override
 	public String toString() {
-		return getName();
+		return "Annotated(" + instruction + ", free=" + freeableStacks + "&" + freeableRegisters + ")";
 	}
-	
+
 }

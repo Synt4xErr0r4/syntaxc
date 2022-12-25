@@ -57,6 +57,11 @@ public abstract class BuiltinFunction {
 	
 	public abstract void populate(BuiltinContext context);
 	
+	@Override
+	public String toString() {
+		return "Builtin(" + name + ", " + args + ", " + returnType + ")";
+	}
+	
 	public static interface BuiltinArgument extends Positioned, SyntaxTreeNode {
 		
 	}

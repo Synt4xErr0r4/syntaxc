@@ -30,14 +30,12 @@ import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * a constant number literal operand
  * 
  * @author Thomas Kasper
  */
-@RequiredArgsConstructor
 @Getter
 public class ConstantOperand implements Operand {
 
@@ -55,6 +53,11 @@ public class ConstantOperand implements Operand {
 	
 	@Getter(AccessLevel.NONE)
 	private String strval;
+	
+	public ConstantOperand(Number value, Type type) {
+		this.value = value;
+		this.type = type.normalize();
+	}
 	
 	public boolean isZero() {
 		return type.isFloating()

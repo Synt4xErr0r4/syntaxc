@@ -76,6 +76,11 @@ public class ArrayType extends PointerLikeType {
 	}
 	
 	@Override
+	public Type normalize() {
+		return getBase().addressOf();
+	}
+	
+	@Override
 	protected Type clone() {
 		return inheritProperties(new ArrayType(getBase(), length));
 	}

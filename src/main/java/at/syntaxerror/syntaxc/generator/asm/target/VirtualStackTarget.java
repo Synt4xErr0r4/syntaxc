@@ -64,7 +64,7 @@ public class VirtualStackTarget implements AssemblyTarget {
 	
 	@Override
 	public String toString() {
-		return "VMem(" + id + ":" + type + ")";
+		return "VMem(id#" + id + ":" + type + ")";
 	}
 	
 }

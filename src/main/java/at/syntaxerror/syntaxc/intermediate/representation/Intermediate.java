@@ -57,6 +57,12 @@ public abstract class Intermediate implements Positioned {
 	
 	protected abstract String toStringInternal();
 	
+	protected static String toTargetString(Operand target) {
+		return target == null
+			? ""
+			: target + " = ";
+	}
+	
 	public static abstract class BinaryIntermediate extends Intermediate {
 		
 		public abstract Operand getResult();

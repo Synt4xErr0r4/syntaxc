@@ -52,6 +52,9 @@ public class ArrayIndexExpressionNode extends ExpressionNode {
 	
 	@Override
 	public Type getType() {
+		if(rawType == null)
+			return target.getType().dereference();
+		
 		return rawType.isArray()
 			? rawType.dereference().addressOf() // convert array into pointer
 			: rawType;

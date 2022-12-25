@@ -226,6 +226,8 @@ public class Parser extends AbstractParser {
 			
 			enterScope();
 			
+			symbolHelper.resetParameters();
+			
 			activeFunctionType = type.toFunction();
 			
 			if(activeFunctionType.isKAndR()) {
@@ -271,12 +273,7 @@ public class Parser extends AbstractParser {
 						
 						Type paramType = decl.merge(baseType);
 						
-						SymbolObject obj = SymbolObject.local(decl, name, paramType);
-						obj.setUnused(false);
-						obj.setInitialized(true);
-						
-						if(getSymbolTable().addObject(obj))
-							softError(obj, "Redeclaration of local variable »%s«", name);
+						symbolHelper.registerLocal(decl, paramType, name);
 						
 						parameterNamesFound.add(name);
 						
@@ -288,18 +285,12 @@ public class Parser extends AbstractParser {
 				}
 				
 				for(String name : parameterNames)
-					if(!parameterNamesFound.contains(name)) {
-
-						SymbolObject obj = SymbolObject.local(decl, name, Type.INT);
-						obj.setUnused(false);
-						obj.setInitialized(true);
-						
-						getSymbolTable().addObject(obj);
-						
-					}
+					if(!parameterNamesFound.contains(name))
+						symbolHelper.registerLocal(decl, Type.INT, name);
 			
 			}
 			else {
+				
 				for(Parameter param : activeFunctionType.getParameters()) {
 					String paramName = param.name();
 					
@@ -311,9 +302,7 @@ public class Parser extends AbstractParser {
 					if(paramType == null)
 						error(param, "Missing type for function parameter »%s«", paramName);
 
-					SymbolObject obj = symbolHelper.registerLocal(decl, paramType, paramName);
-					obj.setUnused(false);
-					obj.setInitialized(true);
+					symbolHelper.registerLocal(decl, paramType, paramName);
 				}
 			
 				consume("{");
@@ -365,7 +354,12 @@ public class Parser extends AbstractParser {
 			
 			symtab.addObject(obj);
 			
-			nodes.add(new FunctionNode(obj, globalVariables, body));
+			nodes.add(new FunctionNode(
+				obj,
+				globalVariables,
+				symbolHelper.getParameters(),
+				body
+			));
 			
 			activeFunctionType = null;
 		}

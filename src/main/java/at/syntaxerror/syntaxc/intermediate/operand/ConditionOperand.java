@@ -22,7 +22,6 @@
  */
 package at.syntaxerror.syntaxc.intermediate.operand;
 
-import at.syntaxerror.syntaxc.intermediate.representation.BinaryIntermediate.BinaryOperation;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +36,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public class ConditionOperand implements Operand {
 	
-	private final BinaryOperation operation;
+	private final Condition condition;
 	private final Type type;
 	
 	@Override
@@ -47,7 +46,38 @@ public class ConditionOperand implements Operand {
 	
 	@Override
 	public String toString() {
-		return "<condition>";
+		return "<condition:" + condition +">";
+	}
+	
+	public static enum Condition {
+
+		EQUAL,
+		NOT_EQUAL,
+		LESS,
+		LESS_EQUAL,
+		GREATER,
+		GREATER_EQUAL;
+		
+		static {
+			EQUAL.negated = NOT_EQUAL;
+			NOT_EQUAL.negated = EQUAL;
+			LESS.negated = GREATER_EQUAL;
+			GREATER.negated = LESS_EQUAL;
+			LESS_EQUAL.negated = GREATER;
+			GREATER_EQUAL.negated = LESS;
+		}
+		
+		private Condition negated = this;
+		
+		public Condition negate() {
+			return negated;
+		}
+		
+		@Override
+		public String toString() {
+			return name().toLowerCase();
+		}
+		
 	}
 
 }

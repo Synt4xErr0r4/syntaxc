@@ -1172,8 +1172,8 @@ public class StatementParser extends AbstractParser {
 		returnLabel = nextLabel();
 		
 		CompoundStatementNode body = nextCompound(false);
-		
-		postInitVariables();
+
+		globalVariables.forEach(SymbolObject::setLocalStatic);
 		
 		dataFlowAnalyzer.checkInitialized(body);
 		
@@ -1189,25 +1189,6 @@ public class StatementParser extends AbstractParser {
 		checkVariableUsage();
 		
 		return body;
-	}
-	
-	private void postInitVariables() {
-		int length = declarations.size();
-		
-		int offset = 0;
-		
-		for(int i = 0; i < length; ++i) {
-			SymbolObject decl = declarations.get(i);
-			
-			if(decl.isFunction())
-				continue;
-			
-			offset += decl.getType().sizeof();
-
-			decl.setOffset(offset);
-		}
-		
-		globalVariables.forEach(SymbolObject::setLocalStatic);
 	}
 	
 	private void checkVariableUsage() {

@@ -22,6 +22,9 @@
  */
 package at.syntaxerror.syntaxc.generator.alloc;
 
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.type.Type;
+
 /**
  * @author Thomas Kasper
  * 
@@ -31,5 +34,9 @@ public abstract class RegisterAllocator {
 	public void reset() { }
 	
 	public abstract void allocate();
+	
+	public abstract long getStackSize();
+	
+	public abstract AssemblyTarget resolveVirtualMemory(long address, Type type);
 	
 }

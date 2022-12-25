@@ -45,8 +45,6 @@ import lombok.ToString;
 @ToString(of = { "name", "type", "kind" })
 public class SymbolObject implements Symbol, Positioned {
 
-	public static final int OFFSET_NONE = Integer.MIN_VALUE;
-	
 	public static final String RETURN_VALUE_NAME = ".RV";
 	
 	private static long temporaryId = 0;
@@ -331,9 +329,6 @@ public class SymbolObject implements Symbol, Positioned {
 	// whether this object has been initialized
 	private @Setter boolean initialized = false;
 	
-	// the stack offset of a local variable
-	private @Setter int offset = OFFSET_NONE;
-
 	// whether the syntax tree generator should ignore this object
 	private @Setter boolean syntaxTreeIgnore = false;
 	

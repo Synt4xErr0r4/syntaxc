@@ -49,7 +49,7 @@ public class AssignIntermediate extends Intermediate {
 	
 	@Override
 	public String toStringInternal() {
-		return "%s = %s;".formatted(target, value);
+		return toTargetString(target) + value;
 	}
 	
 }

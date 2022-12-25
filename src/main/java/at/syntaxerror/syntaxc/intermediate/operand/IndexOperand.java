@@ -25,7 +25,6 @@ package at.syntaxerror.syntaxc.intermediate.operand;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * operand representing an index into an array
@@ -33,13 +32,19 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  */
 @Getter
-@RequiredArgsConstructor
 public class IndexOperand implements Operand {
 
 	private final Operand target;
 	private final Operand offset;
 	private final int scale;
 	private final Type type;
+	
+	public IndexOperand(Operand target, Operand offset, int scale, Type type) {
+		this.target = target;
+		this.offset = offset;
+		this.scale = scale;
+		this.type = type.normalize();
+	}
 	
 	public IndexOperand(Operand target, Type type) {
 		this(target, ConstantOperand.zero(type), 1, type);

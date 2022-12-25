@@ -27,8 +27,17 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
+import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
+import at.syntaxerror.syntaxc.generator.arch.x86.call.X86CallingConvention;
+import at.syntaxerror.syntaxc.generator.arch.x86.call.X86Cdecl;
+import at.syntaxerror.syntaxc.generator.arch.x86.call.X86Microsoftx64Call;
+import at.syntaxerror.syntaxc.generator.arch.x86.call.X86SystemVCall;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.misc.config.Flags;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
  * @author Thomas Kasper
@@ -53,6 +62,8 @@ public class X86Assembly {
 	public final boolean intelSyntax;
 	public final boolean bit32;
 	
+	public final int threshold;
+	
 	@SuppressWarnings("unchecked")
 	public X86Assembly(boolean intelSyntax, BitSize bits) {
 		this.intelSyntax = intelSyntax;
@@ -62,6 +73,7 @@ public class X86Assembly {
 		
 		if(bits != BitSize.B64) {
 			bit32 = true;
+			threshold = 16;
 			
 			X86Register.disable(
 				X86Register.RAX,
@@ -102,6 +114,7 @@ public class X86Assembly {
 		}
 		else {
 			bit32 = false;
+			threshold = 32;
 
 			RBP = X86Register.RBP;
 			RSP = X86Register.RSP;
@@ -140,5 +153,19 @@ public class X86Assembly {
 			ArrayList::addAll
 		);
 	}
-
+	
+	public X86CallingConvention getCallingConvention(FunctionType type, Instructions asm,
+			X86AssemblyGenerator generator, List<SymbolObject> parameters) {
+		
+		if(bit32) // cdecl (32-bit)
+			return new X86Cdecl(type, asm, generator, parameters);
+		
+		// Microsoft x64 calling convention (64-bit)
+		if(ArchitectureRegistry.getOperatingSystem() == OperatingSystem.WINDOWS)
+			return new X86Microsoftx64Call(type, asm, generator, parameters);
+		
+		// System V AMD64 ABI (64-bit)
+		return new X86SystemVCall(type, asm, generator, parameters);
+	}
+	
 }

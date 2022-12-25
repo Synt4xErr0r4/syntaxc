@@ -205,7 +205,7 @@ public class StructType extends Type {
 			.getAlignment()
 			.getAlignment(this);
 		
-		size = Alignment.alignAt(size, align);
+		size = (int) Alignment.alignAt(size, align);
 	}
 	
 	/**
@@ -299,6 +299,7 @@ public class StructType extends Type {
 		structType.inherited = inherited;
 		structType.members = members;
 		structType.alignmentCalculated = alignmentCalculated;
+		structType.size = size;
 		
 		return inheritProperties(structType);
 	}

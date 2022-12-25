@@ -52,7 +52,7 @@ public class TemporaryOperand implements Operand {
 	private Allocation allocation;
 	
 	public TemporaryOperand(Type type) {
-		this(SymbolObject.getNextTemporaryId(), type);
+		this(SymbolObject.getNextTemporaryId(), type.normalize());
 	}
 	
 	@Override
@@ -63,6 +63,9 @@ public class TemporaryOperand implements Operand {
 	
 	@Override
 	public String toString() {
+		if(id == RETURN_VALUE_ID)
+			return "_RV";
+		
 		return "_" + id;
 	}
 	

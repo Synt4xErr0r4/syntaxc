@@ -44,13 +44,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class X86Register implements RegisterTarget {
 	
-	private static final Map<Integer, Type> TYPE_MAP = Map.of(
-		1, Type.UCHAR,
-		2, Type.USHORT,
-		4, Type.UINT,
-		8, Type.ULONG,
-		10, Type.LDOUBLE,
-		16, Type.DOUBLE
+	private static final Map<Integer, X86Size> TYPE_MAP = Map.of(
+		1, X86Size.BYTE,
+		2, X86Size.WORD,
+		4, X86Size.DWORD,
+		8, X86Size.QWORD,
+		10, X86Size.TBYTE,
+		16, X86Size.XMMWORD
 	);
 
 	/* --- REGISTER GROUPS --- */
@@ -216,7 +216,8 @@ public class X86Register implements RegisterTarget {
 	private static X86Register reg(String name, int size, List<X86Register> intersections) {
 		return new X86Register(
 			size,
-			TYPE_MAP.get(size),
+			TYPE_MAP.get(size)
+				.getType(),
 			name,
 			intersections
 		);
@@ -353,11 +354,9 @@ public class X86Register implements RegisterTarget {
 	 * Creates 8 10-byte x87 register
 	 */
 	private static List<X86Register> makeX87() {
-		final int size = Type.LDOUBLE.sizeof();
-		
 		return IntStream.range(0, 8)
-				.mapToObj(i -> reg("st(" + i + ")", size, List.of()))
-				.toList();
+			.mapToObj(i -> reg("st(" + i + ")", 10, List.of()))
+			.toList();
 	}
 
 	/*
@@ -382,6 +381,9 @@ public class X86Register implements RegisterTarget {
 	
 	public X86Register resized(X86Size size) {
 		int sz = size.getType().sizeof();
+		
+		if(sz == this.size)
+			return this;
 		
 		for(X86Register reg : intersections)
 			if(reg.size == sz && !reg.name.endsWith("h")) // prefer ?l over ?h

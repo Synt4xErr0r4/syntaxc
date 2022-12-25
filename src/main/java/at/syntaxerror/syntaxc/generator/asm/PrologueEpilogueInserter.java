@@ -20,14 +20,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.intermediate;
+package at.syntaxerror.syntaxc.generator.asm;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public interface Negatable<T> {
+public abstract class PrologueEpilogueInserter {
 
-	T negate();
+	public abstract void insertPrologue(Instructions asm, long stackSize);
+	public abstract void insertEpilogue(Instructions asm, long stackSize);
 	
 }

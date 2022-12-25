@@ -38,10 +38,14 @@ import java.util.Objects;
 
 import at.syntaxerror.syntaxc.analysis.ControlFlowAnalyzer;
 import at.syntaxerror.syntaxc.generator.CodeGenerator;
+import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
+import at.syntaxerror.syntaxc.generator.asm.ObjectSerializer;
+import at.syntaxerror.syntaxc.generator.asm.PrologueEpilogueInserter;
 import at.syntaxerror.syntaxc.intermediate.IntermediateGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator.FunctionData;
@@ -59,6 +63,7 @@ import at.syntaxerror.syntaxc.parser.node.SymbolNode;
 import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeGenerator;
 import at.syntaxerror.syntaxc.preprocessor.Preprocessor;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import lombok.experimental.UtilityClass;
 
@@ -221,21 +226,24 @@ public class SyntaxC {
 				SymbolObject object = function.getObject();
 				String name = object.getName();
 				
+				String returnLabel = object.getFunctionData().returnLabel();
+				
 				var intermediates = analyzer.checkDeadCode(
 					function.getPosition(),
 					name,
 					gotoOptimizer.optimize(
 						intermediateGenerator.toIntermediateRepresentation(
 							function.getBody().getStatements()
-						)
+						),
+						returnLabel
 					),
-					object.getFunctionData()
-						.returnLabel()
+					returnLabel
 				);
 				
 				intermediate.put(
 					name,
 					new FunctionData(
+						function.getParameters(),
 						intermediates,
 						analyzer.getGraph(),
 						!object.getType()
@@ -261,47 +269,71 @@ public class SyntaxC {
 		
 		AssemblyGenerator asmGen = codeGen.getAssemblyGenerator();
 		
+		List<AssemblyInstruction> instructions = new ArrayList<>();
+		
+		ObjectSerializer serial = codeGen.getObjectSerializer();
+		
+		serial.fileBegin();
+		
 		for(SymbolObject sym : symbols) {
 			
-			// skip function prototypes and typedefs
-			if(sym.isPrototype() || sym.isTypedef())
+			if(sym.isPrototype() || sym.isTypedef() || sym.isExtern())
 				continue;
 			
-		//	codeGen.generateObject(sym);
+			serial.metadata(sym);
+			
+			if(sym.isGlobalVariable()) {
+				
+				if(sym.isInitialized())
+					serial.generateInit(sym.getVariableData().initializer());
+				
+				else serial.zero(sym.getType().sizeof());
+				
+			}
+			
+			serial.transfer(instructions);
 			
 			if(sym.isFunction()) {
-			//	FunctionMetadata metadata = new FunctionMetadata(sym, 0); // TODO size
+				FunctionType type = sym.getType().toFunction();
 				
 				Instructions insns = new Instructions();
 				
-				asmGen.generate(
-					insns,
-					intermediate.get(sym.getName())
-						.intermediate()
-				);
+				FunctionData data = intermediate.get(sym.getName());
 				
-				System.out.println(" -- " + sym.getName() + " -- ");
+				asmGen.onEntry(insns, type, data.parameters());
+				asmGen.generate(data.intermediate());
+				asmGen.onLeave(type);
 				
-				insns.stream().forEach(System.out::println);
+				RegisterAllocator alloc = asmGen.getRegisterAllocator(insns);
+				
+				alloc.allocate();
+				
+				PrologueEpilogueInserter inserter = asmGen.getPrologueEpilogueInserter();
+
+				Instructions prologue = new Instructions();
+				long stackSize = alloc.getStackSize();
+				
+				inserter.insertPrologue(prologue, stackSize);
+				inserter.insertEpilogue(insns, stackSize);
+
+				prologue.forEach(instructions::add);
+				insns.forEach(instructions::add);
+				
+				serial.generatePostFunction(sym);
 			}
 		}
 		
-		/*
-		 * TODO: IR -> assembly
-		 * TODO: register allocation
-		 * TODO: object serialization
-		 */
-
-		checkTerminationState();
+		serial.fileEnd();
+		serial.transfer(instructions);
 		
-		// List<AssemblyInstruction> assembly = codeGen.getInstructions();
+		checkTerminationState();
 		
 		File asmOut = uniqueFile(outputFileName, ".s");
 		
 		try(PrintStream writer = new PrintStream(asmOut)) {
 			
-			/*for(AssemblyInstruction instruction : assembly)
-				writer.println(instruction.toAssembly());*/
+			for(AssemblyInstruction instruction : instructions)
+				writer.println(instruction.toString());
 			
 		} catch (Exception e) {
 			outputFailed(e);
@@ -333,7 +365,7 @@ public class SyntaxC {
 		
 		/* Link */
 		
-		
+		// TODO link
 	}
 	
 	public static Token postprocess(Token token) {

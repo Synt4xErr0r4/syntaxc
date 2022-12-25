@@ -24,8 +24,6 @@ package at.syntaxerror.syntaxc.generator.arch.x86.target;
 
 import java.math.BigInteger;
 
-import at.syntaxerror.syntaxc.SystemUtils.BitSize;
-import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
@@ -129,7 +127,7 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	
 	@Override
 	public AssemblyTarget resized(Type type) {
-		return new X86MemoryTarget(type, size, segment, displacement, base, index, scale);
+		return new X86MemoryTarget(type, X86Size.of(type), segment, displacement, base, index, scale);
 	}
 	
 	@Override
@@ -183,68 +181,46 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			sb = sb.append(')');
 		}
 		else {
-			/*
-			 * Intel syntax:
-			 * 	32-bit: size PTR segment:base+disp+index*scale 	(no EIP addressing mode)
-			 * 	64-bit: size PTR segment:[base+index*scale+disp]
-			 */
-			
-			boolean bit32 = ArchitectureRegistry.getBitSize() == BitSize.B32;
+			/* Intel syntax: size PTR segment:[base+index*scale+disp]	(no EIP addressing mode for 32-bit) */
 			
 			if(size != X86Size.UNKNOWN)
-				sb.append(size.getPointerName())
+				sb = sb.append(size.getPointerName())
 					.append(" PTR ");
 			
 			if(hasSegment())
 				sb.append(segment)
 					.append(':');
-			
-			if(bit32) {
-				
-				boolean hasPredecessor = base != X86Register.EIP;
-				
-				if(hasPredecessor)
-					sb = sb.append(base);
-				
-				if(hasDisplacement()) {
-					sb = sb.append(
-						hasPredecessor
-							? toSignedString(displacement)
-							: displacement
-					);
-					hasPredecessor = true;
-				}
 
-				if(hasIndex()) {
-					sb = sb.append(
-						hasPredecessor
-							? toSignedString(index)
-							: index
-					);
-
-					if(scale != 1)
-						sb = sb.append('*')
-							.append(scale);
-				}
-			}
-			else {
+			boolean hasBase = base != X86Register.EIP;
+			boolean hasPredecessor = hasBase;
 			
+			if(hasBase)
 				sb = sb.append('[')
 					.append(base);
-				
-				if(hasIndex()) {
-					sb = sb.append(toSignedString(index));
-					
-					if(scale != 1)
-						sb = sb.append('*')
-							.append(scale);
-				}
-				
-				if(hasDisplacement())
-					sb = sb.append(toSignedString(displacement));
 
-				sb = sb.append(']');
+			if(hasIndex()) {
+				sb = sb.append(
+					hasPredecessor
+						? toSignedString(index)
+						: index
+				);
+				
+				hasPredecessor = true;
+				
+				if(scale != 1)
+					sb = sb.append('*')
+						.append(scale);
 			}
+			
+			if(hasDisplacement())
+				sb = sb.append(
+					hasPredecessor
+						? toSignedString(displacement)
+						: displacement
+				);
+
+			if(hasBase)
+				sb = sb.append(']');
 		}
 		
 		return sb.toString();

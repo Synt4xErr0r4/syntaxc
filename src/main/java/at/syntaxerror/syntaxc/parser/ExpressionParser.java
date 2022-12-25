@@ -146,9 +146,7 @@ public class ExpressionParser extends AbstractParser {
 						getPosition(),
 						sym.getEnumeratorData()
 							.value(),
-						sym.getType()
-							.toEnum()
-							.asNumberType()
+						sym.getType().normalize()
 					);
 
 				if(sym.isVariable()) // variable or function
@@ -548,6 +546,7 @@ public class ExpressionParser extends AbstractParser {
 					expr,
 					ident.getString(),
 					member.getType()
+						.normalize()
 				);
 				continue;
 			}
@@ -632,7 +631,7 @@ public class ExpressionParser extends AbstractParser {
 								newNumber(
 									pos,
 									BigInteger.ONE,
-									NumericValueType.POINTER.asType()
+									exprType
 								),
 								!increment
 							),

@@ -35,11 +35,11 @@ public abstract class Alignment {
 	
 	public abstract StructAlignment getMemberAlignment(StructType struct, Type type, int offset, int bitOffset, int bitWidth, boolean wasBitfield);
 	
-	public static int alignAt(int offset, int alignment) {
+	public static long alignAt(long offset, long alignment) {
 		if(alignment < 2)
 			return offset;
 		
-		int pad = offset % alignment;
+		long pad = offset % alignment;
 		
 		return pad == 0
 			? offset

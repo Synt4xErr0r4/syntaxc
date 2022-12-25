@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
+import at.syntaxerror.syntaxc.builtin.BuiltinRegistry;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.io.CharStream;
 import at.syntaxerror.syntaxc.lexer.Token;
@@ -80,6 +81,8 @@ public class SyntaxCMain {
 		Flags.init();
 		Warnings.init();
 		Optimizations.init();
+		
+		BuiltinRegistry.init();
 	}
 	
 	public static void main(String[] args) {
@@ -99,7 +102,9 @@ public class SyntaxCMain {
 				"-S",
 				"-Wall",
 				"-Wno-implicit-function", "-Wno-pragma",
-				"-m32"
+				"-m32",
+				"-Ogoto",
+				"-Ojump-to-jump"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()

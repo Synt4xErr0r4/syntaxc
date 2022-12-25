@@ -1,4 +1,4 @@
-/* MIT License
+/* MIT LicenseAssemblyTarget.super.isRegister()
  * 
  * Copyright (c) 2022 Thomas Kasper
  * 
@@ -20,10 +20,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.arch.x86.insn;
+package at.syntaxerror.syntaxc.generator.arch.x86.target;
 
-import at.syntaxerror.syntaxc.misc.config.Flags;
-import at.syntaxerror.syntaxc.type.NumericValueType;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -32,48 +31,28 @@ import lombok.RequiredArgsConstructor;
  * @author Thomas Kasper
  * 
  */
-@RequiredArgsConstructor
 @Getter
-public enum X86Size {
+@RequiredArgsConstructor
+public class X86StringTarget extends X86AssemblyTarget {
 
-	BYTE	("BYTE",	"b",	Type.CHAR),
-	WORD	("WORD",	"w",	Type.SHORT),
-	DWORD	("DWORD",	"l",	Type.INT),
-	QWORD	("QWORD",	"q",	Type.LONG),
-	TBYTE	("TBYTE",	"",		Type.LDOUBLE),
-	XMMWORD	("XMMWORD",	"",		Type.VOID),
-	UNKNOWN	("?WORD",	"?",	Type.VOID);
-
-	public static X86Size ofRaw(Type type) {
-		if(type.isArray())
-			return of(NumericValueType.POINTER.getSize());
-		
-		return of(type.sizeof());
-	}
-	
-	public static X86Size of(Type type) {
-		if(!type.isScalar())
-			return X86Size.UNKNOWN;
-
-		return ofRaw(type);
-	}
-	
-	public static X86Size of(int size) {
-		switch(size) {
-		case 1: return BYTE; // char
-		case 2: return WORD; // short
-		case 4: return DWORD; // float, int, pointer (x86)
-		case 8: return QWORD; // double, long, pointer (x64)
-		default:
-			if(Flags.LONG_DOUBLE.isEnabled() && size == NumericValueType.LDOUBLE.getSize())
-				return TBYTE;
-			
-			return UNKNOWN;
-		}
-	}
-
-	private final String pointerName;
-	private final String suffix;
 	private final Type type;
+	private final String name;
+
+	@Override
+	public AssemblyTarget resized(Type type) {
+		return this;
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		return obj != null
+			&& obj instanceof X86StringTarget str
+			&& equals(name, str.name);
+	}
+	
+	@Override
+	public String toAssemblyString(boolean attSyntax) {
+		return "OFFSET FLAT:" + name;
+	}
 	
 }

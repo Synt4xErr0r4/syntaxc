@@ -30,6 +30,7 @@ import java.util.Map;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.misc.IEEE754Utils;
 import at.syntaxerror.syntaxc.type.Type;
+import lombok.Getter;
 
 /**
  * @author Thomas Kasper
@@ -37,7 +38,9 @@ import at.syntaxerror.syntaxc.type.Type;
  */
 public class X86FloatTable {
 
-	private final Map<BigInteger, Integer> floats = new HashMap<>();
+	@Getter
+	private final Map<Type, Map<BigInteger, Integer>> floats = new HashMap<>();
+	
 	private int previousId = 0;
 	
 	public X86LabelTarget get(Type type, BigDecimal value) {
@@ -49,7 +52,9 @@ public class X86FloatTable {
 				.getFloatingSpec()
 		);
 		
-		int id = floats.computeIfAbsent(bytes, x -> ++previousId);
+		int id = floats
+			.computeIfAbsent(type, t -> new HashMap<>())
+			.computeIfAbsent(bytes, x -> ++previousId);
 		
 		return new X86LabelTarget(type, ".F" + id);
 	}

@@ -23,6 +23,7 @@
 package at.syntaxerror.syntaxc.generator;
 
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
+import at.syntaxerror.syntaxc.generator.asm.ObjectSerializer;
 
 /**
  * @author Thomas Kasper
@@ -30,139 +31,9 @@ import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
  */
 public abstract class CodeGenerator {
 
-	/*
-	@Getter
-	private final List<AssemblyInstruction> instructions = new ArrayList<>();
-
-	@Override
-	public Position getPosition() {
-		return null;
-	}
-	
-	@Override
-	public Warning getDefaultWarning() {
-		return Warning.GEN_NONE;
-	}
-	
-	public final void add(AssemblyInstruction...instructions) {
-		add(Arrays.asList(instructions));
-	}
-	
-	public final void add(List<AssemblyInstruction> instructions) {
-		this.instructions.addAll(
-			instructions.stream()
-				.filter(i -> i != null)
-				.toList()
-		);
-	}
-	
-	public final void addAt(int index, List<AssemblyInstruction> instructions) {
-		this.instructions.addAll(
-			index,
-			instructions.stream()
-				.filter(i -> i != null)
-				.toList()
-		);
-	}
-	
-	public final void generateObject(SymbolObject object) {
-		if(object.isExtern())
-			return;
-		
-		AssemblyGenerator asm = getAssembler();
-		
-		asm.metadata(object);
-		
-		if(object.isGlobalVariable()) {
-			
-			if(object.isInitialized())
-				generateInit(asm, object.getVariableData().initializer());
-			
-			else asm.zero(object.getType().sizeof());
-			
-		}
-	}
-	
-	public final void generateBody(List<Intermediate> intermediates, FunctionMetadata metadata) {
-		AssemblyGenerator asm = getAssembler();
-		
-		asm.enter(
-			null,
-			metadata
-		);
-		
-		//intermediates.forEach(ir -> ir.generate(asm));
-		
-		asm.leave(metadata);
-	}
-	
-	private final int generateInit(AssemblyGenerator asm, GlobalVariableInitializer init) {
-		int size;
-		
-		switch(init) {
-		case StringInitializer strInit:
-			
-			StringUtils.toASCII(strInit.value(), strInit.wide())
-				.stream()
-				.forEach(
-					strInit.withNul()
-						? asm::nulString
-						: asm::rawString
-				);
-			
-			size = strInit.value()
-				.getBytes(StandardCharsets.UTF_8)
-				.length;
-			
-			if(strInit.withNul())
-				size += (strInit.wide() ? NumericValueType.WCHAR : NumericValueType.CHAR).getSize();
-			
-			return size;
-		
-		case AddressInitializer addrInit:
-			
-			asm.pointerOffset(
-				addrInit.object().getName(),
-				addrInit.offset()
-			);
-			
-			return NumericValueType.POINTER.getSize() / 8;
-		
-		case IntegerInitializer intInit:
-			
-			size = intInit.size();
-			
-			asm.constant(
-				intInit.value(),
-				size
-			);
-			
-			return size;
-			
-		case ListInitializer listInit:
-			
-			size = 0;
-			
-			for(var entry : listInit.initializers())
-				size += generateInit(asm, entry);
-			
-			return size;
-			
-		case ZeroInitializer zeroInit:
-			size = zeroInit.size();
-			
-			asm.zero(size);
-			
-			return size;
-			
-		case null:
-		default:
-			return 0;
-		}
-	}
-	
-	public abstract RegisterProvider getRegisterProvider();*/
+	// public abstract RegisterProvider getRegisterProvider();
 
 	public abstract AssemblyGenerator getAssemblyGenerator();
+	public abstract ObjectSerializer getObjectSerializer();
 	
 }

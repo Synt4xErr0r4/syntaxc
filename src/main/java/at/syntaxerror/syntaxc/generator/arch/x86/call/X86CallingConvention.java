@@ -20,12 +20,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.arch.x86.insn;
+package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
-import at.syntaxerror.syntaxc.misc.config.Flags;
-import at.syntaxerror.syntaxc.type.NumericValueType;
-import at.syntaxerror.syntaxc.type.Type;
-import lombok.Getter;
+import java.util.Iterator;
+import java.util.List;
+
+import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
+import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
+import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.type.FunctionType;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -33,47 +40,22 @@ import lombok.RequiredArgsConstructor;
  * 
  */
 @RequiredArgsConstructor
-@Getter
-public enum X86Size {
-
-	BYTE	("BYTE",	"b",	Type.CHAR),
-	WORD	("WORD",	"w",	Type.SHORT),
-	DWORD	("DWORD",	"l",	Type.INT),
-	QWORD	("QWORD",	"q",	Type.LONG),
-	TBYTE	("TBYTE",	"",		Type.LDOUBLE),
-	XMMWORD	("XMMWORD",	"",		Type.VOID),
-	UNKNOWN	("?WORD",	"?",	Type.VOID);
-
-	public static X86Size ofRaw(Type type) {
-		if(type.isArray())
-			return of(NumericValueType.POINTER.getSize());
-		
-		return of(type.sizeof());
-	}
+public abstract class X86CallingConvention {
 	
-	public static X86Size of(Type type) {
-		if(!type.isScalar())
-			return X86Size.UNKNOWN;
-
-		return ofRaw(type);
-	}
+	protected final FunctionType function;
+	protected final Instructions asm;
+	protected final X86AssemblyGenerator generator;
+	protected final List<SymbolObject> parameters;
 	
-	public static X86Size of(int size) {
-		switch(size) {
-		case 1: return BYTE; // char
-		case 2: return WORD; // short
-		case 4: return DWORD; // float, int, pointer (x86)
-		case 8: return QWORD; // double, long, pointer (x64)
-		default:
-			if(Flags.LONG_DOUBLE.isEnabled() && size == NumericValueType.LDOUBLE.getSize())
-				return TBYTE;
-			
-			return UNKNOWN;
-		}
-	}
-
-	private final String pointerName;
-	private final String suffix;
-	private final Type type;
+	public abstract void onEntry();
+	public abstract void onLeave();
+	
+	public abstract void call(AssemblyTarget functionTarget, FunctionType callee, Iterator<AssemblyTarget> args, AssemblyTarget destination);
+	
+	public abstract AssemblyTarget getReturnValue();
+	
+	public abstract void vaStart(BuiltinVaStart vaStart);
+	public abstract void vaArg(BuiltinVaArg vaArg);
+	public abstract void vaEnd(BuiltinVaEnd vaEnd);
 	
 }
