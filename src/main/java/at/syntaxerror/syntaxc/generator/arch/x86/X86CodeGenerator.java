@@ -40,6 +40,8 @@ public class X86CodeGenerator extends CodeGenerator {
 	private X86AssemblyGenerator assemblyGenerator;
 	private X86ObjectSerializer objectSerializer;
 	
+	private X86PeepholeOptimizer peepholeOptimizer;
+	
 	private X86FloatTable floatTable;
 	private X86Assembly x86;
 	
@@ -60,6 +62,8 @@ public class X86CodeGenerator extends CodeGenerator {
 		objectSerializer = new X86ObjectSerializer(arch.getAlignment(), floatTable, x86, inputFileName);
 		assemblyGenerator = new X86AssemblyGenerator(floatTable, x86, arch);
 		registerProvider = new X86RegisterProvider();
+		
+		peepholeOptimizer = new X86PeepholeOptimizer();
 	}
 	
 }

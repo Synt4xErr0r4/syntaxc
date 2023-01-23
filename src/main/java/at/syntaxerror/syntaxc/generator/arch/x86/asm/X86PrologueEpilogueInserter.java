@@ -22,11 +22,14 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.asm;
 
+import java.util.List;
+
 import at.syntaxerror.syntaxc.generator.arch.Alignment;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Instruction;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.PrologueEpilogueInserter;
+import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -39,7 +42,7 @@ public class X86PrologueEpilogueInserter extends PrologueEpilogueInserter {
 	private final X86Assembly x86;
 	
 	@Override
-	public void insertPrologue(Instructions asm, long stackSize) {
+	public void insertPrologue(Instructions asm, long stackSize, List<RegisterTarget> registers) {
 		/*
 		 * stack frame setup
 		 * 
@@ -60,7 +63,7 @@ public class X86PrologueEpilogueInserter extends PrologueEpilogueInserter {
 	}
 	
 	@Override
-	public void insertEpilogue(Instructions asm, long stackSize) {
+	public void insertEpilogue(Instructions asm, long stackSize, List<RegisterTarget> registers) {
 		/*
 		 * restore stack frame and return
 		 * 

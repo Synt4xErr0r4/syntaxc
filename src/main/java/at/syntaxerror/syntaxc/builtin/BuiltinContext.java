@@ -57,6 +57,10 @@ public class BuiltinContext implements Logable {
 	private int consumed = 0;
 	private boolean closed = false;
 	
+	public ExpressionParser getParser() {
+		return expr;
+	}
+	
 	public boolean isInsideFunction() {
 		return getEnclosingFunction() != null;
 	}

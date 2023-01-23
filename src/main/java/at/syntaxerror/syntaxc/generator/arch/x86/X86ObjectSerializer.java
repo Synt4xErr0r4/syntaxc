@@ -35,9 +35,9 @@ import at.syntaxerror.syntaxc.generator.arch.Alignment;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86Assembly;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.ObjectSerializer;
+import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
 import at.syntaxerror.syntaxc.misc.StringUtils;
 import at.syntaxerror.syntaxc.symtab.Linkage;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
@@ -226,7 +226,7 @@ public class X86ObjectSerializer extends ObjectSerializer {
 
 	@Override
 	public void constant(BigInteger value, int size) {
-		if(WORD_SIZES.containsKey(size)) {
+		if(SIZES.contains(size)) {
 			asm(
 				".%s %s",
 				WORD_SIZES.get(size),

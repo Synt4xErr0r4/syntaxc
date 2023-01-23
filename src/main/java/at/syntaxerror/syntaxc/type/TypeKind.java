@@ -22,13 +22,20 @@
  */
 package at.syntaxerror.syntaxc.type;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 /**
  * @author Thomas Kasper
  * 
  */
+@AllArgsConstructor
+@NoArgsConstructor
 public enum TypeKind {
 
-	VOID,
+	VOID		("void"),
 	CHAR,
 	SHORT,
 	INT,
@@ -41,6 +48,19 @@ public enum TypeKind {
 	FUNCTION,
 	ARRAY,
 	STRUCT,
-	UNION
+	UNION,
+	
+	/* non-standard types */
+	
+	// __builtin_va_list
+	VA_LIST		("__builtin_va_list"),
+	
+	// 128, 256, and 512-bit integers, currently unused
+	M128("__m128"),
+	M256("__m256"),
+	M512("__m512");
+
+	@Getter(AccessLevel.PROTECTED)
+	private String rawName;
 	
 }

@@ -27,6 +27,7 @@ import java.util.List;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.SystemUtils.OperatingSystem;
+import at.syntaxerror.syntaxc.builtin.BuiltinRegistry;
 import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.generator.arch.Alignment;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
@@ -111,15 +112,36 @@ public class X86Architecture extends Architecture {
 			BuiltinMacro.define("__LP64__");
 			
 			/* https://learn.microsoft.com/en-us/cpp/c-language/c-bit-fields?view=msvc-170
-			 *  'int' bitfields are signed on Windows
-			 * 
 			 * http://www.sco.com/developers/devspecs/abi386-4.pdf
-			 *  'int' bitfields are unsigned on Linux
+			 * 
+			 *  'int' bitfields are signed on Windows, unsigned on Linux
 			 */
 			
 			ArchitectureRegistry.setUnsignedBitfields(
 				ArchitectureRegistry.getOperatingSystem() == OperatingSystem.LINUX
 			);
+			
+			/*
+			 * https://www.uclibc.org/docs/psABI-x86_64.pdf
+			 * Figure 3.34
+			 * 
+			 * __builtin_va_list is effectively equal to the following definition:
+			 * 
+			 *  typedef struct {
+			 *  	unsigned int gp_offset;
+			 *  	unsigned int fp_offset;
+			 *  	void *overflow_arg_area;
+			 *  	void *reg_save_area;
+			 *  } __builtin_va_list[1];
+			 *  
+			 *  reg_save_area		- pointer to the register save area
+			 *  overflow_arg_area	- pointer to the first stack argument
+			 *  gp_offset			- offset from reg_save_area, where next general purpose register is stored.
+			 *  					  when all register are exhausted, its value is set to 48
+			 *  fp_offset			- offset from reg_save_area, where next floating point register is stored.
+			 *  					  when all register are exhausted, its value is set to 304
+			 */
+			BuiltinRegistry.vaListSize = 24;
 		}
 		else if(bitSize == BitSize.B32) {
 			
@@ -145,6 +167,9 @@ public class X86Architecture extends Architecture {
 			/* http://www.sco.com/developers/devspecs/abi386-4.pdf
 			 *  'int' bitfields are unsigned on Linux */
 			ArchitectureRegistry.setUnsignedBitfields(true);
+			
+			// __builtin_va_list consists of one pointer, holding the stack offset
+			BuiltinRegistry.vaListSize = 4;
 		}
 		else Logger.error("Unsupported bit size for x86 architecture: %s (only 32 and 64 are supported)", bitSize);
 

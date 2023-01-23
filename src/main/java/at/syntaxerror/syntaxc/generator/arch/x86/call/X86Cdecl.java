@@ -22,9 +22,12 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
@@ -35,11 +38,12 @@ import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
+import at.syntaxerror.syntaxc.generator.asm.insn.StoreRegistersInstruction;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
 import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.type.FunctionType;
+import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
@@ -69,8 +73,13 @@ public class X86Cdecl extends X86CallingConvention {
 
 	private AssemblyTarget structPointer;
 	
-	public X86Cdecl(FunctionType function, Instructions asm, X86AssemblyGenerator generator, List<SymbolObject> parameters) {
-		super(function, asm, generator, parameters);
+	private Map<String, X86MemoryTarget> parameters;
+	
+	private StoreRegistersInstruction registerStore, callStore;
+	private List<VirtualStackTarget> fpuStore;
+	
+	public X86Cdecl(FunctionType function, Instructions asm, X86AssemblyGenerator generator) {
+		super(function, asm, generator);
 		
 		returnValue = getReturnValue(function.getReturnType());
 	}
@@ -86,20 +95,77 @@ public class X86Cdecl extends X86CallingConvention {
 		
 		return X86MemoryTarget.of(returnType, structPointer);
 	}
+	
+	@Override
+	public AssemblyTarget getParameter(String name) {
+		return parameters.get(name);
+	}
 
 	@Override
 	public void onEntry() {
-		function.getParameters().stream()
-			.map(p -> p.name());
+		parameters = new HashMap<>();
 		
-		// TODO
+		int stackOffset = 0;
+		
+		for(Parameter param : function.getParameters()) {
+			Type type = param.type();
+			
+			parameters.put(
+				param.name(),
+				X86MemoryTarget.of(
+					type,
+					X86Register.EBP,
+					X86OperandHelper.constant(8 + stackOffset)
+				)
+			);
+
+			stackOffset += type.sizeof();
+		}
+		
+		// ebx, edi, and esi belong to the caller
+		asm.add(registerStore = new StoreRegistersInstruction(
+			asm,
+			X86Register.EDI, X86Register.ESI, X86Register.EBX
+		));
 	}
 
 	@Override
 	public void onLeave() {
-		// TODO
+		asm.add(registerStore.restore());
 	}
 
+	@Override
+	public void beforeCall() {
+		// FPU stack must be empty
+		fpuStore = new ArrayList<>();
+		
+		while(!generator.isFPUStackEmpty()) {
+			VirtualStackTarget tmp = new VirtualStackTarget(Type.LDOUBLE);
+			
+			generator.fstp(tmp);
+			
+			fpuStore.add(0, tmp);
+		}
+		
+		// eax, ecx, edx belong to the callee
+		X86Register[] scratchRegisters;
+		
+		if(returnValue == X86Register.EAX)
+			scratchRegisters = new X86Register[] {
+				X86Register.ECX,
+				X86Register.EDX,
+			};
+		
+		else scratchRegisters = new X86Register[] {
+			X86Register.EAX,
+			X86Register.ECX,
+			X86Register.EDX,
+		};
+		
+		callStore = new StoreRegistersInstruction(asm, scratchRegisters);
+		asm.add(callStore);
+	}
+	
 	@Override
 	public void call(AssemblyTarget functionTarget, FunctionType callee,
 			Iterator<AssemblyTarget> args, AssemblyTarget callerReturnDestination) {
@@ -151,8 +217,6 @@ public class X86Cdecl extends X86CallingConvention {
 			
 			long alignTo = allocatedStackSpace + structPointerOffset;
 			
-			AssemblyTarget address = new VirtualRegisterTarget(returnTypePointer);
-			
 			if(callerReturnDestination == null || !callerReturnDestination.isMemory()) {
 				asm.add(
 					X86InstructionKinds.SUB,
@@ -162,7 +226,7 @@ public class X86Cdecl extends X86CallingConvention {
 				
 				asm.add(
 					X86InstructionKinds.LEA,
-					address,
+					X86Register.EAX,
 					X86MemoryTarget.of(
 						returnTypePointer,
 						X86Register.ESP
@@ -173,7 +237,7 @@ public class X86Cdecl extends X86CallingConvention {
 			}
 			else asm.add(
 				X86InstructionKinds.LEA,
-				address,
+				X86Register.EAX,
 				callerReturnDestination
 			);
 			
@@ -190,7 +254,7 @@ public class X86Cdecl extends X86CallingConvention {
 					returnTypePointer,
 					X86Register.ESP
 				),
-				address
+				X86Register.EAX
 			);
 		}
 		else {
@@ -239,38 +303,101 @@ public class X86Cdecl extends X86CallingConvention {
 		 * 	call function_name
 		 * 	add esp, <required space>
 		 */
+		
 		asm.add(X86InstructionKinds.CALL, functionTarget);
-		asm.add(X86InstructionKinds.ADD, X86Register.ESP, X86OperandHelper.constant(allocatedStackSpace));
+		
+		asm.add(
+			X86InstructionKinds.ADD,
+			X86Register.ESP,
+			X86OperandHelper.constant(allocatedStackSpace)
+		);
 		
 		// structs are already written
-		if(returnType.isStructLike())
-			return;
+		if(!returnType.isStructLike()) {
+			/*
+			 * assign return value or clear FPU stack:
+			 * 
+			 * 	fstp st(0)
+			 */
+			if(callerReturnDestination != null) {
+				
+				if(returnValue == X86Register.ST0)
+					generator.fpuStackPush();
+				
+				generator.assign(callerReturnDestination, returnValue);
+			}
+			
+			else if(returnValue == X86Register.ST0) {
+				generator.fpuStackPush();
+				generator.fpop();
+			}
+		}
 		
-		/*
-		 * assign return value or clear FPU stack:
-		 * 
-		 * 	fstp st(0)
-		 */
-		if(callerReturnDestination != null)
-			generator.assign(callerReturnDestination, returnValue);
+		// restore callee-saved register and FPU stack
+		asm.add(callStore.restore());
 		
-		else if(returnValue == X86Register.ST0)
-			asm.add(X86InstructionKinds.FSTP, X86Register.ST0);
+		for(VirtualStackTarget tmp : fpuStore)
+			generator.fld(tmp);
 	}
 	
 	@Override
 	public void vaStart(BuiltinVaStart vaStart) {
-		// TODO
+		/*
+		 * va_start(vp, arg):
+		 * 
+		 * 	lea <vp>, [<arg>]
+		 */
+		
+		generator.assignDynamicRegister(
+			vaStart.getVaList().getOperand(),
+			vp -> {
+				X86MemoryTarget target = parameters.get(vaStart.getParameter().name());
+				
+				asm.add(
+					X86InstructionKinds.LEA,
+					vp,
+					generator.addOffset(target, target.getType().sizeof())
+				);
+			}
+		);
 	}
 	
 	@Override
-	public void vaArg(BuiltinVaArg vaArg) {
-		// TODO
+	public void vaArg(Operand result, BuiltinVaArg vaArg) {
+		/*
+		 * val = va_arg(vp, type):
+		 * 
+		 * 	val = *((type *) vp);
+		 * 	vp += sizeof(type);
+		 * 
+		 * 	mov <val>, [<vp>]
+		 * 	add <vp>, <sizeof(type)>
+		 */
+		
+		Type type = vaArg.getReturnType();
+		
+		AssemblyTarget vp = generator.generateOperand(
+			vaArg.getVaList().getOperand()
+		);
+		
+		generator.assign(
+			result,
+			X86MemoryTarget.of(
+				type,
+				generator.toRegister(vp)
+			)
+		);
+		
+		asm.add(
+			X86InstructionKinds.ADD,
+			vp,
+			X86OperandHelper.constant(type.sizeof())
+		);
 	}
 	
 	@Override
 	public void vaEnd(BuiltinVaEnd vaEnd) {
-		// TODO
+		// do nothing
 	}
 	
 	/* align offset to 16-byte boundary */

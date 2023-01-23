@@ -34,10 +34,11 @@ import at.syntaxerror.syntaxc.generator.arch.x86.call.X86Cdecl;
 import at.syntaxerror.syntaxc.generator.arch.x86.call.X86Microsoftx64Call;
 import at.syntaxerror.syntaxc.generator.arch.x86.call.X86SystemVCall;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
+import at.syntaxerror.syntaxc.generator.arch.x86.register.X86RegisterProvider;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.misc.config.Flags;
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.FunctionType;
+import lombok.Getter;
 
 /**
  * @author Thomas Kasper
@@ -63,6 +64,9 @@ public class X86Assembly {
 	public final boolean bit32;
 	
 	public final int threshold;
+	
+	@Getter
+	private final X86RegisterProvider registerProvider;
 	
 	@SuppressWarnings("unchecked")
 	public X86Assembly(boolean intelSyntax, BitSize bits) {
@@ -152,20 +156,21 @@ public class X86Assembly {
 			ArrayList::addAll,
 			ArrayList::addAll
 		);
+		
+		registerProvider = new X86RegisterProvider();
 	}
 	
-	public X86CallingConvention getCallingConvention(FunctionType type, Instructions asm,
-			X86AssemblyGenerator generator, List<SymbolObject> parameters) {
+	public X86CallingConvention getCallingConvention(FunctionType type, Instructions asm, X86AssemblyGenerator generator) {
 		
 		if(bit32) // cdecl (32-bit)
-			return new X86Cdecl(type, asm, generator, parameters);
+			return new X86Cdecl(type, asm, generator);
 		
 		// Microsoft x64 calling convention (64-bit)
 		if(ArchitectureRegistry.getOperatingSystem() == OperatingSystem.WINDOWS)
-			return new X86Microsoftx64Call(type, asm, generator, parameters);
+			return new X86Microsoftx64Call(type, asm, generator);
 		
 		// System V AMD64 ABI (64-bit)
-		return new X86SystemVCall(type, asm, generator, parameters);
+		return new X86SystemVCall(type, asm, generator);
 	}
 	
 }

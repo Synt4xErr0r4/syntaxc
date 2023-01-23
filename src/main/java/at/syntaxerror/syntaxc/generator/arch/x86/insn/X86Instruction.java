@@ -26,9 +26,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86AssemblyTarget;
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstructionKind;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
+import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 
 /**
@@ -53,7 +53,7 @@ public class X86Instruction extends AssemblyInstruction {
 	
 	public String toAssemblyString(boolean att) {
 		if(getKind() == X86InstructionKinds.CLOBBER)
-			return "; CLOBBER { "
+			return "\t; CLOBBER { "
 				+ Stream.concat(
 					getDestinations().stream(),
 					getSources().stream()

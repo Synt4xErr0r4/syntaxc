@@ -23,7 +23,6 @@
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
 import java.util.Iterator;
-import java.util.List;
 
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
@@ -31,7 +30,7 @@ import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
@@ -60,20 +59,56 @@ import at.syntaxerror.syntaxc.type.FunctionType;
  *      - structs/unions are padded to be a multiple of 4 bytes
  *      - the stack is callee-cleaned
  *    - for variadic function, al specifies the number of vector registers used
- *  - 
- *  
+ *  - TODO
  * 
  * @author Thomas Kasper
  * 
  */
 public class X86SystemVCall extends X86CallingConvention {
 
-	public X86SystemVCall(FunctionType function, Instructions asm, X86AssemblyGenerator generator, List<SymbolObject> parameters) {
-		super(function, asm, generator, parameters);
+	private boolean hasRegisterSaveArea;
+	
+	public X86SystemVCall(FunctionType function, Instructions asm, X86AssemblyGenerator generator) {
+		super(function, asm, generator);
+	}
+	
+	private void createRegisterSaveArea() {
+		if(hasRegisterSaveArea)
+			return;
+		
+		hasRegisterSaveArea = true;
+		
+		/*
+		 * https://www.uclibc.org/docs/psABI-x86_64.pdf
+		 * Figure 3.33
+		 * 
+		 * save registers to the register save area:
+		 * 
+		 * 	register	| offset
+		 * -------------+----------
+		 * 	rdi			| 0
+		 * 	rsi			| 8
+		 * 	rdx			| 16
+		 * 	rcx			| 24
+		 * 	r8			| 32
+		 * 	r9			| 40
+		 * 	xmm0		| 48
+		 * 	xmm1		| 64
+		 * 	...			| ...
+		 * 	xmm15		| 288
+		 * 
+		 * 	xmm0-15 are only saved if rax != 0
+		 * 
+		 */
 	}
 
 	@Override
 	public AssemblyTarget getReturnValue() {
+		return null;
+	}
+	
+	@Override
+	public AssemblyTarget getParameter(String name) {
 		return null;
 	}
 
@@ -98,7 +133,7 @@ public class X86SystemVCall extends X86CallingConvention {
 	}
 	
 	@Override
-	public void vaArg(BuiltinVaArg vaArg) {
+	public void vaArg(Operand result, BuiltinVaArg vaArg) {
 		
 	}
 	

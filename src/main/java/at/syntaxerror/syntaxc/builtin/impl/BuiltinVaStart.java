@@ -26,6 +26,7 @@ import at.syntaxerror.syntaxc.builtin.BuiltinContext;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
 import lombok.Getter;
@@ -37,6 +38,7 @@ import lombok.Getter;
 @Getter
 public class BuiltinVaStart extends BuiltinFunction {
 	
+	private ExpressionArgument vaList;
 	private Parameter parameter;
 	private FunctionType type;
 	
@@ -64,27 +66,30 @@ public class BuiltinVaStart extends BuiltinFunction {
 		
 		VariadicUtils.ensureVariadic(context, type, "__builtin_va_start");
 		
-		var params = type.getParameters();
+		SymbolObject object = context.getParser().getSymbolTable().findObject(paramName);
 		
-		if(!params.isEmpty()) {
-			parameter = params.get(params.size() - 1);
-			
-			if(!parameter.name().equals(paramName)) {
-				parameter = params
-					.stream()
-					.filter(p -> p.name().equals(paramName))
-					.findFirst()
-					.orElse(null);
-				
-				if(parameter != null)
-					context.warn(param, Warnings.VARARGS, "Parameter supplied to __builtin_va_start is not the last function parameter");
-			}
-		}
-		
-		if(parameter == null)
+		if(object == null)
 			context.error(param, "Parameter name does not exist within this function");
 		
-		args.add(expr);
+		if(!object.isParameter())
+			context.error(param, "Identifier does not denote a function parameter");
+		
+		var params = type.getParameters();
+		
+		parameter = params.get(params.size() - 1);
+		
+		if(!parameter.name().equals(paramName)) {
+			parameter = params
+				.stream()
+				.filter(p -> p.name().equals(paramName))
+				.findFirst()
+				.orElse(null);
+			
+			if(parameter != null)
+				context.warn(param, Warnings.VARARGS, "Parameter supplied to __builtin_va_start is not the last function parameter");
+		}
+		
+		args.add(vaList = expr);
 		args.add(param);
 	}
 	

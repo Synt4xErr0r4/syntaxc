@@ -50,8 +50,14 @@ public class X86Register implements RegisterTarget {
 		4, X86Size.DWORD,
 		8, X86Size.QWORD,
 		10, X86Size.TBYTE,
-		16, X86Size.XMMWORD
+		16, X86Size.XMMWORD,
+		32, X86Size.YMMWORD,
+		64, X86Size.ZMMWORD
 	);
+	
+	private static final List<List<X86Register>> XMM_REGISTERS = IntStream.range(0, 32)
+			.<List<X86Register>>mapToObj(ArrayList::new)
+			.toList();
 
 	/* --- REGISTER GROUPS --- */
 	
@@ -79,7 +85,9 @@ public class X86Register implements RegisterTarget {
 
 	public static final List<X86Register> GROUP_ST = makeX87();
 	
-	public static final List<X86Register> GROUP_XMM = makeXMM();
+	public static final List<X86Register> GROUP_XMM = makeXMM('x', 16);
+	public static final List<X86Register> GROUP_YMM = makeXMM('y', 32);
+	public static final List<X86Register> GROUP_ZMM = makeXMM('z', 64);
 	
 	/* --- SEPARATE REGISTERS --- */
 	
@@ -197,6 +205,98 @@ public class X86Register implements RegisterTarget {
 	public static final X86Register XMM5 = GROUP_XMM.get(5);
 	public static final X86Register XMM6 = GROUP_XMM.get(6);
 	public static final X86Register XMM7 = GROUP_XMM.get(7);
+	public static final X86Register XMM8 = GROUP_XMM.get(8);
+	public static final X86Register XMM9 = GROUP_XMM.get(9);
+	public static final X86Register XMM10 = GROUP_XMM.get(10);
+	public static final X86Register XMM11 = GROUP_XMM.get(11);
+	public static final X86Register XMM12 = GROUP_XMM.get(12);
+	public static final X86Register XMM13 = GROUP_XMM.get(13);
+	public static final X86Register XMM14 = GROUP_XMM.get(14);
+	public static final X86Register XMM15 = GROUP_XMM.get(15);
+	public static final X86Register XMM16 = GROUP_XMM.get(16);
+	public static final X86Register XMM17 = GROUP_XMM.get(17);
+	public static final X86Register XMM18 = GROUP_XMM.get(18);
+	public static final X86Register XMM19 = GROUP_XMM.get(19);
+	public static final X86Register XMM20 = GROUP_XMM.get(20);
+	public static final X86Register XMM21 = GROUP_XMM.get(21);
+	public static final X86Register XMM22 = GROUP_XMM.get(22);
+	public static final X86Register XMM23 = GROUP_XMM.get(23);
+	public static final X86Register XMM24 = GROUP_XMM.get(24);
+	public static final X86Register XMM25 = GROUP_XMM.get(25);
+	public static final X86Register XMM26 = GROUP_XMM.get(26);
+	public static final X86Register XMM27 = GROUP_XMM.get(27);
+	public static final X86Register XMM28 = GROUP_XMM.get(28);
+	public static final X86Register XMM29 = GROUP_XMM.get(29);
+	public static final X86Register XMM30 = GROUP_XMM.get(30);
+	public static final X86Register XMM31 = GROUP_XMM.get(31);
+
+	/* 256-bit integer and floating point */
+	public static final X86Register YMM0 = GROUP_YMM.get(0);
+	public static final X86Register YMM1 = GROUP_YMM.get(1);
+	public static final X86Register YMM2 = GROUP_YMM.get(2);
+	public static final X86Register YMM3 = GROUP_YMM.get(3);
+	public static final X86Register YMM4 = GROUP_YMM.get(4);
+	public static final X86Register YMM5 = GROUP_YMM.get(5);
+	public static final X86Register YMM6 = GROUP_YMM.get(6);
+	public static final X86Register YMM7 = GROUP_YMM.get(7);
+	public static final X86Register YMM8 = GROUP_YMM.get(8);
+	public static final X86Register YMM9 = GROUP_YMM.get(9);
+	public static final X86Register YMM10 = GROUP_YMM.get(10);
+	public static final X86Register YMM11 = GROUP_YMM.get(11);
+	public static final X86Register YMM12 = GROUP_YMM.get(12);
+	public static final X86Register YMM13 = GROUP_YMM.get(13);
+	public static final X86Register YMM14 = GROUP_YMM.get(14);
+	public static final X86Register YMM15 = GROUP_YMM.get(15);
+	public static final X86Register YMM16 = GROUP_YMM.get(16);
+	public static final X86Register YMM17 = GROUP_YMM.get(17);
+	public static final X86Register YMM18 = GROUP_YMM.get(18);
+	public static final X86Register YMM19 = GROUP_YMM.get(19);
+	public static final X86Register YMM20 = GROUP_YMM.get(20);
+	public static final X86Register YMM21 = GROUP_YMM.get(21);
+	public static final X86Register YMM22 = GROUP_YMM.get(22);
+	public static final X86Register YMM23 = GROUP_YMM.get(23);
+	public static final X86Register YMM24 = GROUP_YMM.get(24);
+	public static final X86Register YMM25 = GROUP_YMM.get(25);
+	public static final X86Register YMM26 = GROUP_YMM.get(26);
+	public static final X86Register YMM27 = GROUP_YMM.get(27);
+	public static final X86Register YMM28 = GROUP_YMM.get(28);
+	public static final X86Register YMM29 = GROUP_YMM.get(29);
+	public static final X86Register YMM30 = GROUP_YMM.get(30);
+	public static final X86Register YMM31 = GROUP_YMM.get(31);
+
+	/* 512-bit integer and floating point */
+	public static final X86Register ZMM0 = GROUP_ZMM.get(0);
+	public static final X86Register ZMM1 = GROUP_ZMM.get(1);
+	public static final X86Register ZMM2 = GROUP_ZMM.get(2);
+	public static final X86Register ZMM3 = GROUP_ZMM.get(3);
+	public static final X86Register ZMM4 = GROUP_ZMM.get(4);
+	public static final X86Register ZMM5 = GROUP_ZMM.get(5);
+	public static final X86Register ZMM6 = GROUP_ZMM.get(6);
+	public static final X86Register ZMM7 = GROUP_ZMM.get(7);
+	public static final X86Register ZMM8 = GROUP_ZMM.get(8);
+	public static final X86Register ZMM9 = GROUP_ZMM.get(9);
+	public static final X86Register ZMM10 = GROUP_ZMM.get(10);
+	public static final X86Register ZMM11 = GROUP_ZMM.get(11);
+	public static final X86Register ZMM12 = GROUP_ZMM.get(12);
+	public static final X86Register ZMM13 = GROUP_ZMM.get(13);
+	public static final X86Register ZMM14 = GROUP_ZMM.get(14);
+	public static final X86Register ZMM15 = GROUP_ZMM.get(15);
+	public static final X86Register ZMM16 = GROUP_ZMM.get(16);
+	public static final X86Register ZMM17 = GROUP_ZMM.get(17);
+	public static final X86Register ZMM18 = GROUP_ZMM.get(18);
+	public static final X86Register ZMM19 = GROUP_ZMM.get(19);
+	public static final X86Register ZMM20 = GROUP_ZMM.get(20);
+	public static final X86Register ZMM21 = GROUP_ZMM.get(21);
+	public static final X86Register ZMM22 = GROUP_ZMM.get(22);
+	public static final X86Register ZMM23 = GROUP_ZMM.get(23);
+	public static final X86Register ZMM24 = GROUP_ZMM.get(24);
+	public static final X86Register ZMM25 = GROUP_ZMM.get(25);
+	public static final X86Register ZMM26 = GROUP_ZMM.get(26);
+	public static final X86Register ZMM27 = GROUP_ZMM.get(27);
+	public static final X86Register ZMM28 = GROUP_ZMM.get(28);
+	public static final X86Register ZMM29 = GROUP_ZMM.get(29);
+	public static final X86Register ZMM30 = GROUP_ZMM.get(30);
+	public static final X86Register ZMM31 = GROUP_ZMM.get(31);
 	
 	public static void disable(X86Register...registers) {
 		for(X86Register register : registers)
@@ -360,11 +460,19 @@ public class X86Register implements RegisterTarget {
 	}
 
 	/*
-	 * Creates 8 16-byte XMM register
+	 * Creates 32 n-byte ?MM register
 	 */
-	private static List<X86Register> makeXMM() {
-		return IntStream.range(0, 8)
-			.mapToObj(i -> reg("xmm" + i, 16, List.of()))
+	private static List<X86Register> makeXMM(char prefix, int bytes) {
+		return IntStream.range(0, 32)
+			.mapToObj(i -> {
+				List<X86Register> intersections = XMM_REGISTERS.get(i);
+				
+				X86Register reg = reg(prefix + "mm" + i, bytes, intersections);
+				
+				intersections.add(reg);
+				
+				return reg;
+			})
 			.toList();
 	}
 	

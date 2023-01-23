@@ -216,7 +216,7 @@ public class Parser extends AbstractParser {
 		}
 		
 		Linkage linkage = internal ? Linkage.INTERNAL : Linkage.EXTERNAL;
-		
+
 		Declarator decl = declarationParser.nextDeclarator();
 		
 		Type baseType = declSpecs.getRight();
@@ -273,7 +273,7 @@ public class Parser extends AbstractParser {
 						
 						Type paramType = decl.merge(baseType);
 						
-						symbolHelper.registerLocal(decl, paramType, name);
+						symbolHelper.registerParameter(decl, paramType, name);
 						
 						parameterNamesFound.add(name);
 						
@@ -286,7 +286,7 @@ public class Parser extends AbstractParser {
 				
 				for(String name : parameterNames)
 					if(!parameterNamesFound.contains(name))
-						symbolHelper.registerLocal(decl, Type.INT, name);
+						symbolHelper.registerParameter(decl, Type.INT, name);
 			
 			}
 			else {
@@ -302,7 +302,7 @@ public class Parser extends AbstractParser {
 					if(paramType == null)
 						error(param, "Missing type for function parameter »%s«", paramName);
 
-					symbolHelper.registerLocal(decl, paramType, paramName);
+					symbolHelper.registerParameter(decl, paramType, paramName);
 				}
 			
 				consume("{");

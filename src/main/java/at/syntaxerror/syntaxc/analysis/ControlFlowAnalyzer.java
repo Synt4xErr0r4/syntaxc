@@ -416,7 +416,7 @@ public class ControlFlowAnalyzer implements Logable {
 		
 	}
 	
-	private static enum NodeKind {
+	public static enum NodeKind {
 		PLAIN,
 		ENTRY,
 		EXIT

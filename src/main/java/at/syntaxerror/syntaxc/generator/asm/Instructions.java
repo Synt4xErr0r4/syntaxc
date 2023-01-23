@@ -26,6 +26,8 @@ import java.util.Iterator;
 import java.util.Spliterator;
 import java.util.stream.Stream;
 
+import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import lombok.Getter;
 import lombok.Setter;
@@ -36,12 +38,19 @@ import lombok.Setter;
  * @author Thomas Kasper
  * 
  */
+@SuppressWarnings("deprecation")
 public class Instructions implements Iterable<AssemblyInstruction> {
 
-	protected @Getter AssemblyInstruction head;
-	protected @Getter AssemblyInstruction tail;
+	@Getter
+	@Setter(onMethod_ = @Deprecated) // internal use only
+	private AssemblyInstruction head;
 	
-	protected int count;
+	@Getter
+	@Setter(onMethod_ = @Deprecated) // internal use only
+	private AssemblyInstruction tail;
+
+	@Setter(onMethod_ = @Deprecated)
+	private int count;
 	
 	@Setter
 	private InstructionConstructor constructor;
@@ -61,10 +70,10 @@ public class Instructions implements Iterable<AssemblyInstruction> {
 	}
 	
 	public void add(AssemblyInstruction insn) {
-		insn.previous = tail;
+		insn.setPrevious(tail);
 		
 		if(tail != null)
-			tail.next = insn;
+			tail.setNext(insn);
 		
 		tail = insn;
 		

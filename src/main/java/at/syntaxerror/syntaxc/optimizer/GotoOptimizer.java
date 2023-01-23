@@ -119,6 +119,8 @@ public class GotoOptimizer {
 		if(jumpLabel != null && returnLabel != null && jumpLabel.equals(returnLabel))
 			intermediates.remove(index - 1);
 		
+		boolean hasOptimized = false;
+		
 		if(Optimizations.JUMP_TO_JUMP.isEnabled())
 			for(var jump : jumps.entrySet()) {
 				
@@ -130,6 +132,8 @@ public class GotoOptimizer {
 					continue;
 				
 				for(int idx : jump.getValue()) {
+					hasOptimized = true;
+					
 					JumpIntermediate intermediate = (JumpIntermediate) intermediates.get(idx);
 					
 					intermediates.set(
@@ -148,11 +152,15 @@ public class GotoOptimizer {
 			
 			Collections.sort(redundants);
 			
-			for(int redundant : redundants)
+			for(int redundant : redundants) {
+				hasOptimized = true;
 				intermediates.remove(redundant - offset++);
+			}
 		}
 		
-		return intermediates;
+		return hasOptimized
+			? optimize(intermediates, returnLabel)
+			: intermediates;
 	}
 	
 }

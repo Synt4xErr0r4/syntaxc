@@ -118,8 +118,12 @@ public class IEEE754Utils {
 		int off = 0;
 		
 		// clear most significant bit if it is implicit
-		if(spec.implicit())
-			mantissa = mantissa.clearBit(mantissa.bitLength() - 1);
+		if(spec.implicit()) {
+			int bit = mantissa.bitLength() - 1;
+			
+			if(bit >= 0)
+				mantissa = mantissa.clearBit(bit);
+		}
 		else off = 1;
 		
 		return BigInteger.valueOf(sign) 

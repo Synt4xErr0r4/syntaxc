@@ -54,6 +54,7 @@ import at.syntaxerror.syntaxc.intermediate.operand.TemporaryOperand;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.StructType.Member;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.RequiredArgsConstructor;
@@ -103,9 +104,14 @@ public class X86OperandHelper {
 	private final Instructions asm;
 	private final X86Assembly x86;
 	private final X86FloatTable floatTable;
+	private final X86FPUHelper fpu;
 	private final X86CallingConvention callingConvention;
 	
-	private final Map<SymbolObject, VirtualStackTarget> localVariables = new HashMap<>();
+	private final Map<SymbolObject, AssemblyTarget> localVariables = new HashMap<>();
+	
+	public void setLocalVariable(SymbolObject object, AssemblyTarget target) {
+		localVariables.put(object, target);
+	}
 	
 	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget index, long scale) {
 		
@@ -211,6 +217,16 @@ public class X86OperandHelper {
 		return Pair.of(offset, scale);
 	}
 	
+	public void freeFPUOperand(Operand operand) {
+		if(isFPUStackTop(operand))
+			fpu.fpop();
+	}
+	
+	public boolean isFPUStackTop(Operand operand) {
+		return operand instanceof TemporaryOperand temp
+			&& X86FPUHelper.useFPU(temp.getType());
+	}
+	
 	@SuppressWarnings("preview")
 	public AssemblyTarget generateOperand(Operand operand) {
 		if(operand == null)
@@ -252,13 +268,13 @@ public class X86OperandHelper {
 			if(global.getObject().isString()) // OFFSET FLAT:name
 				return new X86StringTarget(
 					global.getType(),
-					global.getName()
+					global.getObject().getFullName()
 				);
 			
 			// name[rip]
 			return X86MemoryTarget.ofDisplaced(
 				global.getType(),
-				label(global.getName()),
+				label(global.getObject().getFullName()),
 				x86.RIP
 			);
 			
@@ -298,7 +314,10 @@ public class X86OperandHelper {
 		}
 	}
 	
-	public VirtualStackTarget generateLocalOperand(SymbolObject local) {
+	public AssemblyTarget generateLocalOperand(SymbolObject local) {
+		if(local.isParameter())
+			return callingConvention.getParameter(local.getName());
+		
 		return localVariables.computeIfAbsent(
 			local,
 			obj -> new VirtualStackTarget(local.getType())
@@ -396,6 +415,7 @@ public class X86OperandHelper {
 	}
 	
 	public AssemblyTarget toRegister(AssemblyTarget target, RegisterFlags...flags) {
+		boolean noLiteral = false;
 		boolean reassign = false;
 		boolean zeroExtend = false;
 		boolean signExtend = false;
@@ -403,17 +423,23 @@ public class X86OperandHelper {
 		for(RegisterFlags flag : flags)
 			if(flag != null)
 				switch(flag) {
+				case NO_LITERAL:	noLiteral = true; break;
 				case REASSIGN:		reassign = true; break;
 				case ZERO_EXTEND:	zeroExtend = true; break;
 				case SIGN_EXTEND:	signExtend = true; break;
 				}
 
-		X86Size size = X86Size.of(target.getType());
-		Type type = size.getType();
+		Type type = target.getType();
+		X86Size size = X86Size.of(type);
 		
 		boolean needExtension = size != X86Size.DWORD && size != X86Size.QWORD;
 		
-		if(!reassign && !target.isMemory()) {
+		boolean quickExit = false;
+		
+		if(!reassign && !target.isMemory())
+			quickExit = !noLiteral || target.isRegister();
+		
+		if(quickExit) {
 			
 			if(needExtension)
 				asm.add(
@@ -430,6 +456,13 @@ public class X86OperandHelper {
 		if(X86FPUHelper.useFPU(target.getType())) {
 			asm.add(X86InstructionKinds.FLD, target);
 			return X86Register.ST0;
+		}
+		
+		if(type.isVaList()) {
+			if(x86.bit32)
+				type = NumericValueType.POINTER.asType();
+			
+			else Logger.warn("Moving »__builtin_va_list« to register. This is a bug.");
 		}
 		
 		VirtualRegisterTarget virt = new VirtualRegisterTarget(type);
@@ -474,11 +507,70 @@ public class X86OperandHelper {
 		
 		return virt;
 	}
+
+	public AssemblyTarget addOffset(AssemblyTarget target, int offset) {
+		return addOffset(target.getType(), target, offset);
+	}
+	
+	public AssemblyTarget addOffset(Type type, AssemblyTarget target, int offset) {
+		if(offset == 0 || !(target instanceof X86MemoryTarget mem))
+			return target.resized(type);
+		
+		BigInteger index;
+		long scale = 1;
+		
+		if(mem.hasIndex()) {
+			scale = mem.getScale();
+			
+			AssemblyTarget idx = mem.getIndex();
+			
+			if(idx instanceof X86IntegerTarget integer)
+				index = integer.getValue();
+			
+			else index = null;
+		}
+		else index = BigInteger.ZERO;
+		
+		if(index != null) {
+			/*
+			 * modify existing target by adding the offset to
+			 * the index and adjusting the scale, if necessary
+			 */
+			
+			index = index.multiply(BigInteger.valueOf(scale))
+				.add(BigInteger.valueOf(offset));
+			
+			return X86MemoryTarget.ofSegmentedDisplaced(
+				type,
+				mem.getSegment(),
+				mem.getDisplacement(),
+				mem.getBase(),
+				constant(index),
+				1
+			);
+		}
+		
+		/*
+		 * add offset at runtime
+		 * 
+		 * 	lea rax, <target>
+		 * 	add rax, offset
+		 * 	<new_target> = [rax]
+		 */
+		
+		VirtualRegisterTarget virt = new VirtualRegisterTarget(NumericValueType.POINTER.asType());
+		
+		asm.add(X86InstructionKinds.LEA, virt, target);
+		asm.add(X86InstructionKinds.ADD, virt, constant(offset));
+		
+		return X86MemoryTarget.of(type, virt);
+	}
 	
 	public static enum RegisterFlags {
 		ZERO_EXTEND,
 		SIGN_EXTEND,
-		REASSIGN
+		REASSIGN,
+		NO_LITERAL
 	}
 	
 }

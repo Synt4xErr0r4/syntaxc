@@ -22,8 +22,10 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 
+import at.syntaxerror.syntaxc.SystemUtils.BitSize;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86FPUHelper;
 import at.syntaxerror.syntaxc.misc.config.Flags;
-import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -40,35 +42,43 @@ public enum X86Size {
 	WORD	("WORD",	"w",	Type.SHORT),
 	DWORD	("DWORD",	"l",	Type.INT),
 	QWORD	("QWORD",	"q",	Type.LONG),
-	TBYTE	("TBYTE",	"",		Type.LDOUBLE),
-	XMMWORD	("XMMWORD",	"",		Type.VOID),
-	UNKNOWN	("?WORD",	"?",	Type.VOID);
+	TBYTE	("TBYTE",	"",		Type.LDOUBLE), // x87 (ST(i))
+	XMMWORD	("XMMWORD",	"",		Type.M128), // SSE (xmmN)
+	YMMWORD	("YMMWORD", "",		Type.M256), // AVX (ymmN)
+	ZMMWORD	("ZMMWORD", "",		Type.M512), // AVX-512 (zmmN)
+	UNKNOWN	("UNKNOWN",	"?",	Type.VOID);
 
-	public static X86Size ofRaw(Type type) {
-		if(type.isArray())
-			return of(NumericValueType.POINTER.getSize());
-		
-		return of(type.sizeof());
-	}
-	
 	public static X86Size of(Type type) {
+		if(Flags.LONG_DOUBLE.isEnabled() && X86FPUHelper.isLongDouble(type))
+			return TBYTE;
+		
+		if(type.isM128())
+			return XMMWORD;
+
+		if(type.isM256())
+			return YMMWORD;
+
+		if(type.isM512())
+			return ZMMWORD;
+		
+		if(type.isVaList())
+			return ArchitectureRegistry.getBitSize() == BitSize.B64
+				? YMMWORD // 64-bit __builtin_va_list has 24 bytes
+				: DWORD; // 64-bit __builtin_va_list has 4 bytes
+		
 		if(!type.isScalar())
 			return X86Size.UNKNOWN;
-
-		return ofRaw(type);
+		
+		return ofPrimitive(type.sizeof());
 	}
 	
-	public static X86Size of(int size) {
+	public static X86Size ofPrimitive(int size) {
 		switch(size) {
 		case 1: return BYTE; // char
 		case 2: return WORD; // short
 		case 4: return DWORD; // float, int, pointer (x86)
 		case 8: return QWORD; // double, long, pointer (x64)
-		default:
-			if(Flags.LONG_DOUBLE.isEnabled() && size == NumericValueType.LDOUBLE.getSize())
-				return TBYTE;
-			
-			return UNKNOWN;
+		default: return UNKNOWN;
 		}
 	}
 

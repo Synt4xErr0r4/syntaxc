@@ -256,6 +256,9 @@ public record BuiltinMacro(String name, Function<Token, List<Token>> function, b
 				type
 			).setRaw(bigint.toString());
 		
+		if(value instanceof Integer || value instanceof Long)
+			return makeNumberToken(token, BigInteger.valueOf(value.longValue()), type);
+		
 		BigDecimal bigdec = (BigDecimal) value;
 		
 		return Token.ofConstant(

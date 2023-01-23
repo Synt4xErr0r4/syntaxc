@@ -20,44 +20,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.alloc.impl;
 
-import java.util.ArrayList;
-import java.util.List;
+/* this file is part of SyntaxC */
 
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
-import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
-import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
-import lombok.Getter;
+#ifndef _SIGNAL_H
+#define _SIGNAL_H
 
-/**
- * @author Thomas Kasper
- * 
- */
-@Getter
-public class AnnotatedAssemblyInstruction extends AssemblyInstruction {
+#define SIG_DFL __SIG_DFL
+#define SIG_ERR __SIG_ERR
+#define SIG_IGN __SIG_IGN
+#define SIGABRT __SIGABRT
+#define SIGFPE  __SIGFPE
+#define SIGILL  __SIGILL
+#define SIGINT  __SIGINT
+#define SIGSEGV __SIGSEGV
+#define SIGTERM __SIGTERM
 
-	private List<VirtualStackTarget> freeableStacks = new ArrayList<>();
-	private List<VirtualRegisterTarget> freeableRegisters = new ArrayList<>();
-	
-	private AssemblyInstruction instruction;
-	
-	public AnnotatedAssemblyInstruction(AssemblyInstruction insn) {
-		super(insn);
-		instruction = insn;
-	}
-	
-	public void free(VirtualStackTarget target) {
-		freeableStacks.add(target);
-	}
+typedef __SIG_ATOMIC_TYPE__ sig_atomic_t;
+typedef void (*__sighandler_t)(int);
 
-	public void free(VirtualRegisterTarget target) {
-		freeableRegisters.add(target);
-	}
-	
-	@Override
-	public String toString() {
-		return "Annotated(" + instruction + ", free=" + freeableStacks + "&" + freeableRegisters + ")";
-	}
+extern __sighandler_t signal(int sig, __sighandler_t func);
+extern int raise(int sig);
 
-}
+#endif /* !_SIGNAL_H */

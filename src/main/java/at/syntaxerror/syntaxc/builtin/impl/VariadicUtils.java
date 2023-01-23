@@ -37,13 +37,13 @@ import lombok.experimental.UtilityClass;
 public class VariadicUtils {
 
 	/**
-	 * Ensures that the given type is '__builtin_va_list' (which expands to 'void *')
+	 * Ensures that the given type is '__builtin_va_list'
 	 * 
 	 * @param pos the position
 	 * @param type the type to be checked
 	 */
 	public static void ensureVaListType(Positioned pos, Type type) {
-		if(type.isPointer() && type.toPointer().getBase().isVoid())
+		if(type.isVaList())
 			return;
 		
 		Logger.error(pos, Warnings.SEM_NONE, "Expected »__builtin_va_list«, got »%s« instead", type);

@@ -69,7 +69,7 @@ public class X86Alignment extends Alignment {
 				return getAlignment(type.toArray().getBase());
 			}
 			
-			if(type.isFunction())
+			if(type.isFunction() || type.isVaList())
 				return 8;
 		}
 		else if(bitsSize == BitSize.B32) {
@@ -84,7 +84,7 @@ public class X86Alignment extends Alignment {
 			if(type.isArray())
 				return getAlignment(type.toArray().getBase());
 			
-			if(type.isFunction())
+			if(type.isFunction() || type.isVaList())
 				return 4;
 		}
 

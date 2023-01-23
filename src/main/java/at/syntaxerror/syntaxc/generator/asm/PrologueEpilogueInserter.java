@@ -22,13 +22,17 @@
  */
 package at.syntaxerror.syntaxc.generator.asm;
 
+import java.util.List;
+
+import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
+
 /**
  * @author Thomas Kasper
  * 
  */
 public abstract class PrologueEpilogueInserter {
 
-	public abstract void insertPrologue(Instructions asm, long stackSize);
-	public abstract void insertEpilogue(Instructions asm, long stackSize);
+	public abstract void insertPrologue(Instructions asm, long stackSize, List<RegisterTarget> allocatedRegisters);
+	public abstract void insertEpilogue(Instructions asm, long stackSize, List<RegisterTarget> allocatedRegisters);
 	
 }

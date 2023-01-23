@@ -22,7 +22,7 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstructionKind;
+import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -38,6 +38,7 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	RAW, /* signales that the instruction contains the raw assembly string */
 	
 	NOP, /* do nothing */
+	UD2, /* raise invalid opcode exception */
 	
 	RET, /* return from function */
 	
@@ -50,6 +51,10 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	MOVZX(true),	/* int = zero_extend(int) */
 	MOVSX(true),	/* int = sign_extend(int) */
 	CMOVNE(true),	/* if(not equal) int = int */
+	
+	MOVDQU,		/* __m128 = __m128 */
+	VMOVDQU,	/* __m256 = __m256 */
+	VMOVDQU8,	/* __m512 = __m512 */
 	
 	FLD,		/* ST(0) = float */
 	FILD,		/* ST(0) = int */
@@ -199,6 +204,15 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 
 	@Getter
 	private final boolean takesSuffix;
+
+	@Getter
+	private final boolean isJump = name().charAt(0) == 'J';
+	
+	@Getter
+	private final boolean isCopy = name().contains("MOV") || name().equals("CLOBBER");
+	
+	@Getter
+	private final boolean isAdditive = name().contains("ADD") || name().equals("SUB");
 	
 	private X86InstructionKinds() {
 		this(false);

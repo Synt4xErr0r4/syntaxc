@@ -22,17 +22,48 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.ADD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.ADDSD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.ADDSS;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.CMP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.COMISD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.COMISS;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.DIV;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.DIVSD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.DIVSS;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.FADDP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.FCOMIP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.FDIVP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.FMULP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.FSTP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.FSUBP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.FUCOMIP;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.IDIV;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.IMUL;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.MOV;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.MOVDQU;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.MOVSD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.MOVSS;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.MULSD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.MULSS;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.SUB;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.SUBSD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.SUBSS;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.UCOMISD;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.UCOMISS;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.UD2;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.VMOVDQU;
+import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.VMOVDQU8;
+
 import java.util.HashMap;
 import java.util.Map;
 
 import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
-import at.syntaxerror.syntaxc.misc.config.Flags;
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86FPUHelper;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.experimental.UtilityClass;
-
-import static at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds.*;
 
 /**
  * @author Thomas Kasper
@@ -48,6 +79,9 @@ public class X86InstructionSelector {
 	private static final int INDEX_F32 = 2;
 	private static final int INDEX_F64 = 3;
 	private static final int INDEX_F80 = 4;
+	private static final int INDEX_M128 = 5;
+	private static final int INDEX_M256 = 6;
+	private static final int INDEX_M512 = 7;
 	
 	private static void register(X86InstructionKinds...insns) {
 		for(X86InstructionKinds insn : insns)
@@ -55,27 +89,41 @@ public class X86InstructionSelector {
 	}
 	
 	static {
-		//		 sint	uint	float		double		long double
-		register(ADD,	ADD,	ADDSS,		ADDSD,		FADDP);
-		register(SUB,	SUB,	SUBSS,		SUBSD,		FSUBP);
-		register(IMUL,	IMUL,	MULSS,		MULSD,		FMULP);
-		register(IDIV,	DIV,	DIVSS,		DIVSD,		FDIVP);
-		register(CMP,	CMP,	UCOMISS,	UCOMISD,	FUCOMIP);
-		register(CMP,	CMP,	COMISS,		COMISD,		FCOMIP);
-		register(MOV,	MOV,	MOVSS,		MOVSD,		FSTP);
+		//		 sint	uint	float		double		long double		__m128		__m256		__m512
+		register(ADD,	ADD,	ADDSS,		ADDSD,		FADDP,			UD2,		UD2,		UD2);
+		register(SUB,	SUB,	SUBSS,		SUBSD,		FSUBP,			UD2,		UD2,		UD2);
+		register(IMUL,	IMUL,	MULSS,		MULSD,		FMULP,			UD2,		UD2,		UD2);
+		register(IDIV,	DIV,	DIVSS,		DIVSD,		FDIVP,			UD2,		UD2,		UD2);
+		register(CMP,	CMP,	UCOMISS,	UCOMISD,	FUCOMIP,		UD2,		UD2,		UD2);
+		register(CMP,	CMP,	COMISS,		COMISD,		FCOMIP,			UD2,		UD2,		UD2);
+		register(MOV,	MOV,	MOVSS,		MOVSD,		FSTP,			MOVDQU,		VMOVDQU,	VMOVDQU8);
 	}
 	
 	public static X86InstructionKinds select(X86InstructionKinds base, Type type) {
-		if(!type.isScalar())
-			return null;
-		
 		if(!MAPPINGS.containsKey(base))
 			return base;
 
 		int index;
 		
-		if(ArchitectureRegistry.getBitSize() == BitSize.B32 && type.isFloating())
+		if(X86FPUHelper.useFPU(type))
 			index = INDEX_F80;
+		
+		else if(type.isVaList())
+			index = ArchitectureRegistry.getBitSize() == BitSize.B32
+				? INDEX_UINT
+				: INDEX_M256;
+		
+		else if(type.isM128())
+			index = INDEX_M128;
+
+		else if(type.isM256())
+			index = INDEX_M256;
+
+		else if(type.isM512())
+			index = INDEX_M512;
+		
+		else if(!type.isScalar())
+			return null;
 		
 		else {
 			NumericValueType num;
@@ -88,15 +136,9 @@ public class X86InstructionSelector {
 				
 			else num = type.toNumber().getNumericType();
 			
-			
 			switch(num) {
 			case FLOAT:		index = INDEX_F32; break;
 			case DOUBLE:	index = INDEX_F64; break;
-			case LDOUBLE:
-				if(!Flags.LONG_DOUBLE.isEnabled())
-					index = INDEX_F64;
-				else index = INDEX_F80;
-				break;
 			default:
 				if(num.isSigned())
 					index = INDEX_SINT;

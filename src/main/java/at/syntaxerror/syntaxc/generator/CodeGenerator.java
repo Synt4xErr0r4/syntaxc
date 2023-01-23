@@ -24,6 +24,7 @@ package at.syntaxerror.syntaxc.generator;
 
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.ObjectSerializer;
+import at.syntaxerror.syntaxc.generator.asm.PeepholeOptimizer;
 
 /**
  * @author Thomas Kasper
@@ -35,5 +36,9 @@ public abstract class CodeGenerator {
 
 	public abstract AssemblyGenerator getAssemblyGenerator();
 	public abstract ObjectSerializer getObjectSerializer();
+	
+	public PeepholeOptimizer getPeepholeOptimizer() {
+		return PeepholeOptimizer.NO_OPTIMIZATIONS;
+	}
 	
 }

@@ -42,10 +42,12 @@ import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
 import at.syntaxerror.syntaxc.generator.arch.Architecture;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
-import at.syntaxerror.syntaxc.generator.asm.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.ObjectSerializer;
+import at.syntaxerror.syntaxc.generator.asm.PeepholeOptimizer;
 import at.syntaxerror.syntaxc.generator.asm.PrologueEpilogueInserter;
+import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
 import at.syntaxerror.syntaxc.intermediate.IntermediateGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator;
 import at.syntaxerror.syntaxc.intermediate.graph.ControlFlowGraphGenerator.FunctionData;
@@ -240,6 +242,8 @@ public class SyntaxC {
 					returnLabel
 				);
 				
+				intermediates = gotoOptimizer.optimize(intermediates, returnLabel);
+				
 				intermediate.put(
 					name,
 					new FunctionData(
@@ -272,6 +276,7 @@ public class SyntaxC {
 		List<AssemblyInstruction> instructions = new ArrayList<>();
 		
 		ObjectSerializer serial = codeGen.getObjectSerializer();
+		PeepholeOptimizer peephole = codeGen.getPeepholeOptimizer();
 		
 		serial.fileBegin();
 		
@@ -308,15 +313,23 @@ public class SyntaxC {
 				
 				alloc.allocate();
 				
+				List<RegisterTarget> registers = alloc.getAssignedRegisters();
+				
 				PrologueEpilogueInserter inserter = asmGen.getPrologueEpilogueInserter();
 
 				Instructions prologue = new Instructions();
 				long stackSize = alloc.getStackSize();
 				
-				inserter.insertPrologue(prologue, stackSize);
-				inserter.insertEpilogue(insns, stackSize);
+				inserter.insertPrologue(prologue, stackSize, registers);
+				inserter.insertEpilogue(insns, stackSize, registers);
+				
+				AssemblyInstruction head = insns.getHead();
+				prologue.stream()
+					.map(AssemblyInstruction::clone)
+					.forEach(head::insertBefore);
+				
+				peephole.optimize(insns);
 
-				prologue.forEach(instructions::add);
 				insns.forEach(instructions::add);
 				
 				serial.generatePostFunction(sym);
@@ -461,7 +474,7 @@ public class SyntaxC {
 	/**
 	 * Terminates the application, if previously requested
 	 */
-	private static void checkTerminationState() {
+	public static void checkTerminationState() {
 		if(terminate)
 			System.exit(1);
 	}

@@ -31,7 +31,6 @@ bin/
 
 # C files
 *.c
-*.h
 
 # VSCode
 *.code-workspace

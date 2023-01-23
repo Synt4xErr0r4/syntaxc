@@ -69,8 +69,9 @@ public class DeclarationParser extends AbstractParser {
 	private static final int DOUBLE =		(1 << 6);
 	private static final int SIGNED =		(1 << 7);
 	private static final int UNSIGNED =		(1 << 8);
-	private static final int INHERIT =		(1 << 9);
-	private static final int DUPLICATE =	(1 << 10); // set when one of the specifiers above occurs multiple times
+	private static final int VA_LIST =		(1 << 9);
+	private static final int INHERIT =		(1 << 10);
+	private static final int DUPLICATE =	(1 << 11); // set when one of the specifiers above occurs multiple times
 	
 	private final Parser parser;
 
@@ -177,6 +178,9 @@ public class DeclarationParser extends AbstractParser {
 			else if(skip("signed"))		spec = SIGNED;
 			else if(skip("unsigned"))	spec = UNSIGNED;
 			
+			else if(skip("__builtin_va_list"))
+				spec = VA_LIST;
+			
 			else if(equal("struct", "union")) {
 				spec = INHERIT;
 				type = nextStructSpecifier();
@@ -280,6 +284,10 @@ public class DeclarationParser extends AbstractParser {
 			
 		case LONG | DOUBLE:
 			type = Type.LDOUBLE;
+			break;
+			
+		case VA_LIST:
+			type = Type.VA_LIST;
 			break;
 			
 		case INHERIT: // inherit from struct/union/enum/typedef name
@@ -707,6 +715,19 @@ public class DeclarationParser extends AbstractParser {
 						
 						Type type = declSpecs.getRight();
 						
+						Optional<Declarator> opt = nextOptionalDeclarator();
+						
+						String name = null;
+						
+						if(opt.isPresent()) {
+							Declarator declarator = opt.get();
+							
+							paramPos = declarator;
+							
+							type = declarator.merge(type);
+							name = declarator.getName();
+						}
+						
 						if(type.isVoid()) {
 							
 							if(!parameters.isEmpty() || !declSpecs.getLeft().isEmpty() || type.isConst() || type.isVolatile())
@@ -722,19 +743,6 @@ public class DeclarationParser extends AbstractParser {
 							require(")");
 							next();
 							break;
-						}
-						
-						Optional<Declarator> opt = nextOptionalDeclarator();
-						
-						String name = null;
-						
-						if(opt.isPresent()) {
-							Declarator declarator = opt.get();
-							
-							paramPos = declarator;
-							
-							type = declarator.merge(type);
-							name = declarator.getName();
 						}
 						
 						Optional<Keyword> storageSpec = declSpecs
@@ -829,7 +837,8 @@ public class DeclarationParser extends AbstractParser {
 	
 	public boolean isTypeName() {
 		if(equal("void", "char", "short", "int", "long", "float", "double",
-				"signed", "unsigned", "struct", "union", "enum", "const", "volatile"))
+				"signed", "unsigned", "struct", "union", "enum", "const", "volatile",
+				"__builtin_va_list"))
 			return true;
 		
 		if(equal(TokenType.IDENTIFIER))

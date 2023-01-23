@@ -329,6 +329,9 @@ public class SymbolObject implements Symbol, Positioned {
 	// whether this object has been initialized
 	private @Setter boolean initialized = false;
 	
+	// whether this object is a function parameter
+	private @Setter boolean parameter = false;
+	
 	// whether the syntax tree generator should ignore this object
 	private @Setter boolean syntaxTreeIgnore = false;
 	

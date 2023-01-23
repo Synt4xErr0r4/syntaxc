@@ -145,12 +145,18 @@ public class StackAllocator {
 				size += previous.size;
 				start = previous.start;
 				previous = previous.previous;
+				
+				if(previous != null)
+					previous.next = this;
 			}
 
 			if(next != null && next.isFree) {
 				size += next.size;
 				end = next.end;
 				next = next.next;
+				
+				if(next != null)
+					next.previous = this;
 			}
 		}
 		

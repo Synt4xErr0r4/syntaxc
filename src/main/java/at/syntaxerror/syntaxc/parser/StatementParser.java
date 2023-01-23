@@ -912,17 +912,17 @@ public class StatementParser extends AbstractParser {
 		
 		ExpressionNode initialize = null, condition = null, operation = null;
 		
-		if(!equal(";")) {
+		if(!skip(";")) {
 			initialize = parser.nextExpression();
 			consume(";");
 		}
-
-		if(!equal(";")) {
+		
+		if(!skip(";")) {
 			condition = parser.nextExpression();
 			consume(";");
 		}
 
-		if(!equal(")")) {
+		if(!skip(")")) {
 			operation = parser.nextExpression();
 			consume(")");
 		}

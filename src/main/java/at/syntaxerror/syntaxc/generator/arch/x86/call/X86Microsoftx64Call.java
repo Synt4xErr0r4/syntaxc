@@ -23,7 +23,6 @@
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
 import java.util.Iterator;
-import java.util.List;
 
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
@@ -31,7 +30,7 @@ import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
@@ -42,8 +41,8 @@ import at.syntaxerror.syntaxc.type.FunctionType;
  */
 public class X86Microsoftx64Call extends X86CallingConvention {
 
-	public X86Microsoftx64Call(FunctionType function, Instructions asm, X86AssemblyGenerator generator, List<SymbolObject> parameters) {
-		super(function, asm, generator, parameters);
+	public X86Microsoftx64Call(FunctionType function, Instructions asm, X86AssemblyGenerator generator) {
+		super(function, asm, generator);
 	}
 
 	@Override
@@ -51,6 +50,11 @@ public class X86Microsoftx64Call extends X86CallingConvention {
 		return null;
 	}
 
+	@Override
+	public AssemblyTarget getParameter(String name) {
+		return null;
+	}
+	
 	@Override
 	public void onEntry() {
 		
@@ -72,7 +76,7 @@ public class X86Microsoftx64Call extends X86CallingConvention {
 	}
 	
 	@Override
-	public void vaArg(BuiltinVaArg vaArg) {
+	public void vaArg(Operand result, BuiltinVaArg vaArg) {
 		
 	}
 	

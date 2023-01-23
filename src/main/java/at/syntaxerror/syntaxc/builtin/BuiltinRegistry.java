@@ -23,13 +23,9 @@
 package at.syntaxerror.syntaxc.builtin;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import at.syntaxerror.syntaxc.lexer.Punctuator;
-import at.syntaxerror.syntaxc.lexer.Token;
-import at.syntaxerror.syntaxc.preprocessor.macro.BuiltinMacro;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -50,16 +46,9 @@ public class BuiltinRegistry {
 
 	private static final Map<String, Supplier<BuiltinFunction>> BUILTIN = new HashMap<>();
 
+	public static int vaListSize;
+	
 	static {
-		// #define __builtin_va_list void *
-		BuiltinMacro.defineList(
-			"__builtin_va_list",
-			p -> List.of(
-				Token.ofIdentifier(p.getPosition(), "void"),
-				Token.ofPunctuator(p.getPosition(), Punctuator.POINTER)
-			)
-		);
-		
 		BuiltinKind.init();
 	}
 	

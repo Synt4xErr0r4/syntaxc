@@ -22,7 +22,10 @@
  */
 package at.syntaxerror.syntaxc.generator.alloc;
 
+import java.util.List;
+
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
 import at.syntaxerror.syntaxc.type.Type;
 
 /**
@@ -38,5 +41,7 @@ public abstract class RegisterAllocator {
 	public abstract long getStackSize();
 	
 	public abstract AssemblyTarget resolveVirtualMemory(long address, Type type);
+	
+	public abstract List<RegisterTarget> getAssignedRegisters();
 	
 }

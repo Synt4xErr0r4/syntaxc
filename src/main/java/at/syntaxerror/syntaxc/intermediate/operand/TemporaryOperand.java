@@ -22,13 +22,11 @@
  */
 package at.syntaxerror.syntaxc.intermediate.operand;
 
-import at.syntaxerror.syntaxc.generator.alloc0.Allocation;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 
 /**
  * temporarily allocated memory, typically using a register
@@ -47,9 +45,6 @@ public class TemporaryOperand implements Operand {
 
 	private final long id;
 	private final Type type;
-	
-	@Setter
-	private Allocation allocation;
 	
 	public TemporaryOperand(Type type) {
 		this(SymbolObject.getNextTemporaryId(), type.normalize());

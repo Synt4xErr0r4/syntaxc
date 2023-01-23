@@ -24,70 +24,41 @@ package at.syntaxerror.syntaxc.generator.arch.x86.register;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Stream;
 
-import at.syntaxerror.syntaxc.generator.alloc0.RegisterProvider;
-import at.syntaxerror.syntaxc.generator.alloc0.RegisterSupplier;
-import at.syntaxerror.syntaxc.generator.alloc0.RegisterSupplier.Builder;
+import at.syntaxerror.syntaxc.SystemUtils.BitSize;
+import at.syntaxerror.syntaxc.generator.alloc.impl.RegisterSupplier;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public class X86RegisterProvider implements RegisterProvider {
+public class X86RegisterProvider {
 
-	@Override
 	public List<RegisterSupplier> getSuppliers() {
-		Builder i8 = RegisterSupplier.builder().size(1).typeCheck(X86RegisterProvider::isInteger);
-		Builder i16 = RegisterSupplier.builder().size(2).typeCheck(X86RegisterProvider::isInteger);
-		Builder i32 = RegisterSupplier.builder().size(4).typeCheck(X86RegisterProvider::isInteger);
-		Builder i64 = RegisterSupplier.builder().size(8).typeCheck(X86RegisterProvider::isInteger);
-		
-		Stream.of(
-			X86Register.GROUP_R15,
-			X86Register.GROUP_R14,
-			X86Register.GROUP_R13,
-			X86Register.GROUP_R12,
-			X86Register.GROUP_R11,
-			X86Register.GROUP_R10,
-			X86Register.GROUP_B,
-			X86Register.GROUP_R9,
-			X86Register.GROUP_R8,
-			X86Register.GROUP_C,
-			X86Register.GROUP_D,
-			X86Register.GROUP_SI,
-			X86Register.GROUP_DI
-		//	X86Register.GROUP_A
-		).forEach(
-			list -> list.stream()
-				.filter(X86Register::isUsable)
-				.forEach(
-					register -> {
-						switch(register.getSize()) {
-						case 1: i8 .register(register); break;
-						case 2: i16.register(register); break;
-						case 4: i32.register(register); break;
-						case 8: i64.register(register); break;
-						}
-					}
-				)
-		);
-		
 		return Arrays.asList(
-			i8.build(),
-			i16.build(),
-			i32.build(),
-			i64.build(),
 			RegisterSupplier.builder()
-				.size(4, 8)
-				.typeCheck(Type::isFloating)
-				.register(X86Register.GROUP_XMM)
+				.typeCheck(X86RegisterProvider::isInteger)
+				.register(X86Register.EAX)
+				.register(X86Register.EBX)
+				.register(X86Register.ECX)
+				.register(X86Register.EDX)
+				.register(X86Register.ESI)
+				.register(X86Register.EDI)
+				.register(X86Register.R8)
+				.register(X86Register.R9)
+				.register(X86Register.R10)
+				.register(X86Register.R11)
+				.register(X86Register.R12)
+				.register(X86Register.R13)
+				.register(X86Register.R14)
+				.register(X86Register.R15)
 				.build(),
+				
 			RegisterSupplier.builder()
-				.size(Type.LDOUBLE.sizeof())
-				.typeCheck(type -> type == Type.LDOUBLE)
-				.register(X86Register.GROUP_ST)
+				.typeCheck(X86RegisterProvider::isXMMFloat)
+				.register(X86Register.GROUP_XMM)
 				.build()
 		);
 	}
@@ -95,6 +66,12 @@ public class X86RegisterProvider implements RegisterProvider {
 	private static boolean isInteger(Type type) {
 		return type.isInteger()
 			|| type.isPointerLike();
+	}
+	
+	private static boolean isXMMFloat(Type type) {
+		return ArchitectureRegistry.getBitSize() == BitSize.B32
+			? false
+			: type != Type.LDOUBLE && type.isFloating();
 	}
 	
 }

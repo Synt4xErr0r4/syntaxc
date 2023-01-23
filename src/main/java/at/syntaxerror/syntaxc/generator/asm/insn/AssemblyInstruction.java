@@ -20,26 +20,34 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.asm;
+package at.syntaxerror.syntaxc.generator.asm.insn;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.Setter;
 
 /**
  * @author Thomas Kasper
  * 
  */
 @Getter
+@SuppressWarnings("deprecation")
 public class AssemblyInstruction {
 	
 	private final Instructions parent;
-	
-	protected AssemblyInstruction previous;
-	protected AssemblyInstruction next;
+
+	/** @deprecated internal use only */
+	@Setter
+	private AssemblyInstruction previous;
+
+	/** @deprecated internal use only */
+	@Setter
+	private AssemblyInstruction next;
 	
 	private final AssemblyInstructionKind kind;
 	
@@ -71,11 +79,11 @@ public class AssemblyInstruction {
 
 		if(previous != null)
 			previous.next = insn;
-		else parent.head = insn;
+		else parent.setHead(insn);
 		
 		previous = insn;
 		
-		++parent.count;
+		parent.setCount(parent.size() + 1);;
 	}
 
 	public final void insertAfter(AssemblyInstruction insn) {
@@ -84,11 +92,23 @@ public class AssemblyInstruction {
 		
 		if(next != null)
 			next.previous = insn;
-		else parent.tail = insn;
+		else parent.setTail(insn);
 		
 		next = insn;
 
-		++parent.count;
+		parent.setCount(parent.size() + 1);
+	}
+	
+	public final void remove() {
+		if(next != null)
+			next.previous = previous;
+		else parent.setTail(previous);
+		
+		if(previous != null)
+			previous.next = next;
+		else parent.setHead(next);
+		
+		parent.setCount(parent.size() - 1);
 	}
 	
 	@Override

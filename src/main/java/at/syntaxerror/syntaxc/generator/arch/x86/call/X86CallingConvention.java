@@ -23,7 +23,6 @@
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
 import java.util.Iterator;
-import java.util.List;
 
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
@@ -31,7 +30,7 @@ import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.symtab.SymbolObject;
+import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import lombok.RequiredArgsConstructor;
 
@@ -45,17 +44,20 @@ public abstract class X86CallingConvention {
 	protected final FunctionType function;
 	protected final Instructions asm;
 	protected final X86AssemblyGenerator generator;
-	protected final List<SymbolObject> parameters;
 	
-	public abstract void onEntry();
-	public abstract void onLeave();
+	public abstract AssemblyTarget getParameter(String name);
+	
+	public void onEntry() { }
+	public void onLeave() { }
+	
+	public void beforeCall() { }
 	
 	public abstract void call(AssemblyTarget functionTarget, FunctionType callee, Iterator<AssemblyTarget> args, AssemblyTarget destination);
 	
 	public abstract AssemblyTarget getReturnValue();
 	
 	public abstract void vaStart(BuiltinVaStart vaStart);
-	public abstract void vaArg(BuiltinVaArg vaArg);
+	public abstract void vaArg(Operand result, BuiltinVaArg vaArg);
 	public abstract void vaEnd(BuiltinVaEnd vaEnd);
 	
 }

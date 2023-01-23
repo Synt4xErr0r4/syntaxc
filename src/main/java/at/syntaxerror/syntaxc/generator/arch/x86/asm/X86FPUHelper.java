@@ -31,6 +31,7 @@ import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.misc.config.Flags;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.Type;
@@ -43,39 +44,53 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class X86FPUHelper {
 
-	protected static boolean useFPU(Type type) {
+	public static boolean useFPU(Type type) {
 		return (ArchitectureRegistry.getBitSize() == BitSize.B32 && type.isFloating())
 			|| (Flags.LONG_DOUBLE.isEnabled() && isLongDouble(type));
 	}
 	
-	protected static boolean isLongDouble(Type type) {
-		return type.toNumber().getNumericType() == NumericValueType.LDOUBLE;
+	public static boolean isLongDouble(Type type) {
+		return type.isFloating()
+			&& type.toNumber().getNumericType() == NumericValueType.LDOUBLE;
 	}
 	
-	protected static boolean isDouble(Type type) {
+	public static boolean isDouble(Type type) {
 		return type.toNumber().getNumericType() == NumericValueType.DOUBLE;
 	}
 	
-	protected static boolean isFloat(Type type) {
+	public static boolean isFloat(Type type) {
 		return type.toNumber().getNumericType() == NumericValueType.FLOAT;
 	}
 	
 	private final Instructions asm;
 	private final X86AssemblyGenerator gen;
 	
-	public boolean isST(AssemblyTarget target) {
-		return X86Register.GROUP_ST.contains(target);
+	private int stackCount;
+	
+	public boolean isFPUStackEmpty() {
+		return stackCount < 1;
 	}
 	
-	public void ffree(AssemblyTarget target) {
-		if(isST(target))
-			asm.add(X86InstructionKinds.FFREE, target);
+	public void fpuStackPop() {
+		if(--stackCount < 0)
+			Logger.warn("FPU stack underflow detected. This is a bug.");
+	}
+	
+	public void fpuStackPush() {
+		if(++stackCount > 8)
+			Logger.warn("FPU stack overflow detected. This is a bug.");
+	}
+	
+	public boolean isST(AssemblyTarget target) {
+		return X86Register.GROUP_ST.contains(target);
 	}
 	
 	public void fld(AssemblyTarget target) {
 		if(target == X86Register.ST0)
 			return;
-
+		
+		fpuStackPush();
+		
 		if(isST(target)) {
 			asm.add(X86InstructionKinds.FLD, target);
 			return;
@@ -104,10 +119,17 @@ public class X86FPUHelper {
 			gen.toMemory(target)
 		);
 	}
+	
+	public void fpop() {
+		asm.add(X86InstructionKinds.FSTP, X86Register.ST0);
+		fpuStackPop();
+	}
 
 	public void fstp(AssemblyTarget target) {
 		if(target == X86Register.ST0)
 			return;
+		
+		fpuStackPop();
 		
 		if(isST(target))
 			asm.add(X86InstructionKinds.FSTP, target);

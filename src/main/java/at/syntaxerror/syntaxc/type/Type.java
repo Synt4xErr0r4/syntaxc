@@ -24,6 +24,7 @@ package at.syntaxerror.syntaxc.type;
 
 import java.nio.charset.StandardCharsets;
 
+import at.syntaxerror.syntaxc.builtin.BuiltinRegistry;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,11 @@ import lombok.RequiredArgsConstructor;
 public class Type {
 	
 	public static final Type VOID =				new Type(TypeKind.VOID);
+	public static final Type VA_LIST = 			new Type(TypeKind.VA_LIST);
+	
+	public static final Type M128 = 			new Type(TypeKind.M128);
+	public static final Type M256 = 			new Type(TypeKind.M256);
+	public static final Type M512 = 			new Type(TypeKind.M512);
 	
 	public static final NumberType CHAR =		new NumberType(TypeKind.CHAR);
 	public static final NumberType SHORT =		new NumberType(TypeKind.SHORT);
@@ -85,6 +91,9 @@ public class Type {
 	}
 	
 	public final int sizeof() {
+		if(kind == TypeKind.VA_LIST)
+			return BuiltinRegistry.vaListSize;
+		
 		return size;
 	}
 	
@@ -109,7 +118,10 @@ public class Type {
 			|| kind == TypeKind.FLOAT
 			|| kind == TypeKind.DOUBLE
 			|| kind == TypeKind.LDOUBLE
-			|| kind == TypeKind.ENUM;
+			|| kind == TypeKind.ENUM
+			|| kind == TypeKind.M128
+			|| kind == TypeKind.M256
+			|| kind == TypeKind.M512;
 	}
 	
 	public final boolean isInteger() {
@@ -117,13 +129,19 @@ public class Type {
 			|| kind == TypeKind.SHORT
 			|| kind == TypeKind.INT
 			|| kind == TypeKind.LONG
-			|| kind == TypeKind.ENUM;
+			|| kind == TypeKind.ENUM
+			|| kind == TypeKind.M128
+			|| kind == TypeKind.M256
+			|| kind == TypeKind.M512;
 	}
 	
 	public final boolean isFloating() {
 		return kind == TypeKind.FLOAT
 			|| kind == TypeKind.DOUBLE
-			|| kind == TypeKind.LDOUBLE;
+			|| kind == TypeKind.LDOUBLE
+			|| kind == TypeKind.M128
+			|| kind == TypeKind.M256
+			|| kind == TypeKind.M512;
 	}
 	
 	public final boolean isPointerLike() {
@@ -162,6 +180,22 @@ public class Type {
 	
 	public final boolean isVoid() {
 		return kind == TypeKind.VOID;
+	}
+	
+	public final boolean isVaList() {
+		return kind == TypeKind.VA_LIST;
+	}
+	
+	public final boolean isM128() {
+		return kind == TypeKind.M128;
+	}
+	
+	public final boolean isM256() {
+		return kind == TypeKind.M256;
+	}
+	
+	public final boolean isM512() {
+		return kind == TypeKind.M512;
 	}
 	
 	public final boolean isString() {
@@ -319,7 +353,7 @@ public class Type {
 	}
 	
 	protected String toStringPrefix() {
-		return toStringQualifiers() + "void";
+		return toStringQualifiers() + kind.getRawName();
 	}
 	
 	protected String toStringSuffix() {

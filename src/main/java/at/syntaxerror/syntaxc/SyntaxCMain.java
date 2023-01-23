@@ -23,6 +23,8 @@
 package at.syntaxerror.syntaxc;
 
 import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -104,7 +106,8 @@ public class SyntaxCMain {
 				"-Wno-implicit-function", "-Wno-pragma",
 				"-m32",
 				"-Ogoto",
-				"-Ojump-to-jump"
+				"-Ojump-to-jump",
+				//"--regen-stdlib"
 			}; // XXX debugging only
 		
 		OptionParser parser = new OptionParser()
@@ -121,17 +124,20 @@ public class SyntaxCMain {
 			.with('c')								.description("Compile and assemble, but don't link").build()
 			.with('E')								.description("Output preprocessed file").build()
 			
-			.with('D').compact("defn[=value]")		.description("Define a macro", CLIDoc::define).build()
+			.with('D').compact("macro[=defn]")		.description("Define a macro", CLIDoc::define).build()
 			.with('U').compact("name")				.description("Undefine a predefined macro").build()
 			
-			.with('I').compact("path")				.description("Add a directory to the include path", CLIDoc::include).build()
+			.with('I').compact("dir")				.description("Add a directory to the include path", CLIDoc::include).build()
 			.with('m').compact("option[=value]")	.description("Configure the target architecture", CLIDoc::machine).build()
 			.with('W').compact("[no-]warning")		.description("Enable or disable a specific compiler warning", CLIDoc::warning).build()
 			.with('f').compact("[no-]flag[=value]")	.description("Enable or disable a specific compiler flag", CLIDoc::flag).build()
 			.with('O').compact("[no-]opt[=value]")	.description("Enable or disable a specific compiler optimization", CLIDoc::optimize).build()
 			
-			.with('o').argument("file").description("Specify the output file").build()
-			.with().argument("file").description("Specify the input file").required().build();
+			.with("regen-stdlib")					.description("Regenerates the standard library definitions", CLIDoc::regenStdlib).build()
+			.with("remove-stdlib")					.description("Removes the standard library definitions").build()
+			
+			.with('o').argument("file")				.description("Specify the output file").build()
+			.with().argument("file")				.description("Specify the input file").required().build();
 		
 		OptionResult result = parser.parse(args);
 
@@ -155,6 +161,30 @@ public class SyntaxCMain {
 				parser.showUsage("Unrecognized option »%s«", arg);
 			
 			parser.showDocumentation(option);
+			return;
+		}
+		
+		if(result.has("regen-stdlib")) {
+			try {
+				IncludePathRegistry.install();
+			} catch (Exception e) {
+				System.out.printf("§cFailed to install the standard library: %s\n", e.getMessage());
+				System.exit(1);
+			}
+			
+			System.out.println("§aSuccessfully installed the standard library.");
+			return;
+		}
+		
+		if(result.has("remove-stdlib")) {
+			try {
+				IncludePathRegistry.uninstall();
+			} catch (Exception e) {
+				System.out.printf("§cFailed to uninstall the standard library: %s\n", e.getMessage());
+				System.exit(1);
+			}
+			
+			System.out.println("§aSuccessfully uninstalled the standard library.");
 			return;
 		}
 		
@@ -407,7 +437,55 @@ public class SyntaxCMain {
 		}
 
 		private static void include() {
-			// TODO
+			System.out.println(
+				"""
+				The parameter specifies the path to be added to the include path.
+				
+				The include path currently consists of the following paths:
+				"""
+			);
+			
+			IncludePathRegistry.getIncludePath()
+				.forEach(path -> {
+					System.out.printf(" §8- §a%s", path.toAbsolutePath().toString());
+					
+					if(!Files.exists(path) || !Files.isDirectory(path))
+						System.out.print(" §8[§9missing§8]");
+					
+					System.out.println();
+				});
+			
+			System.out.println("\n§fThe include path can be cleared by specifying §c-fno-stdlib§f.");
+
+			Path stdlib = IncludePathRegistry.getSyntaxCLibraryPath();
+			
+			if(stdlib != null)
+				System.out.printf(
+					"""
+					§9SyntaxC §fprovides all of ANSI-C's standard library definitions (§lnot §r§fan actual implementation), which can be installed to their according path (§a%s§f) by specifying §c--regen-stdlib§f.
+					The standard library is currently %s§f.
+					""",
+					stdlib.toAbsolutePath().toString(),
+					Files.exists(stdlib) && Files.isDirectory(stdlib)
+						? "§ainstalled"
+						: "§9not installed"
+				);
+		}
+		
+		private static void regenStdlib() {
+			Path stdlib = IncludePathRegistry.getSyntaxCLibraryPath();
+			
+			System.out.printf(
+				"""
+				§fInstalls the default ANSI-C standard library definitions to the file system (at §a%s§f).
+				This standard library provides all §ldefinitions §r§f(§lnot §r§fimplementations) defined by the ANSI-C standard (ANSI/ISO 9899-1990, Chapter 7).
+				The standard library is currently %s§f.
+				""",
+				stdlib.toAbsolutePath().toString(),
+				Files.exists(stdlib) && Files.isDirectory(stdlib)
+					? "§ainstalled"
+					: "§9not installed"
+			);
 		}
 		
 		private static void printList(List<Configurable> list) {

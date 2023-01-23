@@ -26,7 +26,7 @@ import at.syntaxerror.syntaxc.builtin.BuiltinContext;
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
-import at.syntaxerror.syntaxc.type.FunctionType;
+import lombok.Getter;
 
 /**
  * @author Thomas Kasper
@@ -34,6 +34,9 @@ import at.syntaxerror.syntaxc.type.FunctionType;
  */
 public class BuiltinVaArg extends BuiltinFunction {
 
+	@Getter
+	private ExpressionArgument vaList;
+	
 	public BuiltinVaArg() {
 		super("va_arg");
 	}
@@ -51,13 +54,9 @@ public class BuiltinVaArg extends BuiltinFunction {
 		VariadicUtils.ensureVaListType(expr, expr.getType());
 		ExpressionNode.markUsed(expr.getExpression());
 		
-		FunctionType fun = context.getEnclosingFunction();
-		
-		VariadicUtils.ensureVariadic(context, fun, "__builtin_va_arg");
-
 		returnType = type.type();
 		
-		args.add(expr);
+		args.add(vaList = expr);
 		args.add(type);
 	}
 	

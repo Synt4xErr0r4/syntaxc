@@ -68,7 +68,7 @@ public class SymbolHelper implements Logable {
 		return new ArrayList<>(parameters);
 	}
 	
-	public SymbolObject registerLocal(Positioned pos, Type type, String name) {
+	public SymbolObject registerParameter(Positioned pos, Type type, String name) {
 		SymbolObject obj = SymbolObject.local(pos, name, type);
 
 		SymbolTable symtab = getSymbolTable();
@@ -78,6 +78,7 @@ public class SymbolHelper implements Logable {
 
 		obj.setUnused(false);
 		obj.setInitialized(true);
+		obj.setParameter(true);
 		
 		return obj;
 	}
@@ -143,7 +144,7 @@ public class SymbolHelper implements Logable {
 			 * 
 			 * here, some_name is defined twice (although declaring it twice would be fine)
 			 */
-			else if(obj.getVariableData().initializer() != null && hasInit) {
+			else if(obj.getVariableData() != null && obj.getVariableData().initializer() != null && hasInit) {
 				softError(pos, "Redefinition of »%s«", name);
 				note(obj, "Previously declared here");
 			}

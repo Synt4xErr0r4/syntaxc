@@ -204,6 +204,8 @@ public abstract class Architecture {
 		initSetjmp();	// <setjmp.h>
 		initSignal();	// <signal.h>
 		initMath();		// <math.h>
+		initTime();		// <time.h>
+		initLocale();	// <locale.h>
 	}
 	
 	private static Token asToken(Token pos, String part) {
@@ -300,28 +302,32 @@ public abstract class Architecture {
 	}
 	
 	protected void initStdlib() {
-		defineType("__DIV_TYPE__",		"");
-		defineType("__LDIV_TYPE__",		"");
+		defineNumber("__EXIT_FAILURE",	1);
+		defineNumber("__EXIT_SUCCESS",	0);
+		defineType("__MB_CUR_MAX",		"___mb_cur_max_func ( )");
+		defineNumber("__RAND_MAX",		0x7fff);
+		defineType("__DIV_TYPE__",		"struct { int quot ; int rem ; }");
+		defineType("__LDIV_TYPE__",		"struct { long quot ; long rem ; }");
 	}
 	
 	protected void initStdio() {
-		defineType("__FILE_TYPE__",		"");
-		defineType("__FPOS_TYPE__",		"");
-		defineType("___IOFBF",			"");
-		defineType("___IOLBF",			"");
-		defineType("___IONBF",			"");
-		defineType("__BUFSIZ",			"");
-		defineType("__EOF",				"");
-		defineType("__FILENAME_MAX",	"");
-		defineType("__FOPEN_MAX",		"");
-		defineType("__L_tmpnam__",		"");
-		defineType("__SEEK_CUR",		"");
-		defineType("__SEEK_END",		"");
-		defineType("__SEEK_SET",		"");
-		defineType("__TMP_MAX",			"");
-		defineType("__stderr",			"");
-		defineType("__stdin",			"");
-		defineType("__stdout",			"");
+		defineType("__FILE_TYPE__",		"struct { void * _Placeholder ; }");
+		defineType("__FPOS_TYPE__",		"long");
+		defineNumber("___IOFBF",		0x0000);
+		defineNumber("___IOLBF",		0x0040);
+		defineNumber("___IONBF",		0x0004);
+		defineNumber("__BUFSIZ",		512);
+		defineNumber("__EOF",			-1);
+		defineNumber("__FILENAME_MAX",	260);
+		defineNumber("__FOPEN_MAX",		20);
+		defineNumber("__L_tmpnam",		260);
+		defineNumber("__SEEK_CUR",		1);
+		defineNumber("__SEEK_END",		2);
+		defineNumber("__SEEK_SET",		0);
+		defineType("__TMP_MAX",			"__INT_MAX__");
+		defineType("__stderr",			"__acrt_iob_func ( 2 )");
+		defineType("__stdin",			"__acrt_iob_func ( 0 )");
+		defineType("__stdout",			"__acrt_iob_func ( 1 )");
 	}
 	
 	protected void initSetjmp() {
@@ -329,11 +335,36 @@ public abstract class Architecture {
 	}
 	
 	protected void initSignal() {
-		defineType("__JMP_BUF_TYPE__",	"");
+		defineNumber("__SIG_DFL",	0);
+		defineNumber("__SIG_ERR",	-1);
+		defineNumber("__SIG_IGN",	1);
+		defineNumber("__SIGABRT",	22);
+		defineNumber("__SIGFPE",	8);
+		defineNumber("__SIGILL",	4);
+		defineNumber("__SIGINT",	2);
+		defineNumber("__SIGSEGV",	11);
+		defineNumber("__SIGTERM",	15);
+		
+		defineType("__SIG_ATOMIC_TYPE__", "int");
 	}
 	
 	protected void initMath() {
-		defineNumber("__HUGE_VAL__",	NumericValueType.DOUBLE.getMax(), NumericValueType.DOUBLE);
+		defineNumber("__HUGE_VAL__", NumericValueType.DOUBLE.getMax(), NumericValueType.DOUBLE);
+	}
+	
+	protected void initTime() {
+		defineNumber("__CLOCKS_PER_SEC",	1000, NumericValueType.SIGNED_LONG);
+		defineType("__CLOCK_TYPE__",		"long");
+		defineType("__TIME_TYPE__",			"long");
+	}
+	
+	protected void initLocale() {
+		defineNumber("__LC_ALL",		0);
+		defineNumber("__LC_COLLATE",	1);
+		defineNumber("__LC_CTYPE",		2);
+		defineNumber("__LC_MONETARY",	3);
+		defineNumber("__LC_NUMERIC",	4);
+		defineNumber("__LC_TIME",		5);
 	}
 	
 	public static Architecture unsupported(String name) {
