@@ -102,27 +102,6 @@ public class SyntaxCMain {
 		 * - fix __LINE__ macro
 		 */
 		
-		if(Boolean.getBoolean("DEBUG"))
-			args = new String[] {
-				Boolean.getBoolean("DEBUG-WIN")
-					? System.getenv("APPDATA") + "\\SyntaxC\\test.c"
-					: "/opt/syntaxc/test/test.c",
-				"-o", "-",
-				"-fno-stdlib",
-				"-fno-long-double",
-				"-fsyntax-tree=svg",
-				"-fcontrol-flow-graph=svg",
-				"-S",
-				"-Wall",
-				"-Wno-implicit-function", "-Wno-pragma",
-				"-m32",
-				"-mtarget=windows",
-				"-masm=att",
-				"-Ogoto",
-				"-Ojump-to-jump"
-				//"--regen-stdlib"
-			}; // XXX debugging only
-		
 		OptionParser parser = new OptionParser()
 			.withCommand("java -jar syntaxc.jar")
 			.withHeader("§9§lSyntax§1C§r §8- §fAn ANSI-C compiler written in Java")

@@ -590,8 +590,6 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			}
 			else compact = leftTarget.equals(result);
 			
-			System.out.println(leftTarget.isRegister() + " / " + rightTarget.isRegister() + " / " + compact);
-			
 			if(!leftTarget.isRegister()) {
 				
 				if(!compact)

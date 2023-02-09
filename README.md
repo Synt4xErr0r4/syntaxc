@@ -1,6 +1,7 @@
-# SyntaxC
+# SyntaxC ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Synt4xErr0r4/syntaxc/maven.yml) ![LoC](https://raw.githubusercontent.com/Synt4xErr0r4/syntaxc/image-data/badge.svg)
 
-An ANSI-C (C89, C90) compiler written in Java 19.
+An ANSI-C (C89, C90) compiler written in Java 19.  
+Currently only working for x86 (32-bit, Linux/Windows).
 
 ## Motivation and Goals
 
@@ -134,16 +135,10 @@ All extensions can be disabled by using the appropriate command line option:
 - `-fno-func`: disables `__func__`
 - `-fno-binary-literals`: disables binary literals
 
-## Sources
+## 9899:1990 Standard
 
-*This list is currently incomplete.*
+Even though the C89/C90 standard has officially been withdrawn, it is still availble from some sources:
 
-- [ANSI/ISO 9899-1990; ANSI X3.159-1989](https://www.iso.org/standard/17782.html) (ANSI-C/C89/C90 Standard) - officially withdrawn, but still available here:
-  - [https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf](https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf)
-  - [https://web.archive.org/web/20190210174230/http://read.pudn.com/downloads133/doc/565041/ANSI_ISO%2B9899-1990%2B%5B1%5D.pdf](https://web.archive.org/web/20190210174230/http://read.pudn.com/downloads133/doc/565041/ANSI_ISO%2B9899-1990%2B%5B1%5D.pdf) (archived)
-  - [https://web.archive.org/web/20200909074736/https://www.pdf-archive.com/2014/10/02/ansi-iso-9899-1990-1/ansi-iso-9899-1990-1.pdf](https://web.archive.org/web/20200909074736/https://www.pdf-archive.com/2014/10/02/ansi-iso-9899-1990-1/ansi-iso-9899-1990-1.pdf) (archived)
-- [Calling Conventions](https://agner.org/optimize/calling_conventions.pdf)
-- [System V AMD64 ABI](https://raw.githubusercontent.com/wiki/hjl-tools/x86-psABI/x86-64-psABI-1.0.pdf) (for the x64 Linux calling convention)
-- [Predefined Macros](https://sourceforge.net/p/predef/wiki/)
-- [ANSI Escape Sequences](https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit) (for colored console output)
-- [termd/Wcwidth](https://github.com/termd/termd/blob/master/src/main/java/io/termd/core/util/Wcwidth.java) (at.syntaxerror.syntaxc.logger.WCWidth, for determining the width of unicode characters)
+- [https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf](https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf)
+- [https://web.archive.org/web/20190210174230/http://read.pudn.com/downloads133/doc/565041/ANSI_ISO%2B9899-1990%2B%5B1%5D.pdf](https://web.archive.org/web/20190210174230/http://read.pudn.com/downloads133/doc/565041/ANSI_ISO%2B9899-1990%2B%5B1%5D.pdf) (archived)
+- [https://web.archive.org/web/20200909074736/https://www.pdf-archive.com/2014/10/02/ansi-iso-9899-1990-1/ansi-iso-9899-1990-1.pdf](https://web.archive.org/web/20200909074736/https://www.pdf-archive.com/2014/10/02/ansi-iso-9899-1990-1/ansi-iso-9899-1990-1.pdf) (archived)
