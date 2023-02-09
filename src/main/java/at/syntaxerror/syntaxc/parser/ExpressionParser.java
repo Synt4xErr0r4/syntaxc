@@ -293,8 +293,8 @@ public class ExpressionParser extends AbstractParser {
 				if(!exprType.isInteger() && !indexType.isInteger())
 					error(op, "Index is not an integer");
 				
-				if((expr instanceof ArrayIndexExpressionNode idx && idx.isArray()) ||
-					(index instanceof ArrayIndexExpressionNode idx && idx.isArray())) {
+				if((expr instanceof ArrayIndexExpressionNode exprIdx && exprIdx.isArray()) ||
+					(index instanceof ArrayIndexExpressionNode indexIdx && indexIdx.isArray())) {
 					
 					/* nested subscript operators:
 					 * 
