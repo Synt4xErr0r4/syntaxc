@@ -46,6 +46,8 @@ import lombok.Getter;
  */
 public class X86Assembly {
 	
+	public static X86Assembly INSTANCE;
+	
 	public final List<X86Register> registers;
 	
 	public final X86Register RBP;
@@ -70,6 +72,8 @@ public class X86Assembly {
 	
 	@SuppressWarnings("unchecked")
 	public X86Assembly(boolean intelSyntax, BitSize bits) {
+		INSTANCE = this;
+		
 		this.intelSyntax = intelSyntax;
 		
 		if(!Flags.LONG_DOUBLE.isEnabled())

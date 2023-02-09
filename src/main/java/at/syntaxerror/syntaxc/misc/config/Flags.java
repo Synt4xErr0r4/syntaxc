@@ -33,17 +33,17 @@ import lombok.Setter;
 @Getter
 public enum Flags implements Toggleable {
 	
-	NO_STDLIB			("stdlib",				"Adds default library paths to the include path"),
-	ELIFDEF				("elifdef", 			"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
-	FUNC				("func",				"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
-	BINARY_LITERALS		("binary-literals",		"Specifies whether binary literals are allowed"),
-	LONG_DOUBLE			("long-double",			"When disabled, §clong double §fis an alias for §cdouble"),
-	UNSIGNED_CHAR		("unsigned-char",		"When enabled, §cchar§fs will be unsigned", false),
-	SYNTAX_TREE			("syntax-tree",			"Generates the syntax tree in DOT, PNG, or SVG format", false, "dot"),
-	CONTROL_FLOW_GRAPH	("control-flow-graph",	"Generates the control flow graph in DOT, PNG, or SVG format", false, "dot"),
-	ALIGN				("align",				"Specifies the alignment for global variables, must be a multiple of 4", false, "4"),
-	VERBOSE				("verbose",				"Enables more verbose diagnostic messages"),
-	VERY_VERBOSE		("very-verbose",		"Enables very verbose diagnostic messages", false)
+	NO_STDLIB			("stdlib",								"Adds default library paths to the include path"),
+	ELIFDEF				("elifdef", 							"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
+	FUNC				("func",								"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
+	BINARY_LITERALS		("binary-literals",						"Specifies whether binary literals are allowed"),
+	LONG_DOUBLE			("long-double",							"When disabled, §clong double §fis an alias for §cdouble"),
+	UNSIGNED_CHAR		("unsigned-char",						"When enabled, §cchar§fs will be unsigned", false),
+	SYNTAX_TREE			("syntax-tree[=dot|png|svg]",			"Generates the syntax tree in DOT, PNG, or SVG format", false, "dot"),
+	CONTROL_FLOW_GRAPH	("control-flow-graph[=dot|png|svg]",	"Generates the control flow graph in DOT, PNG, or SVG format", false, "dot"),
+	ALIGN				("align[=alignment]",					"Specifies the alignment for global variables, must be a multiple of 4", false, "4"),
+	VERBOSE				("verbose",								"Enables more verbose diagnostic messages"),
+	VERY_VERBOSE		("very-verbose",						"Enables very verbose diagnostic messages", false)
 	;
 	
 	static {
@@ -86,6 +86,11 @@ public enum Flags implements Toggleable {
 		acceptsValue = value != null;
 	}
 
+	@Override
+	public String getDescription() {
+		return description + (enabled ? " §8(§aenabled§8)" : " §8(§9disabled§8)");
+	}
+	
 	@Override
 	public boolean acceptsValue() {
 		return acceptsValue;

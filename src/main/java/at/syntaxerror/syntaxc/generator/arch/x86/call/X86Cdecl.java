@@ -71,8 +71,6 @@ public class X86Cdecl extends X86CallingConvention {
 	@Getter
 	private AssemblyTarget returnValue;
 
-	private AssemblyTarget structPointer;
-	
 	private Map<String, X86MemoryTarget> parameters;
 	
 	private StoreRegistersInstruction registerStore, callStore;
@@ -91,9 +89,14 @@ public class X86Cdecl extends X86CallingConvention {
 		if(returnType.isFloating())
 			return X86Register.ST0;
 		
-		structPointer = new VirtualStackTarget(NumericValueType.POINTER.asType());
+		if(returnValue == null)
+			returnValue = X86MemoryTarget.ofDisplaced(
+				returnType.addressOf(),
+				X86OperandHelper.constant(8),
+				X86Register.EBP
+			);
 		
-		return X86MemoryTarget.of(returnType, structPointer);
+		return returnValue;
 	}
 	
 	@Override
@@ -107,15 +110,20 @@ public class X86Cdecl extends X86CallingConvention {
 		
 		int stackOffset = 0;
 		
+		Type returnType = function.getReturnType();
+		
+		if(returnType.isStructLike())
+			stackOffset += NumericValueType.POINTER.getSize();
+		
 		for(Parameter param : function.getParameters()) {
 			Type type = param.type();
 			
 			parameters.put(
 				param.name(),
-				X86MemoryTarget.of(
+				X86MemoryTarget.ofDisplaced(
 					type,
-					X86Register.EBP,
-					X86OperandHelper.constant(8 + stackOffset)
+					X86OperandHelper.constant(8 + stackOffset),
+					X86Register.EBP
 				)
 			);
 
@@ -288,10 +296,10 @@ public class X86Cdecl extends X86CallingConvention {
 		
 		argOffsets.forEach(
 			(argOffset, arg) -> generator.assign(
-				X86MemoryTarget.of(
+				X86MemoryTarget.ofDisplaced(
 					arg.getType(),
-					X86Register.ESP,
-					X86OperandHelper.constant(argOffset + structPointerOffset)
+					X86OperandHelper.constant(argOffset + structPointerOffset),
+					X86Register.ESP
 				),
 				arg
 			)

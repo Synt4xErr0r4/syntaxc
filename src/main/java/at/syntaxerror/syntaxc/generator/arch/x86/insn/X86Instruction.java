@@ -25,11 +25,14 @@ package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 import java.util.List;
 import java.util.stream.Stream;
 
+import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86Assembly;
+import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86AssemblyTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
@@ -46,9 +49,6 @@ public class X86Instruction extends AssemblyInstruction {
 				: List.of(destination),
 			List.of(sources)
 		);
-		
-		if(kind == null)
-			new Throwable().printStackTrace();
 	}
 	
 	public String toAssemblyString(boolean att) {
@@ -66,29 +66,46 @@ public class X86Instruction extends AssemblyInstruction {
 		if(getKind() == X86InstructionKinds.LABEL)
 			return getDestinations().get(0) + ":";
 		
-		if(att) {
-			// TODO
-			
-			return "?";
-		}
-		
 		String strrep = "\t" + getKind().toString();
+
+		boolean reverse = false;
+		
+		if(att && getKind() instanceof X86InstructionKinds kind) {
+			if(kind.isTakesSuffix())
+				strrep += X86InstructionSelector.getSuffix(
+					getDestinations()
+						.stream()
+						.findFirst()
+						.map(AssemblyTarget::getType)
+						.orElse(Type.VOID)
+				);
+			
+			reverse = !kind.isX87();
+		}
 		
 		List<AssemblyTarget> dests = getDestinations();
 		
 		if(!dests.isEmpty()) {
 			AssemblyTarget dest = dests.get(0);
 			
-			strrep += " " + toString(dest, att);
+			String destStr = toString(dest, att);
+			String srcStr = "";
 			
 			var src = getSources();
 			
 			if(!src.isEmpty())
-				strrep += ", "
-					+ src.stream()
+				srcStr = src.stream()
 						.map(target -> toString(target, att))
 						.reduce((a, b) -> a + ", " + b)
 						.orElse("");
+
+			if(reverse) {
+				String tmp = srcStr;
+				srcStr = destStr;
+				destStr = tmp;
+			}
+			
+			strrep += " " + destStr + (destStr.isBlank() || srcStr.isBlank() ? "" : ", ") + srcStr;
 		}
 		
 		return strrep;
@@ -96,7 +113,7 @@ public class X86Instruction extends AssemblyInstruction {
 	
 	@Override
 	public String toString() {
-		return toAssemblyString(false);
+		return toAssemblyString(!X86Assembly.INSTANCE.intelSyntax);
 	}
 
 	private static String toString(AssemblyTarget target, boolean att) {
@@ -105,6 +122,9 @@ public class X86Instruction extends AssemblyInstruction {
 		
 		if(target instanceof X86AssemblyTarget x86)
 			return x86.toAssemblyString(att);
+
+		if(target instanceof X86Register reg)
+			return reg.toAssemblyString(att);
 		
 		return target.toString();
 	}

@@ -52,7 +52,6 @@ import at.syntaxerror.syntaxc.intermediate.operand.MemberOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.intermediate.operand.TemporaryOperand;
 import at.syntaxerror.syntaxc.logger.Logger;
-import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
 import at.syntaxerror.syntaxc.type.NumericValueType;
 import at.syntaxerror.syntaxc.type.StructType.Member;
@@ -83,24 +82,6 @@ public class X86OperandHelper {
 		return new X86LabelTarget(Type.VOID, name);
 	}
 	
-	private static Pair<AssemblyTarget, Long> mergeOffsets(BigInteger a, long scaleA, BigInteger b, long scaleB) {
-		if(scaleA == 0)
-			return Pair.of(constant(b), scaleB);
-		
-		if(scaleB == 0)
-			return Pair.of(constant(a), scaleA);
-		
-		long newScale = Math.min(scaleA, scaleB);
-		
-		return Pair.of(
-			constant(
-				a.multiply(BigInteger.valueOf(scaleA / newScale))
-					.add(b.multiply(BigInteger.valueOf(scaleB / newScale)))
-			),
-			newScale
-		);
-	}
-
 	private final Instructions asm;
 	private final X86Assembly x86;
 	private final X86FloatTable floatTable;
@@ -113,63 +94,35 @@ public class X86OperandHelper {
 		localVariables.put(object, target);
 	}
 	
-	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget index, long scale) {
+	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget index) {
 		
 		AssemblyTarget baseOrig = base;
 		
 		AssemblyTarget displacement = null;
 		boolean toRegister = false;
 		
+		long scale = 1;
+		
 		if(base instanceof X86MemoryTarget mem) {
 			
 			displacement = mem.getDisplacement();
 			base = mem.getBase();
+			scale = mem.getScale();
 			
-			if(mem.hasIndex()) {
+			if(mem.hasDisplacement()) {
+				boolean dispInt = index instanceof X86IntegerTarget;
+				boolean memInt = displacement instanceof X86IntegerTarget;
 				
-				AssemblyTarget memIdx = mem.getIndex();
-				
-				boolean idxInt = index instanceof X86IntegerTarget;
-				boolean memInt = memIdx instanceof X86IntegerTarget;
-				
-				if(idxInt && memInt) {
+				if(dispInt && memInt) {
 					X86IntegerTarget idxOff = (X86IntegerTarget) index;
-					X86IntegerTarget memOff = (X86IntegerTarget) memIdx;
+					X86IntegerTarget memOff = (X86IntegerTarget) displacement;
 					
-					var merged = mergeOffsets(
-						idxOff.getValue(),
-						scale,
-						memOff.getValue(),
-						mem.getScale()
+					displacement = new X86IntegerTarget(
+						type,
+						idxOff.getValue().add(memOff.getValue())
 					);
 					
-					index = merged.getLeft();
-					scale = merged.getRight();
-					
 					toRegister = false;
-				}
-				
-				else if(scale == mem.getScale()) {
-					boolean idxLabel = index instanceof X86LabelTarget;
-					boolean memLabel = memIdx instanceof X86LabelTarget;
-					
-					toRegister = false;
-					
-					if(idxLabel && (memInt || memLabel))
-						index = new X86LabelTarget(
-							index.getType(),
-							((X86LabelTarget) index).getName(),
-							memIdx
-						);
-					
-					else if(memLabel && (idxInt || idxLabel))
-						index = new X86LabelTarget(
-							memIdx.getType(),
-							((X86LabelTarget) memIdx).getName(),
-							index
-						);
-					
-					else toRegister = true;
 				}
 				
 			}
@@ -190,31 +143,6 @@ public class X86OperandHelper {
 			index,
 			scale
 		);
-	}
-	
-	private Pair<AssemblyTarget, Long> fixScale(AssemblyTarget offset, long scale) {
-		if(scale != 0 && scale != 1 && scale != 2 && scale != 4 && scale != 8) {
-			
-			if(offset instanceof X86IntegerTarget idxOff) {
-				offset = constant(
-					idxOff.getValue()
-						.multiply(BigInteger.valueOf(scale))
-				);
-				scale = 1;
-			}
-			else {
-				offset = toRegister(offset);
-				
-				asm.add(
-					X86InstructionKinds.IMUL,
-					offset,
-					constant(scale)
-				);
-			}
-			
-		}
-		
-		return Pair.of(offset, scale);
 	}
 	
 	public void freeFPUOperand(Operand operand) {
@@ -278,18 +206,14 @@ public class X86OperandHelper {
 				x86.RIP
 			);
 			
-		case IndexOperand index: { // [target+index*scale]
+		case IndexOperand index: { // [target+offset*scale]
 			AssemblyTarget base = generateOperand(index.getTarget());
 			AssemblyTarget offset = generateOperand(index.getOffset());
-			long scale = index.getScale();
-			
-			var fixed = fixScale(offset, scale);
 			
 			return mergeMemory(
 				index.getType(),
 				base,
-				fixed.getLeft(),
-				fixed.getRight()
+				offset
 			);
 		}
 			
@@ -305,7 +229,7 @@ public class X86OperandHelper {
 			if(mem.isBitfield())
 				return generateBitfieldOperand(type, target, mem);
 			
-			return mergeMemory(type, target, constant(mem.getOffset()), 1);
+			return mergeMemory(type, target, constant(mem.getOffset()));
 		}
 		
 		default:
@@ -360,8 +284,7 @@ public class X86OperandHelper {
 				mergeMemory(
 					segment.memSize().getType(),
 					target,
-					constant(segment.offset() - memOffset),
-					1
+					constant(segment.offset() - memOffset)
 				),
 				RegisterFlags.ZERO_EXTEND
 			);
@@ -516,37 +439,33 @@ public class X86OperandHelper {
 		if(offset == 0 || !(target instanceof X86MemoryTarget mem))
 			return target.resized(type);
 		
-		BigInteger index;
-		long scale = 1;
+		BigInteger disp;
 		
-		if(mem.hasIndex()) {
-			scale = mem.getScale();
-			
-			AssemblyTarget idx = mem.getIndex();
+		if(mem.hasDisplacement()) {
+			AssemblyTarget idx = mem.getDisplacement();
 			
 			if(idx instanceof X86IntegerTarget integer)
-				index = integer.getValue();
+				disp = integer.getValue();
 			
-			else index = null;
+			else disp = null;
 		}
-		else index = BigInteger.ZERO;
+		else disp = BigInteger.ZERO;
 		
-		if(index != null) {
+		if(disp != null) {
 			/*
 			 * modify existing target by adding the offset to
 			 * the index and adjusting the scale, if necessary
 			 */
 			
-			index = index.multiply(BigInteger.valueOf(scale))
-				.add(BigInteger.valueOf(offset));
+			disp = disp.add(BigInteger.valueOf(offset));
 			
 			return X86MemoryTarget.ofSegmentedDisplaced(
 				type,
 				mem.getSegment(),
-				mem.getDisplacement(),
+				constant(disp),
 				mem.getBase(),
-				constant(index),
-				1
+				mem.getIndex(),
+				mem.getScale()
 			);
 		}
 		

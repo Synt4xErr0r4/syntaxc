@@ -52,7 +52,9 @@ public class X86StringTarget extends X86AssemblyTarget {
 	
 	@Override
 	public String toAssemblyString(boolean attSyntax) {
-		return "OFFSET FLAT:" + name;
+		return attSyntax
+			? "$" + name
+			: "OFFSET FLAT:" + name;
 	}
 	
 }

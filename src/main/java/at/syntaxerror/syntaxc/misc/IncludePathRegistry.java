@@ -161,7 +161,7 @@ public class IncludePathRegistry {
 					StandardOpenOption.TRUNCATE_EXISTING,
 					StandardOpenOption.CREATE
 				);
-				InputStream in = IncludePathRegistry.class.getResourceAsStream("/stdlib/" + header)) {
+				InputStream in = IncludePathRegistry.class.getResourceAsStream("/resources/stdlib/" + header)) {
 				
 				in.transferTo(out);
 			}

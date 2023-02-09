@@ -510,6 +510,10 @@ public class X86Register implements RegisterTarget {
 		return intersections.contains(other);
 	}
 	
+	public String toAssemblyString(boolean attSyntax) {
+		return (attSyntax ? "%" : "") + name;
+	}
+	
 	@Override
 	public String toString() {
 		return name;

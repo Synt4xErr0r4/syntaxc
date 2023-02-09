@@ -1,4 +1,4 @@
-/* MIT LicenseAssemblyTarget.super.isRegister()
+/* MIT License
  * 
  * Copyright (c) 2022 Thomas Kasper
  * 
@@ -20,47 +20,63 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.arch.x86.target;
+package at.syntaxerror.syntaxc.misc;
 
-import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.type.Type;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
+
+import lombok.experimental.Delegate;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Getter
-@RequiredArgsConstructor
-public class X86LabelTarget extends X86AssemblyTarget {
+public class ObservableList<T> implements List<T> {
 
-	private final Type type;
-	private final String name;
-	private final AssemblyTarget offset;
+	@Delegate(excludes = Object.class)
+	private List<T> elements;
 	
-	public X86LabelTarget(Type type, String name) {
-		this(type, name, null);
+	private List<Consumer<T>> setters;
+	
+	@SuppressWarnings("unchecked")
+	public ObservableList(Pair<T, Consumer<T>>... items) {
+		elements = new ArrayList<>();
+		setters = new ArrayList<>();
+		
+		for(var item : items) {
+			T element = item.getLeft();
+			
+			if(element == null)
+				continue;
+			
+			elements.add(element);
+			setters.add(item.getRight());
+		}
+		
+		elements = Collections.unmodifiableList(elements);
 	}
 	
 	@Override
-	public AssemblyTarget resized(Type type) {
-		return new X86LabelTarget(type, name);
+	public T set(int index, T element) {
+        Objects.checkIndex(index, elements.size());
+		
+        setters.get(index).accept(element);
+        T old = elements.get(index);
+        
+        List<T> newElements = new ArrayList<>(elements);
+        newElements.set(index, element);
+        
+        elements = Collections.unmodifiableList(newElements);
+        
+		return old;
 	}
 	
 	@Override
-	public boolean equals(Object obj) {
-		return obj != null
-			&& obj instanceof X86LabelTarget lbl
-			&& equals(name, lbl.name)
-			&& equals(offset, lbl.offset);
-	}
-	
-	@Override
-	public String toAssemblyString(boolean attSyntax) {
-		return offset == null
-			? name
-			: name + "+" + offset;
+	public String toString() {
+		return elements.toString();
 	}
 	
 }

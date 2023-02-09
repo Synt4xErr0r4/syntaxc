@@ -65,6 +65,8 @@ public class SyntaxCMain {
 	static {
 		Thread.setDefaultUncaughtExceptionHandler(
 			(t, e) -> {
+				e.printStackTrace();
+				
 				Logger.softError(
 					"%s: %s",
 					e.getClass().getSimpleName(),
@@ -91,6 +93,15 @@ public class SyntaxCMain {
 		Locale.setDefault(Locale.ROOT);
 		AnsiPipe.init();
 		
+		/*
+		 * TODO:
+		 * 
+		 * - System V calling convention
+		 * - Microsoft x64 calling convention
+		 * - register allocator spilling
+		 * - fix __LINE__ macro
+		 */
+		
 		if(Boolean.getBoolean("DEBUG"))
 			args = new String[] {
 				Boolean.getBoolean("DEBUG-WIN")
@@ -105,8 +116,10 @@ public class SyntaxCMain {
 				"-Wall",
 				"-Wno-implicit-function", "-Wno-pragma",
 				"-m32",
+				"-mtarget=windows",
+				"-masm=att",
 				"-Ogoto",
-				"-Ojump-to-jump",
+				"-Ojump-to-jump"
 				//"--regen-stdlib"
 			}; // XXX debugging only
 		

@@ -207,12 +207,21 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 
 	@Getter
 	private final boolean isJump = name().charAt(0) == 'J';
+
+	@Getter
+	private final boolean isX87 = name().charAt(0) == 'F';
 	
 	@Getter
 	private final boolean isCopy = name().contains("MOV") || name().equals("CLOBBER");
 	
 	@Getter
-	private final boolean isAdditive = name().contains("ADD") || name().equals("SUB");
+	private final boolean isAddition = name().contains("ADD");
+
+	@Getter
+	private final boolean isSubtraction = name().contains("SUB");
+	
+	@Getter
+	private final boolean isAdditive = isAddition || isSubtraction;
 	
 	private X86InstructionKinds() {
 		this(false);

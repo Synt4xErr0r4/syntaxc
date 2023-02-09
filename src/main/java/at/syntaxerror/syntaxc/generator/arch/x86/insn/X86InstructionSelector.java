@@ -99,6 +99,20 @@ public class X86InstructionSelector {
 		register(MOV,	MOV,	MOVSS,		MOVSD,		FSTP,			MOVDQU,		VMOVDQU,	VMOVDQU8);
 	}
 	
+	public static String getSuffix(Type type) {
+		if(!type.isScalar())
+			return "";
+		
+		switch(type.sizeof()) {
+		case 1: return "b";
+		case 2: return "w";
+		case 4: return "l";
+		case 8: return "q";
+		case 10: return "t";
+		default: return "";
+		}
+	}
+	
 	public static X86InstructionKinds select(X86InstructionKinds base, Type type) {
 		if(!MAPPINGS.containsKey(base))
 			return base;

@@ -154,27 +154,34 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 			}
 	}
 	
-	private void checkStackMemory(List<AssemblyTarget> targets, Map<Long, List<VirtualStackTarget>> lastUse, long pos) {
+	private void checkStackMemory(List<AssemblyTarget> targets, Map<VirtualStackTarget, Long> lastUse, long pos) {
 		for(int i = 0; i < targets.size(); ++i)
 			if(targets.get(i) instanceof VirtualStackTarget virtual)
-				lastUse.computeIfAbsent(pos, p -> new ArrayList<>())
-					.add(virtual);
+				lastUse.put(virtual, pos);
+
+		targets.stream()
+			.map(AssemblyTarget::getNestedTargets)
+			.forEach(list -> checkStackMemory(list, lastUse, pos));
 	}
 
 	private void allocateStackMemory(List<AssemblyTarget> targets) {
 		for(int i = 0; i < targets.size(); ++i)
-			if(targets.get(i) instanceof VirtualStackTarget virtual) {
+			if(targets.get(i) instanceof VirtualStackTarget virtual)
 				targets.set(
 					i,
 					resolveVirtualMemory(
 						allocator.allocate(virtual), virtual.getType()
 					)
 				);
-			}
+		
+		targets.stream()
+			.map(AssemblyTarget::getNestedTargets)
+			.forEach(this::allocateStackMemory);
 	}
 	
 	private void allocateStackMemory() {
-		Map<Long, List<VirtualStackTarget>> lastUse = new HashMap<>();
+		Map<VirtualStackTarget, Long> lastUse = new HashMap<>();
+		Map<Long, List<VirtualStackTarget>> positions = new HashMap<>();
 
 		long pos = 0;
 		
@@ -184,12 +191,19 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 			++pos;
 		}
 		
+		lastUse.forEach(
+			(target, position) -> positions.computeIfAbsent(
+				position,
+				p -> new ArrayList<>()
+			).add(target)
+		);
+		
 		pos = 0;
 		
 		for(AssemblyInstruction insn : asm) {
 			allocateStackMemory(insn.getSources());
 			
-			lastUse.getOrDefault(pos++, List.of())
+			positions.getOrDefault(pos++, List.of())
 				.forEach(allocator::free);
 			
 			allocateStackMemory(insn.getDestinations());
@@ -207,6 +221,10 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 				
 				else targets.set(i, assigned.get(id));
 			}
+
+		targets.stream()
+			.map(AssemblyTarget::getNestedTargets)
+			.forEach(this::replaceVirtualRegisters);
 		
 		SyntaxC.checkTerminationState();
 	}
@@ -292,6 +310,10 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 				
 				updateInterval(supplier, pos, id, reg.getType(), reg);
 			}
+		
+		targets.stream()
+			.map(AssemblyTarget::getNestedTargets)
+			.forEach(list -> initLiveRanges(supplier, pos, copy, list));
 	}
 	
 	private void findLiveRanges(RegisterSupplier supplier) {
@@ -472,6 +494,7 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 	
 	private void estimateSpillCost() {
 		// TODO
+		Logger.error("Failed to allocate registers without spilling");
 	}
 	
 	private void spill() {

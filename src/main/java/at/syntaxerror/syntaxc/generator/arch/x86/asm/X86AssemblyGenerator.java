@@ -67,6 +67,7 @@ import at.syntaxerror.syntaxc.intermediate.operand.ConditionOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.ConditionOperand.Condition;
 import at.syntaxerror.syntaxc.intermediate.operand.MemberOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
+import at.syntaxerror.syntaxc.intermediate.operand.TemporaryOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.AssignIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BinaryIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BuiltinIntermediate;
@@ -132,10 +133,10 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			
 			@Override
 			public AssemblyTarget resolveVirtualMemory(long address, Type type) {
-				return X86MemoryTarget.of(
+				return X86MemoryTarget.ofDisplaced(
 					type,
-					x86.RBP,
-					constant(-address - type.sizeof())
+					constant(-address - type.sizeof()),
+					x86.RBP
 				);
 			}
 			
@@ -326,8 +327,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			AssemblyTarget dest = mergeMemory(
 				memType,
 				destBase,
-				constant(segment.offset() - segment.memOffset()),
-				1
+				constant(segment.offset() - segment.memOffset())
 			);
 			
 			AssemblyTarget valueOld = toRegister(
@@ -371,6 +371,8 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			
 			return;
 		}
+
+		X86InstructionKinds mov = X86InstructionSelector.select(X86InstructionKinds.MOV, typeDst);
 		
 		if(dst.isMemory() && src.isMemory()) {
 			/*
@@ -385,15 +387,15 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			 */
 			
 			VirtualRegisterTarget tmp = new VirtualRegisterTarget(typeDst);
-				
-			asm.add(X86InstructionKinds.MOV, tmp, src);
-			asm.add(X86InstructionKinds.MOV, dst, tmp);
+			
+			asm.add(mov, tmp, src);
+			asm.add(mov, dst, tmp);
 			
 			return;
 		}
 		
 		asm.add( // mov <dst>, <src>
-			X86InstructionSelector.select(X86InstructionKinds.MOV, typeDst),
+			mov,
 			dst,
 			src.resized(dst.getType())
 		);
@@ -406,6 +408,23 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			// expression is useless, but still free FPU stack
 			freeFPUOperand(assign.getValue());
 			return;
+		}
+		
+		if(dst instanceof TemporaryOperand temp
+			&& temp.getId() == TemporaryOperand.RETURN_VALUE_ID
+			&& callingConvention.getFunction().getReturnType().isStructLike()) {
+			
+			Type type = callingConvention.getReturnValue().getType();
+			
+			if(type.isPointer() && type.dereference().isStructLike()) {
+				generateMemcpy(
+					generateOperand(dst),
+					generateOperand(assign.getValue()),
+					callingConvention.getFunction().getReturnType().sizeof(),
+					true
+				);
+				return;
+			}
 		}
 		
 		assign(
@@ -421,8 +440,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			generateMemcpy(
 				target,
 				value,
-				type.toStructLike()
-					.sizeof()
+				type.sizeof()
 			);
 		
 		else generateAssignBody(
@@ -1489,7 +1507,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		UnaryOperation op = unary.getOp();
 		
 		AssemblyTarget target = generateOperand(unary.getTarget());
-
+		
 		/*
 		 * get address of symbol:
 		 * 
@@ -1595,17 +1613,28 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 	}
 	
 	private void generateMemcpy(AssemblyTarget dst, AssemblyTarget src, int size) {
+		generateMemcpy(dst, src, size, false);
+	}
+	
+	private void generateMemcpy(AssemblyTarget dst, AssemblyTarget src, int size, boolean derefDst) {
 		if(size < 1)
 			return;
 		
 		// use 'rep movs' only if copying a large number of bytes
 		if(size > x86.threshold) {
-		
+			
 			var opSize = calculateMemoryOperationSize(size);
-	
+			
 			Type type = opSize.getRight().getType();
 			
-			asm.add(X86InstructionKinds.LEA, x86.RDI, dst);
+			asm.add(
+				derefDst
+					? X86InstructionKinds.MOV
+					: X86InstructionKinds.LEA,
+				x86.RDI,
+				dst
+			);
+			
 			asm.add(X86InstructionKinds.LEA, x86.RSI, src);
 			
 			asm.add( // mov rcx, n

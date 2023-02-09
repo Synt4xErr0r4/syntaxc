@@ -162,10 +162,6 @@ public class IntermediateGenerator {
 	private static TemporaryOperand temporary(Type type) {
 		return new TemporaryOperand(type);
 	}
-	
-	private static IndexOperand index(Operand base, Operand index, int scale, Type type) {
-		return new IndexOperand(base, index, scale, type);
-	}
 
 	private static IndexOperand index(Operand base, Operand index, Type type) {
 		return new IndexOperand(base, index, type);
@@ -582,10 +578,28 @@ public class IntermediateGenerator {
 			ctx
 		);
 		
+		if(sz == 0)
+			operands[1] = new ConstantOperand(BigInteger.ZERO, operands[1].getType());
+		
+		else if(sz != 1) {
+			Type type = operands[1].getType();
+			
+			Operand scaled = temporary(type);
+			
+			ir.add(new BinaryIntermediate(
+				pos,
+				scaled,
+				operands[1],
+				constant(BigInteger.valueOf(sz), type),
+				BinaryOperation.MULTIPLY
+			));
+			
+			operands[1] = scaled;
+		}
+		
 		return index(
 			operands[0],
 			operands[1],
-			sz,
 			expr.getType()
 		);
 	}

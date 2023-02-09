@@ -22,16 +22,27 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
+import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
+import at.syntaxerror.syntaxc.generator.asm.insn.StoreRegistersInstruction;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.type.FunctionType;
+import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
+import at.syntaxerror.syntaxc.type.StructType.Member;
+import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * The default calling convention for 64-bit Linux
@@ -67,6 +78,8 @@ import at.syntaxerror.syntaxc.type.FunctionType;
 public class X86SystemVCall extends X86CallingConvention {
 
 	private boolean hasRegisterSaveArea;
+
+	private StoreRegistersInstruction registerStore, callStore;
 	
 	public X86SystemVCall(FunctionType function, Instructions asm, X86AssemblyGenerator generator) {
 		super(function, asm, generator);
@@ -104,26 +117,36 @@ public class X86SystemVCall extends X86CallingConvention {
 
 	@Override
 	public AssemblyTarget getReturnValue() {
-		return null;
+		return X86Register.RAX;
 	}
 	
 	@Override
 	public AssemblyTarget getParameter(String name) {
-		return null;
+		return X86Register.RAX;
 	}
 
 	@Override
 	public void onEntry() {
-		
+
+		// r12, r13, r14, and r15 belong to the caller
+		asm.add(registerStore = new StoreRegistersInstruction(
+			asm,
+			X86Register.R12,
+			X86Register.R13,
+			X86Register.R14,
+			X86Register.R15
+		));
 	}
 
 	@Override
 	public void onLeave() {
-		
+		asm.add(registerStore.restore());
 	}
 
 	@Override
 	public void call(AssemblyTarget functionTarget, FunctionType callee, Iterator<AssemblyTarget> args, AssemblyTarget destination) {
+		
+		classifyParameters(callee);
 		
 	}
 	
@@ -141,5 +164,102 @@ public class X86SystemVCall extends X86CallingConvention {
 	public void vaEnd(BuiltinVaEnd vaEnd) {
 		
 	}
+	
+	private void classifyParameters(FunctionType function) {
+		classifyParameters(
+			function.getParameters()
+				.stream()
+				.map(Parameter::type)
+				.toList()
+		);
+	}
 
+	private void classifyParameters(List<Type> types) {
+		
+		types.stream()
+			.map(this::classifyParameter)
+			.toList();
+		
+	}
+
+	private Classification classifyParameter(Type type) {
+		if(type.isInteger() || type.isPointerLike())
+			return Classification.INTEGER;
+		
+		if(type.isFloating())
+			return type == Type.LDOUBLE
+				? Classification.X87
+				: Classification.SSE;
+		
+		int size = Math.ceilDiv(type.sizeof(), 8);
+		
+		if(size > 4)
+			return Classification.MEMORY;
+		
+		List<Member> members = type.toStructLike().getMembers();
+		
+		Map<Integer, Set<Classification>> eightbytes = new HashMap<>();
+		
+		for(Member member : members) {
+			int from = member.getOffset();
+			int to = from + member.sizeof() - 1;
+			
+			from >>= 3;
+			to >>= 3;
+			
+			Classification classification = classifyParameter(member.getType());
+			
+			if(classification == Classification.MEMORY || classification == Classification.X87)
+				return Classification.MEMORY;
+			
+			for(int i = from; i <= to; ++i)
+				eightbytes.computeIfAbsent(i, j -> new HashSet<>())
+					.add(classification);
+		}
+		
+		List<Classification> classifications = new ArrayList<>();
+		
+		for(int i = 0; i < size; ++i) {
+			
+			if(!eightbytes.containsKey(i)) {
+				classifications.add(Classification.NO_CLASS);
+				continue;
+			}
+			
+			Set<Classification> eightbyte = eightbytes.get(i);
+			
+			if(eightbyte.contains(Classification.INTEGER))
+				classifications.add(Classification.INTEGER);
+			
+			else {
+				eightbyte.remove(Classification.NO_CLASS);
+				
+				if(eightbyte.isEmpty())
+					classifications.add(Classification.SSE);
+				
+				else classifications.add(eightbyte.iterator().next());
+			}
+		}
+		
+		if(classifications.isEmpty())
+			return Classification.MEMORY;
+		
+		if(size > 2 && classifications.get(0) != Classification.SSE)
+			return Classification.MEMORY;
+		
+		System.out.println(classifications);
+		
+		return Classification.NO_CLASS;
+	}
+	
+	private static enum Classification {
+		
+		INTEGER,
+		SSE,
+		X87,
+		NO_CLASS,
+		MEMORY
+		
+	}
+	
 }

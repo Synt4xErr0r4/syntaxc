@@ -23,30 +23,50 @@
 package at.syntaxerror.syntaxc.generator.arch.x86.target;
 
 import java.math.BigInteger;
+import java.util.List;
 
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.misc.ObservableList;
+import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.type.Type;
 import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 /**
  * @author Thomas Kasper
  * 
  */
 @Getter
-@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+@Setter(AccessLevel.PRIVATE)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class X86MemoryTarget extends X86AssemblyTarget {
-	
+
 	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
 			AssemblyTarget base, AssemblyTarget index, long scale) {
 		
 		if(scale != 0 && scale != 1 && scale != 2 && scale != 4 && scale != 8)
 			Logger.error("Illegal scale %d for memory target", scale);
+
+		if(segment != null && !(segment instanceof X86Register))
+			Logger.error("Segment is not a register");
+		
+		if(base != null && !(base instanceof X86Register) && !(base instanceof VirtualRegisterTarget)) {
+			new Throwable().printStackTrace();
+			
+			Logger.error("Base is not a register");}
+		
+		if(index != null && !(index instanceof X86Register) && !(index instanceof VirtualRegisterTarget))
+			Logger.error("Index is not a register");
+		
+		if(index != null && !(disp instanceof X86IntegerTarget))
+			Logger.error("Displacement is not an integer");
 		
 		return new X86MemoryTarget(type, X86Size.of(type), segment, disp, base, index, scale);
 	}
@@ -92,7 +112,7 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	}
 	
 	
-	
+
 	public static X86MemoryTarget of(Type type, AssemblyTarget base, AssemblyTarget index, long scale) {
 		return ofSegmentedDisplaced(type, null, null, base, index, scale);
 	}
@@ -107,11 +127,22 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	
 	private final Type type;
 	private final X86Size size;
-	private final AssemblyTarget segment;
-	private final AssemblyTarget displacement;
-	private final AssemblyTarget base;
-	private final AssemblyTarget index;
+	private AssemblyTarget segment;
+	private AssemblyTarget displacement;
+	private AssemblyTarget base;
+	private AssemblyTarget index;
 	private final long scale;
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public List<AssemblyTarget> getNestedTargets() {
+		return new ObservableList<>(
+			Pair.of(segment, this::setSegment),
+			Pair.of(displacement, this::setDisplacement),
+			Pair.of(base, this::setBase),
+			Pair.of(index, this::setIndex)
+		);
+	}
 	
 	public boolean hasSegment() {
 		return segment != null;
@@ -158,27 +189,29 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 		
 		if(attSyntax) {
 			/* AT&T syntax: segment:disp(base, index, scale) */
-
+			
 			if(hasSegment())
-				sb.append(segment)
+				sb.append(toAssemblyString(segment, attSyntax))
 					.append(':');
 			
 			if(hasDisplacement())
-				sb = sb.append(displacement);
+				sb = sb.append(toAssemblyString(displacement, attSyntax));
 			
-			sb = sb.append('(')
-				.append(base);
-			
-			if(hasIndex()) {
-				sb = sb.append(',')
-					.append(index);
+			if(base != X86Register.EIP) {
+				sb = sb.append('(')
+					.append(toAssemblyString(base, attSyntax));
 				
-				if(scale != 1)
+				if(hasIndex()) {
 					sb = sb.append(',')
-						.append(scale);
+						.append(toAssemblyString(index, attSyntax));
+					
+					if(scale != 1)
+						sb = sb.append(',')
+							.append(scale);
+				}
+				
+				sb = sb.append(')');
 			}
-			
-			sb = sb.append(')');
 		}
 		else {
 			/* Intel syntax: size PTR segment:[base+index*scale+disp]	(no EIP addressing mode for 32-bit) */
@@ -188,7 +221,7 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 					.append(" PTR ");
 			
 			if(hasSegment())
-				sb.append(segment)
+				sb.append(toAssemblyString(segment, attSyntax))
 					.append(':');
 
 			boolean hasBase = base != X86Register.EIP;
@@ -196,13 +229,13 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			
 			if(hasBase)
 				sb = sb.append('[')
-					.append(base);
+					.append(toAssemblyString(base, attSyntax));
 
 			if(hasIndex()) {
 				sb = sb.append(
 					hasPredecessor
-						? toSignedString(index)
-						: index
+						? toSignedString(index, attSyntax)
+						: toAssemblyString(index, attSyntax)
 				);
 				
 				hasPredecessor = true;
@@ -215,8 +248,8 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			if(hasDisplacement())
 				sb = sb.append(
 					hasPredecessor
-						? toSignedString(displacement)
-						: displacement
+						? toSignedString(displacement, attSyntax)
+						: toAssemblyString(displacement, attSyntax)
 				);
 
 			if(hasBase)
@@ -226,13 +259,23 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 		return sb.toString();
 	}
 	
-	private static String toSignedString(AssemblyTarget target) {
+	private static String toAssemblyString(AssemblyTarget target, boolean attSyntax) {
+		if(target instanceof X86AssemblyTarget x86)
+			return x86.toAssemblyString(attSyntax && !(x86 instanceof X86IntegerTarget));
+		
+		if(target instanceof X86Register reg)
+			return reg.toAssemblyString(attSyntax);
+		
+		return target.toString();
+	}
+	
+	private static String toSignedString(AssemblyTarget target, boolean attSyntax) {
 		String sign = "+";
 		
 		if(target instanceof X86IntegerTarget integer && integer.getValue().compareTo(BigInteger.ZERO) < 0)
 			sign = "";
 		
-		return sign + target;
+		return sign + toAssemblyString(target, attSyntax);
 	}
 	
 }

@@ -23,9 +23,13 @@
 package at.syntaxerror.syntaxc.generator.arch.x86;
 
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Instruction;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
+import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionSelector;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
@@ -33,6 +37,7 @@ import at.syntaxerror.syntaxc.generator.asm.PeepholeOptimizer;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.misc.Pair;
 
 /**
  * @author Thomas Kasper
@@ -40,8 +45,26 @@ import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
  */
 public class X86PeepholeOptimizer extends PeepholeOptimizer {
 
+	private Map<AssemblyTarget, Pair<BigInteger, AssemblyInstruction>> additives = new HashMap<>();
+
+	private void clobber(AssemblyInstruction insn) {
+		clobber(insn.getDestinations());
+		clobber(insn.getSources());
+	}
+	
+	private void clobber(List<AssemblyTarget> list) {
+		list.forEach(additives::remove);
+		
+		list.stream()
+			.map(AssemblyTarget::getNestedTargets)
+			.forEach(this::clobber);
+	}
+	
 	@Override
 	public void optimize(Instructions asm) {
+		
+		additives.clear();
+		
 		for(AssemblyInstruction insn : asm) {
 			
 			AssemblyInstructionKind insnKind = insn.getKind();
@@ -51,18 +74,21 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 			
 			if(kind == X86InstructionKinds.CLOBBER) {
 				insn.remove();
+				clobber(insn);
 				continue;
 			}
 			
 			if(kind.isCopy()) {
+
+				clobber(insn);
 				
 				AssemblyTarget dst = insn.getDestinations().get(0);
 				AssemblyTarget src = insn.getSources().get(0);
 				
 				if(dst instanceof X86Register reg) {
 					
-					if(reg.getType().isInteger() &&
-						src instanceof X86IntegerTarget i
+					if(reg.getType().isInteger()
+						&& src instanceof X86IntegerTarget i
 						&& i.getValue().compareTo(BigInteger.ZERO) == 0) {
 						
 						/* convert
@@ -103,17 +129,73 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 				
 				AssemblyTarget src = insn.getSources().get(0);
 				
-				if(src instanceof X86IntegerTarget i
-					&& i.getValue().compareTo(BigInteger.ZERO) == 0) {
+				if(src instanceof X86IntegerTarget i) {
 					
-					/* remove
-					 * 
-					 *  add eax, 0
-					 *  sub eax, 0
-					 */
+					if(i.getValue().compareTo(BigInteger.ZERO) == 0) {
+						/* remove
+						 * 
+						 *  add eax, 0
+						 *  sub eax, 0
+						 */
+						
+						insn.remove();
+						continue;
+					}
 					
-					insn.remove();
-					continue;
+					/* group additions/subtractions */
+					
+					boolean subtract = kind.isSubtraction();
+					
+					AssemblyTarget dst = insn.getDestinations().get(0);
+					
+					var additive = additives.get(dst);
+					
+					BigInteger value = null;
+					AssemblyInstruction previous = null;
+					
+					if(additive != null) {
+						value = additive.getLeft();
+						previous = additive.getRight();
+					}
+					
+					if(value == null) {
+						value = i.getValue();
+						
+						if(subtract)
+							value = value.negate();
+					}
+					else {
+						previous.remove();
+						
+						if(subtract)
+							value = value.subtract(i.getValue());
+						else value = value.add(i.getValue());
+						
+						int cmp = value.compareTo(BigInteger.ZERO);
+						
+						if(cmp != 0) {
+							AssemblyInstruction op = new X86Instruction(
+								asm,
+								X86InstructionSelector.select(
+									cmp < 0
+										? X86InstructionKinds.SUB
+										: X86InstructionKinds.ADD,
+									dst.getType()
+								),
+								dst,
+								new X86IntegerTarget(
+									i.getType(),
+									value.abs()
+								)
+							);
+							
+							insn.insertBefore(op);
+						}
+						
+						insn.remove();
+					}
+					
+					additives.put(dst, Pair.of(value, insn));
 				}
 				
 			}

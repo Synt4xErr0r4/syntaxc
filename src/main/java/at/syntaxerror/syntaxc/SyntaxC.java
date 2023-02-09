@@ -341,7 +341,7 @@ public class SyntaxC {
 		
 		checkTerminationState();
 		
-		File asmOut = uniqueFile(outputFileName, ".s");
+		File asmOut = uniqueFile(inputFileName, ".syntaxctmp.s");
 		
 		try(PrintStream writer = new PrintStream(asmOut)) {
 			
@@ -429,7 +429,7 @@ public class SyntaxC {
 	 */
 	public static OutputStream createStream(OptionParser parser, String file) {
 		try {
-			Path path = Paths.get(file);
+			Path path = Paths.get(file).toAbsolutePath();
 			
 			Files.createDirectories(path.getParent());
 			
@@ -452,12 +452,16 @@ public class SyntaxC {
 	 * @return the output stream
 	 */
 	private static OutputStream constructOutput(String extension) {
-		if(outputFileName.equals("-"))
+		if(outputFileName != null && outputFileName.equals("-"))
 			return AnsiPipe.getStdout();
 		
 		return createStream(
 			null,
-			Objects.requireNonNullElseGet(outputFileName, () -> inputFileName + extension)
+			Objects.requireNonNullElseGet(
+				outputFileName,
+				() -> inputFileName.substring(0, inputFileName.length() - 2)
+					+ extension
+			)
 		);
 	}
 	

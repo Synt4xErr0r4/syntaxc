@@ -36,24 +36,18 @@ public class IndexOperand implements Operand {
 
 	private final Operand target;
 	private final Operand offset;
-	private final int scale;
 	private final Type type;
 	
-	public IndexOperand(Operand target, Operand offset, int scale, Type type) {
+	public IndexOperand(Operand target, Operand offset, Type type) {
 		this.target = target;
 		this.offset = offset;
-		this.scale = scale;
 		this.type = type.normalize();
 	}
 	
 	public IndexOperand(Operand target, Type type) {
-		this(target, ConstantOperand.zero(type), 1, type);
+		this(target, ConstantOperand.zero(type), type);
 	}
 
-	public IndexOperand(Operand target, Operand index, Type type) {
-		this(target, index, type.sizeof(), type);
-	}
-	
 	@Override
 	public boolean isMemory() {
 		return true;
@@ -71,9 +65,7 @@ public class IndexOperand implements Operand {
 	public String toString() {
 		return offset instanceof ConstantOperand constant && constant.isZero()
 			? "*%s".formatted(target)
-			: scale == 1
-				? "%s[%s]".formatted(target, offset)
-				: "%s[%d*%s]".formatted(target, scale, offset);
+			: "%s[%s]".formatted(target, offset);
 	}
 	
 }

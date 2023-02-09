@@ -142,7 +142,6 @@ public class StackAllocator {
 			isFree = true;
 			
 			if(previous != null && previous.isFree) {
-				size += previous.size;
 				start = previous.start;
 				previous = previous.previous;
 				
@@ -151,13 +150,14 @@ public class StackAllocator {
 			}
 
 			if(next != null && next.isFree) {
-				size += next.size;
 				end = next.end;
 				next = next.next;
 				
 				if(next != null)
 					next.previous = this;
 			}
+			
+			size = end - start;
 		}
 		
 		public void allocate(long align, long size) {

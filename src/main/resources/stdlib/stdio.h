@@ -26,8 +26,20 @@
 #ifndef _STDIO_H
 #define _STDIO_H
 
+#include <stdarg.h>
+
 typedef __FILE_TYPE__ FILE;
 typedef __FPOS_TYPE__ fpos_t;
+
+#ifndef __HAS_SIZE_TYPE
+#define __HAS_SIZE_TYPE
+typedef __SIZE_TYPE__ size_t;
+#endif
+
+#ifndef __HAS_VA_LIST_TYPE
+#define __HAS_VA_LIST_TYPE
+typedef __builtin_va_list va_list;
+#endif
 
 #define _IOFBF ___IOFBF
 #define _IOLBF ___IOLBF

@@ -96,6 +96,9 @@ public class X86Architecture extends Architecture {
 		alignment.setBitsSize(bitSize);
 		
 		if(bitSize == BitSize.B64) {
+			
+			// TODO support 64-bit
+			Logger.error("x86-64 is not supported yet!");
 
 			checkSystemCompatability(OperatingSystem.LINUX, OperatingSystem.WINDOWS);
 			
@@ -144,8 +147,8 @@ public class X86Architecture extends Architecture {
 			BuiltinRegistry.vaListSize = 24;
 		}
 		else if(bitSize == BitSize.B32) {
-			
-			checkSystemCompatability(OperatingSystem.LINUX);
+
+			checkSystemCompatability(OperatingSystem.LINUX, OperatingSystem.WINDOWS);
 
 			longDoubleBits = 12;
 			

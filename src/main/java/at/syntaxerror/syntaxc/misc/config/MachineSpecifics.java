@@ -141,6 +141,11 @@ public enum MachineSpecifics implements Configurable {
 	}
 
 	@Override
+	public String getDescription() {
+		return description + (enabled ? " §8(§aenabled§8)" : " §8(§9disabled§8)");
+	}
+	
+	@Override
 	public boolean acceptsValue() {
 		return acceptsValue;
 	}

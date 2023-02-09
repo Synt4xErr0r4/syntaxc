@@ -32,6 +32,7 @@ import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.type.FunctionType;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -41,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public abstract class X86CallingConvention {
 	
+	@Getter
 	protected final FunctionType function;
 	protected final Instructions asm;
 	protected final X86AssemblyGenerator generator;
