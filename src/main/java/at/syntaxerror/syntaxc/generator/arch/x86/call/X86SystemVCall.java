@@ -75,6 +75,7 @@ import at.syntaxerror.syntaxc.type.Type;
  * @author Thomas Kasper
  * 
  */
+@SuppressWarnings("unused")
 public class X86SystemVCall extends X86CallingConvention {
 
 	private boolean hasRegisterSaveArea;

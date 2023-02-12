@@ -631,7 +631,9 @@ public class ExpressionParser extends AbstractParser {
 								newNumber(
 									pos,
 									BigInteger.ONE,
-									exprType
+									exprType.isPointer()
+										? Type.INT
+										: exprType
 								),
 								!increment
 							),
@@ -1126,7 +1128,7 @@ public class ExpressionParser extends AbstractParser {
 			op = Token.ofPunctuator(op.getPosition(), ASSIGN_TO_BINARY.get(op.getPunctuator()));
 			
 			BinaryExpressionNode assign;
-			
+
 			if(op.is("%"))
 				assign = checker.checkModulo(op, exprLeft, exprRight);
 			

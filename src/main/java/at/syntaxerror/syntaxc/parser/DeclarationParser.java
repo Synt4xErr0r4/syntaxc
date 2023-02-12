@@ -458,33 +458,40 @@ public class DeclarationParser extends AbstractParser {
 		SymbolTable symtab = getSymbolTable();
 		
 		String tag = null;
-
+		SymbolTag enumTag = null;
+		
 		if(optional(TokenType.IDENTIFIER)) {
 			tag = current.getString();
 			pos = current.getPosition();
 			
-			SymbolTag enumTag = symtab.findTag(tag);
+			enumTag = symtab.findTag(tag);
 			
-			if(enumTag != null) {
-				
-				if(enumTag.getType().isEnum())
-					softError(pos, "Redeclaration of »enum %s«", tag);
-				
-				else softError(pos, "Declared »enum %s« as another type", tag);
-				
+			if(enumTag != null && !enumTag.getType().isEnum()) {
+				softError(pos, "Declared »enum %s« as another type", tag);
 				note(enumTag, "Previously declared here");
 				terminate();
 			}
 		}
 		
-		EnumType type = tag == null
+		EnumType type;
+		
+		if(enumTag == null)
+			type = tag == null
 				? EnumType.forAnonymousEnum()
 				: EnumType.forEnum(tag);
+		else type = enumTag.getType().toEnum();
 		
 		if(tag != null)
 			symtab.addTag(SymbolTag.of(pos, tag, type));
 		
 		if(optional("{")) {
+			
+			if(!type.isIncomplete()) {
+				softError(pos, "Redeclaration of »enum %s«", tag);
+				note(enumTag, "Previously declared here");
+				terminate();
+			}
+			
 			type.setComplete();
 			
 			var enumerators = type.getEnumerators();
@@ -521,6 +528,8 @@ public class DeclarationParser extends AbstractParser {
 		}
 		else if(tag == null)
 			error(pos, "Expected enumerator list for enum");
+		
+		else next();
 		
 		return type;
 	}

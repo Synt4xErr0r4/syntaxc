@@ -26,15 +26,19 @@
 #ifndef _TIME_H
 #define _TIME_H
 
-#ifndef __HAS_NULL
-#define __HAS_NULL
-#define NULL ((void) 0)
+#ifndef NULL
+#define NULL ((void *) 0)
 #endif
 
 #define CLOCKS_PER_SEC __CLOCKS_PER_SEC
 
 typedef __CLOCK_TYPE__ clock_t;
 typedef __TIME_TYPE__ time_t;
+
+#ifndef __HAS_SIZE_TYPE
+#define __HAS_SIZE_TYPE
+typedef __SIZE_TYPE__ size_t;
+#endif
 
 struct tm {
     int tm_sec;

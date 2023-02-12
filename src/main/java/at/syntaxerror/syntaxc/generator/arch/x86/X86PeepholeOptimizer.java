@@ -56,7 +56,9 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 		list.forEach(additives::remove);
 		
 		list.stream()
+			.filter(target -> target != null)
 			.map(AssemblyTarget::getNestedTargets)
+			.filter(nested -> nested != null)
 			.forEach(this::clobber);
 	}
 	

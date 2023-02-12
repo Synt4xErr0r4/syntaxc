@@ -31,6 +31,7 @@ import java.util.stream.IntStream;
 
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.logger.Logger;
+import at.syntaxerror.syntaxc.misc.Pair;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.ExpressionParser;
 import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
@@ -171,8 +172,21 @@ public class StructSerializer {
 			
 			Initializer init = null;
 			
-			if(member.getName() != null) /* no initializer for anonymous member */
-				init = inits.get(initIndex++);
+			if(member.getName() != null) { /* no initializer for anonymous member */
+				if(initIndex >= inits.size())
+					init = new Initializer(
+						pos,
+						Pair.ofLeft(
+							new NumberLiteralExpressionNode(
+								pos,
+								BigInteger.ZERO,
+								type
+							)
+						)
+					);
+				
+				else init = inits.get(initIndex++);
+			}
 			
 			if(!bitfield) /* flush bit fields when encountering non-bitfield member */
 				flushBits(pos, bits, bitStart, offset, result, restrictSize, integer, accumulator);

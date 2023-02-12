@@ -77,7 +77,11 @@ public class ConstantOperand implements Operand {
 		if(strval != null)
 			return strval;
 		
-		NumericValueType num = type.toNumber().getNumericType();
+		NumericValueType num;
+		
+		if(type.isPointerLike())
+			num = NumericValueType.POINTER;
+		else num = type.toNumber().getNumericType();
 		
 		strval = value.toString();
 		

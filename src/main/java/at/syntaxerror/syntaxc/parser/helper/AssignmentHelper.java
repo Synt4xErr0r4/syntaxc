@@ -26,6 +26,7 @@ import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newBinary;
 import static at.syntaxerror.syntaxc.parser.helper.ExpressionHelper.newComma;
 
 import at.syntaxerror.syntaxc.lexer.Punctuator;
+import at.syntaxerror.syntaxc.parser.node.expression.CastExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.symtab.SymbolObject;
@@ -99,12 +100,21 @@ public class AssignmentHelper {
 		
 		ExpressionNode deref = PointerHelper.dereference(pos, var); // *z
 		
+		if(left instanceof CastExpressionNode cast)
+			left = ExpressionHelper.newCast(
+				cast.getPosition(),
+				PointerHelper.syntheticAddressOf(pos, cast.getTarget()),
+				cast.getType().addressOf()
+			);
+		
+		else left = PointerHelper.syntheticAddressOf(pos, left);
+		
 		return newComma( // z = &x, *z = *z op y
 			pos,
 			checker.checkAssignment( // z = &x
 				pos,
 				var,
-				PointerHelper.addressOf(pos, left), // &x
+				left, // &x
 				false
 			),
 			checker.checkAssignment( // *z = *z op y

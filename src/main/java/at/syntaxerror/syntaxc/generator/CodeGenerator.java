@@ -32,8 +32,6 @@ import at.syntaxerror.syntaxc.generator.asm.PeepholeOptimizer;
  */
 public abstract class CodeGenerator {
 
-	// public abstract RegisterProvider getRegisterProvider();
-
 	public abstract AssemblyGenerator getAssemblyGenerator();
 	public abstract ObjectSerializer getObjectSerializer();
 	

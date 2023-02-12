@@ -100,6 +100,9 @@ public class X86InstructionSelector {
 	}
 	
 	public static String getSuffix(Type type) {
+		if(type.isArray())
+			type = Type.VOID.addressOf();
+		
 		if(!type.isScalar())
 			return "";
 		
@@ -108,7 +111,30 @@ public class X86InstructionSelector {
 		case 2: return "w";
 		case 4: return "l";
 		case 8: return "q";
-		case 10: return "t";
+		default: return "";
+		}
+	}
+	
+	public static String getX87Suffix(Type type) {
+		if(type.isArray())
+			type = Type.VOID.addressOf();
+		
+		if(!type.isScalar())
+			return "";
+		
+		if(type.isFloating())
+			switch(type.sizeof()) {
+			case 4: return "s";
+			case 8: return "l";
+			case 10: return "t";
+			default: return "";
+			}
+		
+		switch(type.sizeof()) {
+		case 1: return "b";
+		case 2: return "w";
+		case 4: return "l";
+		case 8: return "q";
 		default: return "";
 		}
 	}
@@ -116,7 +142,7 @@ public class X86InstructionSelector {
 	public static X86InstructionKinds select(X86InstructionKinds base, Type type) {
 		if(!MAPPINGS.containsKey(base))
 			return base;
-
+		
 		int index;
 		
 		if(X86FPUHelper.useFPU(type))

@@ -304,7 +304,8 @@ public class Preprocessor implements Logable, PreprocessorView, SubstitutionHelp
 				else tokens.addAll(directive.process());
 			}
 			else {
-				newline = false;
+				if(!tok.is(TokenType.WHITESPACE))
+					newline = false;
 				
 				if(!skip) {
 					if(tok.is(TokenType.IDENTIFIER)) // substitute macro, don't preserve whitespace

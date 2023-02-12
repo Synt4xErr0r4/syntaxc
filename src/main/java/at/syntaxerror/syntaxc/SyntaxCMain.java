@@ -65,8 +65,6 @@ public class SyntaxCMain {
 	static {
 		Thread.setDefaultUncaughtExceptionHandler(
 			(t, e) -> {
-				e.printStackTrace();
-				
 				Logger.softError(
 					"%s: %s",
 					e.getClass().getSimpleName(),
@@ -80,6 +78,8 @@ public class SyntaxCMain {
 			}
 		);
 		
+		System.out.println();
+		
 		/* make sure to load classes */
 		MachineSpecifics.init();
 		Flags.init();
@@ -92,6 +92,27 @@ public class SyntaxCMain {
 	public static void main(String[] args) {
 		Locale.setDefault(Locale.ROOT);
 		AnsiPipe.init();
+		
+		if(Boolean.getBoolean("DEBUG"))
+			args = new String[] {
+				"-S",
+				"-m32", 
+				"-fno-long-double",
+				"-Wno-all",
+				"-o", "-",
+				"-I/opt/syntaxc/test/benchmark/ansibench-master/coremark/include",
+				"/opt/syntaxc/test/benchmark/ansibench-master/coremark/src/core_state.c",
+				//"/opt/syntaxc/test/test.c",
+				"-DCORE_DEBUG=0",
+				"-DMEM_METHOD=MEM_STATIC",
+				"-DCALLGRIND_RUN=0",
+				"-DCOMPILER_REQUIRES_SORT_RETURN",
+				"-DUSE_CLOCK=1",
+				"-DMICA=0",
+				"-fcontrol-flow-graph=svg",
+				"-Ono-goto",
+				"-Ono-jump-to-jump"
+			};
 		
 		/*
 		 * TODO:
@@ -223,7 +244,7 @@ public class SyntaxCMain {
 		result.get('D').forEach(CLIHandler::define);
 		result.get('U').forEach(CLIHandler::undef);
 		
-		if(Flags.NO_STDLIB.isEnabled())
+		if(!Flags.STDLIB.isEnabled())
 			IncludePathRegistry.clear();
 		
 		// include path

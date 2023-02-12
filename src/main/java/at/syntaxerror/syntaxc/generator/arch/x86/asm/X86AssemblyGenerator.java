@@ -526,7 +526,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 				X86Register.ST1,
 				X86Register.ST0
 			);
-			
+
 			fpuStackPop();
 			assignDynamic(dst, this::fstp);
 			
@@ -907,7 +907,13 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			if(!first.isRegister() && second.isMemory())
 				first = toRegister(first, RegisterFlags.NO_LITERAL);
 			
-			asm.add(X86InstructionKinds.CMP, first, second);
+			if(first instanceof X86IntegerTarget) {
+				AssemblyTarget tmp = first;
+				first = second;
+				second = tmp;
+			}
+			
+			asm.add(X86InstructionKinds.CMP, null, first, second);
 			
 		}
 		
@@ -1515,7 +1521,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		 * if the destination is not a register:
 		 * 
 		 * 	lea rax, <src>
-		 * 	lea <dst>, rax
+		 * 	mov <dst>, rax
 		 */
 		if(op == UnaryOperation.ADDRESS_OF)
 			assignDynamicRegister(

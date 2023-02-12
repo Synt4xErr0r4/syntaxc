@@ -55,11 +55,13 @@ public class X86FPUHelper {
 	}
 	
 	public static boolean isDouble(Type type) {
-		return type.toNumber().getNumericType() == NumericValueType.DOUBLE;
+		return type.isFloating()
+			&& type.toNumber().getNumericType() == NumericValueType.DOUBLE;
 	}
 	
 	public static boolean isFloat(Type type) {
-		return type.toNumber().getNumericType() == NumericValueType.FLOAT;
+		return type.isFloating()
+			&& type.toNumber().getNumericType() == NumericValueType.FLOAT;
 	}
 	
 	private final Instructions asm;

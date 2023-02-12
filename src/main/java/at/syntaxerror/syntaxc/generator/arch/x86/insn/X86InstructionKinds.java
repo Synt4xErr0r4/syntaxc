@@ -89,6 +89,7 @@ public enum X86InstructionKinds implements AssemblyInstructionKind {
 	DIVSS,		/* float + float */
 	DIVSD,		/* double + double */
 	FDIVP,		/* long double + long double */
+	FDIVRP,		/* long double + long double */
 	
 	AND(true),  /* int & int */
 	OR(true),   /* int | int */

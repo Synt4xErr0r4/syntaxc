@@ -36,7 +36,6 @@ import at.syntaxerror.syntaxc.intermediate.representation.LabelIntermediate;
 import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.tracking.Position;
-import lombok.RequiredArgsConstructor;
 
 /**
  * @author Thomas Kasper
@@ -100,7 +99,7 @@ public class ControlFlowAnalyzer implements Logable {
 		
 		checkUnknownLabels(); // check for unknown labels
 		checkUnusedLabels(); // check for unused labels. Also matches labels where the associated goto statement is dead code
-		
+
 		generateNodes(name, intermediates);
 		checkNodes();
 		
@@ -334,7 +333,7 @@ public class ControlFlowAnalyzer implements Logable {
 			}
 		}
 		
-		if(foundUnknownLabel) // terminate if a labels is not known
+		if(foundUnknownLabel) // terminate if a label is not known
 			terminate();
 	}
 	
@@ -350,7 +349,6 @@ public class ControlFlowAnalyzer implements Logable {
 		}
 	}
 	
-	@RequiredArgsConstructor
 	public static class CFGNode {
 		
 		private static final String ENTRY_NAME = ".entry";
@@ -367,7 +365,7 @@ public class ControlFlowAnalyzer implements Logable {
 		}
 		
 		public final String name;
-		public final List<Intermediate> code;
+		public List<Intermediate> code;
 		public final NodeKind kind;
 		
 		public boolean dead;
@@ -376,6 +374,12 @@ public class ControlFlowAnalyzer implements Logable {
 
 		public CFGNode nextThen;
 		public CFGNode nextElse;
+		
+		public CFGNode(String name, List<Intermediate> code, NodeKind kind) {
+			this.name = name;
+			this.code = code;
+			this.kind = kind;
+		}
 		
 		public boolean isEntry() {
 			return kind == NodeKind.ENTRY;

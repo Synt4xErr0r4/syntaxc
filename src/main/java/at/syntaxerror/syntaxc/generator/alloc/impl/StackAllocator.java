@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import at.syntaxerror.syntaxc.generator.arch.Alignment;
-import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
 import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.type.Type;
 import lombok.RequiredArgsConstructor;
@@ -47,22 +46,29 @@ public class StackAllocator {
 	
 	private Block blocks = new Block(0, Long.MAX_VALUE);
 	
-	private Map<VirtualStackTarget, Long> addressById = new HashMap<>();
+	private Map<Long, Long> addressById = new HashMap<>();
 	
 	public long getStackSize() {
 		return maxGrowth;
 	}
 	
-	public long allocate(VirtualStackTarget target) {
+	public long allocate(long id, Type type) {
 		return addressById.computeIfAbsent(
-			target,
-			t -> allocate(t.getType())
+			id,
+			t -> allocate(type)
 		);
 	}
 	
-	public void free(VirtualStackTarget target) {
-		if(addressById.containsKey(target))
-			free(addressById.remove(target));
+	public void free(long id) {
+		if(addressById.containsKey(id)) {
+			long address = addressById.remove(id);
+			
+			for(Block block : blocks)
+				if(block.start == address) {
+					block.free();
+					break;
+				}
+		}
 	}
 	
 	private long allocate(Type type) {
@@ -106,14 +112,6 @@ public class StackAllocator {
 		maxGrowth = Math.max(maxGrowth, bestBlock.end + 1);
 		
 		return bestBlock.start;
-	}
-	
-	private void free(long address) {
-		for(Block block : blocks)
-			if(block.start == address) {
-				block.free();
-				break;
-			}
 	}
 	
 	@ToString(exclude = { "previous" })

@@ -95,11 +95,7 @@ public class X86OperandHelper {
 	}
 	
 	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget index) {
-		
-		AssemblyTarget baseOrig = base;
-		
 		AssemblyTarget displacement = null;
-		boolean toRegister = false;
 		
 		long scale = 1;
 		
@@ -121,26 +117,17 @@ public class X86OperandHelper {
 						type,
 						idxOff.getValue().add(memOff.getValue())
 					);
-					
-					toRegister = false;
 				}
 				
 			}
-			else toRegister = false;
 		
-		}
-		
-		if(toRegister) {
-			displacement = null;
-			base = toRegister(baseOrig);
-			index = toRegister(index);
 		}
 		
 		return X86MemoryTarget.ofDisplaced(
 			type,
 			displacement,
-			base,
-			index,
+			toRegister(base, RegisterFlags.NO_LITERAL),
+			toRegister(index, RegisterFlags.NO_LITERAL),
 			scale
 		);
 	}
@@ -206,9 +193,31 @@ public class X86OperandHelper {
 				x86.RIP
 			);
 			
-		case IndexOperand index: { // [target+offset*scale]
+		case IndexOperand index: { // [target+offset]
 			AssemblyTarget base = generateOperand(index.getTarget());
 			AssemblyTarget offset = generateOperand(index.getOffset());
+			
+			if(base.getType().isArray() && !base.isRegister()) {
+				VirtualRegisterTarget reg = new VirtualRegisterTarget(base.getType());
+				
+				asm.add(X86InstructionKinds.LEA, reg, base);
+				
+				base = reg;
+			}
+			
+			/*
+			 * mov dword ptr [eax+5], 0
+			 * 
+			 * mov dword ptr [eax+ebx], 0
+			 * 
+			 * mov 
+			 */
+			
+			if(offset instanceof X86IntegerTarget integer && integer.getValue().compareTo(BigInteger.ZERO) == 0)
+				return X86MemoryTarget.of(
+					index.getType(),
+					toRegister(base, RegisterFlags.NO_LITERAL)
+				);
 			
 			return mergeMemory(
 				index.getType(),
@@ -241,7 +250,7 @@ public class X86OperandHelper {
 	public AssemblyTarget generateLocalOperand(SymbolObject local) {
 		if(local.isParameter())
 			return callingConvention.getParameter(local.getName());
-		
+
 		return localVariables.computeIfAbsent(
 			local,
 			obj -> new VirtualStackTarget(local.getType())

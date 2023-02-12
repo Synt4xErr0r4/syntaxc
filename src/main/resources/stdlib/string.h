@@ -26,8 +26,7 @@
 #ifndef _STRING_H
 #define _STRING_H
 
-#ifndef __HAS_NULL
-#define __HAS_NULL
+#ifndef NULL
 #define NULL ((void *) 0)
 #endif
 

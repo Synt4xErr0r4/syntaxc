@@ -333,6 +333,9 @@ public class ExpressionChecker implements Logable {
 			if(TypeUtils.isCompatible(left, right))
 				break;
 			
+			if(left.isPointer() && right.isInteger() && isNullPointer(exprRight))
+				break;
+			
 			error(
 				pos,
 				"Incompatible types for %s (got »%s« and »%s«)",

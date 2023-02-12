@@ -582,19 +582,29 @@ public class IntermediateGenerator {
 			operands[1] = new ConstantOperand(BigInteger.ZERO, operands[1].getType());
 		
 		else if(sz != 1) {
-			Type type = operands[1].getType();
+			BigInteger scale = BigInteger.valueOf(sz);
 			
-			Operand scaled = temporary(type);
+			if(operands[1] instanceof ConstantOperand cnst)
+				operands[1] = new ConstantOperand(
+					scale.multiply((BigInteger) cnst.getValue()),
+					cnst.getType()
+				);
 			
-			ir.add(new BinaryIntermediate(
-				pos,
-				scaled,
-				operands[1],
-				constant(BigInteger.valueOf(sz), type),
-				BinaryOperation.MULTIPLY
-			));
-			
-			operands[1] = scaled;
+			else {
+				Type type = operands[1].getType();
+				
+				Operand scaled = temporary(type);
+				
+				ir.add(new BinaryIntermediate(
+					pos,
+					scaled,
+					operands[1],
+					constant(scale, type),
+					BinaryOperation.MULTIPLY
+				));
+				
+				operands[1] = scaled;
+			}
 		}
 		
 		return index(
@@ -903,7 +913,7 @@ public class IntermediateGenerator {
 			);
 
 		Operand result = result(expr, ctx, true);
-
+		
 		ir.add(new UnaryIntermediate(
 			expr.getPosition(),
 			result,

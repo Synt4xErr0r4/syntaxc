@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.insn;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -47,7 +48,10 @@ public class X86Instruction extends AssemblyInstruction {
 			destination == null
 				? List.of()
 				: List.of(destination),
-			List.of(sources)
+			Arrays.asList(sources)
+				.stream()
+				.filter(t -> t != null)
+				.toList()
 		);
 	}
 	
@@ -66,47 +70,51 @@ public class X86Instruction extends AssemblyInstruction {
 		if(getKind() == X86InstructionKinds.LABEL)
 			return getDestinations().get(0) + ":";
 		
-		String strrep = "\t" + getKind().toString();
+		String strrep = "\t" + getKind();
 
 		boolean reverse = false;
 		
 		if(att && getKind() instanceof X86InstructionKinds kind) {
 			if(kind.isTakesSuffix())
 				strrep += X86InstructionSelector.getSuffix(
-					getDestinations()
-						.stream()
+					Stream.concat(
+						getDestinations().stream(),
+						getSources().stream()
+					)
 						.findFirst()
 						.map(AssemblyTarget::getType)
 						.orElse(Type.VOID)
 				);
 			
-			reverse = !kind.isX87();
+			else if(kind.isX87())
+				strrep += X86InstructionSelector.getX87Suffix(
+					Stream.concat(
+						getDestinations().stream(),
+						getSources().stream()
+					)
+						.filter(target -> !(target instanceof X86Register reg) || !X86Register.GROUP_ST.contains(reg))
+						.map(AssemblyTarget::getType)
+						.findFirst()
+						.orElse(Type.VOID)
+				);
+			
+			if(kind == X86InstructionKinds.FDIVP)
+				strrep = "\t" + X86InstructionKinds.FDIVRP;
+			
+			reverse = true;
 		}
 		
-		List<AssemblyTarget> dests = getDestinations();
+		String srcStr = toCommaSeparated(getSources(), att, reverse);
+		String dstStr = toCommaSeparated(getDestinations(), att, reverse);
 		
-		if(!dests.isEmpty()) {
-			AssemblyTarget dest = dests.get(0);
-			
-			String destStr = toString(dest, att);
-			String srcStr = "";
-			
-			var src = getSources();
-			
-			if(!src.isEmpty())
-				srcStr = src.stream()
-						.map(target -> toString(target, att))
-						.reduce((a, b) -> a + ", " + b)
-						.orElse("");
-
-			if(reverse) {
-				String tmp = srcStr;
-				srcStr = destStr;
-				destStr = tmp;
-			}
-			
-			strrep += " " + destStr + (destStr.isBlank() || srcStr.isBlank() ? "" : ", ") + srcStr;
+		if(reverse) {
+			String tmp = srcStr;
+			srcStr = dstStr;
+			dstStr = tmp;
 		}
+		
+		if(!dstStr.isBlank() || !srcStr.isBlank())
+			strrep += " " + dstStr + (dstStr.isBlank() || srcStr.isBlank() ? "" : ", ") + srcStr;
 		
 		return strrep;
 	}
@@ -114,6 +122,18 @@ public class X86Instruction extends AssemblyInstruction {
 	@Override
 	public String toString() {
 		return toAssemblyString(!X86Assembly.INSTANCE.intelSyntax);
+	}
+	
+	private static String toCommaSeparated(List<AssemblyTarget> targets, boolean att, boolean reverse) {
+		return targets.stream()
+			.filter(target -> target != null)
+			.map(target -> toString(target, att))
+			.reduce(
+				reverse
+					? (a, b) -> b + ", " + a
+					: (a, b) -> a + ", " + b
+			)
+			.orElse("");
 	}
 
 	private static String toString(AssemblyTarget target, boolean att) {

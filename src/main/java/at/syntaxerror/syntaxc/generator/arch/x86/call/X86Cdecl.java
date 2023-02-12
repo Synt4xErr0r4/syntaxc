@@ -144,17 +144,6 @@ public class X86Cdecl extends X86CallingConvention {
 
 	@Override
 	public void beforeCall() {
-		// FPU stack must be empty
-		fpuStore = new ArrayList<>();
-		
-		while(!generator.isFPUStackEmpty()) {
-			VirtualStackTarget tmp = new VirtualStackTarget(Type.LDOUBLE);
-			
-			generator.fstp(tmp);
-			
-			fpuStore.add(0, tmp);
-		}
-		
 		// eax, ecx, edx belong to the callee
 		X86Register[] scratchRegisters;
 		
@@ -304,6 +293,17 @@ public class X86Cdecl extends X86CallingConvention {
 				arg
 			)
 		);
+		
+		// FPU stack must be empty
+		fpuStore = new ArrayList<>();
+		
+		while(!generator.isFPUStackEmpty()) {
+			VirtualStackTarget tmp = new VirtualStackTarget(Type.LDOUBLE);
+			
+			generator.fstp(tmp);
+			
+			fpuStore.add(0, tmp);
+		}
 		
 		/**
 		 * perform function call and free stack space

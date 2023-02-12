@@ -154,13 +154,15 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 			}
 	}
 	
-	private void checkStackMemory(List<AssemblyTarget> targets, Map<VirtualStackTarget, Long> lastUse, long pos) {
+	private void checkStackMemory(List<AssemblyTarget> targets, Map<Long, Long> lastUse, long pos) {
 		for(int i = 0; i < targets.size(); ++i)
 			if(targets.get(i) instanceof VirtualStackTarget virtual)
-				lastUse.put(virtual, pos);
+				lastUse.put(virtual.getId(), pos);
 
 		targets.stream()
+			.filter(target -> target != null)
 			.map(AssemblyTarget::getNestedTargets)
+			.filter(list -> list != null && !list.isEmpty())
 			.forEach(list -> checkStackMemory(list, lastUse, pos));
 	}
 
@@ -170,18 +172,24 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 				targets.set(
 					i,
 					resolveVirtualMemory(
-						allocator.allocate(virtual), virtual.getType()
+						allocator.allocate(
+							virtual.getId(),
+							virtual.getType()
+						),
+						virtual.getType()
 					)
 				);
 		
 		targets.stream()
+			.filter(target -> target != null)
 			.map(AssemblyTarget::getNestedTargets)
+			.filter(list -> list != null && !list.isEmpty())
 			.forEach(this::allocateStackMemory);
 	}
 	
 	private void allocateStackMemory() {
-		Map<VirtualStackTarget, Long> lastUse = new HashMap<>();
-		Map<Long, List<VirtualStackTarget>> positions = new HashMap<>();
+		Map<Long, Long> lastUse = new HashMap<>();
+		Map<Long, List<Long>> positions = new HashMap<>();
 
 		long pos = 0;
 		
@@ -219,11 +227,13 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 				if(!assigned.containsKey(id))
 					Logger.softError("Failed to allocate physical register to virtual register %d. This is a bug.", id);
 				
-				else targets.set(i, assigned.get(id));
+				else targets.set(i, assigned.get(id).resized(virtual.getType()));
 			}
 
 		targets.stream()
+			.filter(target -> target != null)
 			.map(AssemblyTarget::getNestedTargets)
+			.filter(list -> list != null && !list.isEmpty())
 			.forEach(this::replaceVirtualRegisters);
 		
 		SyntaxC.checkTerminationState();
@@ -312,7 +322,9 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 			}
 		
 		targets.stream()
+			.filter(target -> target != null)
 			.map(AssemblyTarget::getNestedTargets)
+			.filter(list -> list != null && !list.isEmpty())
 			.forEach(list -> initLiveRanges(supplier, pos, copy, list));
 	}
 	

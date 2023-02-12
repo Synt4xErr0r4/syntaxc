@@ -66,9 +66,6 @@ public class GotoOptimizer {
 	 * - goto followed by label jumped to
 	 */
 	public List<Intermediate> optimize(List<Intermediate> intermediates, String returnLabel) {
-		if(!Optimizations.GOTO.isEnabled() && !Optimizations.JUMP_TO_JUMP.isEnabled())
-			return intermediates;
-		
 		aliases.clear();
 		jumps.clear();
 		redundants.clear();

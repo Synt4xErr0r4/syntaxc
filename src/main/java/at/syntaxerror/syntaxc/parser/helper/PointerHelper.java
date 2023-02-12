@@ -49,7 +49,11 @@ public class PointerHelper implements Logable {
 	}
 	
 	public static ExpressionNode addressOf(Positioned pos, ExpressionNode expr) {
-		return INSTANCE.addressOfImpl(pos, expr);
+		return INSTANCE.addressOfImpl(pos, expr, false);
+	}
+
+	public static ExpressionNode syntheticAddressOf(Positioned pos, ExpressionNode expr) {
+		return INSTANCE.addressOfImpl(pos, expr, true);
 	}
 	
 	@Override
@@ -87,14 +91,14 @@ public class PointerHelper implements Logable {
 		);
 	}
 
-	public ExpressionNode addressOfImpl(Positioned pos, ExpressionNode expr) {
+	public ExpressionNode addressOfImpl(Positioned pos, ExpressionNode expr, boolean synthetic) {
 		Type type = expr.getType();
 		
 		if(type.isBitfield())
 			error(pos, "Cannot take address of bit-field");
 		
-		else if(!((expr instanceof VariableExpressionNode var) && var.getVariable().isFunction())
-			&& !expr.isLvalue())
+		else if(!synthetic && !((expr instanceof VariableExpressionNode var)
+			&& var.getVariable().isFunction()) && !expr.isLvalue())
 			error(pos, "Cannot take address of rvalue");
 
 		if(expr instanceof UnaryExpressionNode unop)

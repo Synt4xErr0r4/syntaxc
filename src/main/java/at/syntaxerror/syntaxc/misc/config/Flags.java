@@ -33,7 +33,7 @@ import lombok.Setter;
 @Getter
 public enum Flags implements Toggleable {
 	
-	NO_STDLIB			("stdlib",								"Adds default library paths to the include path"),
+	STDLIB				("stdlib",								"Adds default library paths to the include path"),
 	ELIFDEF				("elifdef", 							"Specifies whether §c#elifdef §fand §c#elifndef §fpreprocessing directives are allowed"),
 	FUNC				("func",								"Specifies whether §c__FUNCTION__ §fand §c__func__ §freturn the current function name"),
 	BINARY_LITERALS		("binary-literals",						"Specifies whether binary literals are allowed"),

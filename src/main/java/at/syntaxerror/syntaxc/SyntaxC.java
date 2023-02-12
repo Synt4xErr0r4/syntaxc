@@ -471,6 +471,7 @@ public class SyntaxC {
 	 * @param e the occured exception
 	 */
 	private static void outputFailed(Exception e) {
+		e.printStackTrace();
 		Logger.error("Failed to write to output file: %s", e.getMessage());
 		System.exit(1);
 	}

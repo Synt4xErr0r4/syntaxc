@@ -120,10 +120,10 @@ public class IncludePathRegistry {
 			return isValidFile(path) ? path : null;
 		
 		Path target = sibling.resolveSibling(path);
-		
+
 		if(isValidFile(target))
 			return target;
-		
+
 		return INCLUDE_PATH
 			.stream()
 			.map(p -> p.resolve(path))

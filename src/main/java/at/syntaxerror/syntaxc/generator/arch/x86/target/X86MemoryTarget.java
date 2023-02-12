@@ -47,28 +47,40 @@ import lombok.Setter;
 @Setter(AccessLevel.PRIVATE)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class X86MemoryTarget extends X86AssemblyTarget {
+	
+	private static void checkRegister(AssemblyTarget target, String name) {
+		if(target != null && !(target instanceof X86Register) && !(target instanceof VirtualRegisterTarget))
+			Logger.error("%s is not a register", name);
+	}
+	
+	private static AssemblyTarget requireDword(AssemblyTarget target) {
+		return target == null
+			? null
+			: target.minimum(X86Size.DWORD.getType());
+	}
 
 	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
 			AssemblyTarget base, AssemblyTarget index, long scale) {
 		
 		if(scale != 0 && scale != 1 && scale != 2 && scale != 4 && scale != 8)
 			Logger.error("Illegal scale %d for memory target", scale);
-
-		if(segment != null && !(segment instanceof X86Register))
-			Logger.error("Segment is not a register");
 		
-		if(base != null && !(base instanceof X86Register) && !(base instanceof VirtualRegisterTarget)) {
-			new Throwable().printStackTrace();
-			
-			Logger.error("Base is not a register");}
-		
-		if(index != null && !(index instanceof X86Register) && !(index instanceof VirtualRegisterTarget))
-			Logger.error("Index is not a register");
-		
-		if(index != null && !(disp instanceof X86IntegerTarget))
+		if(disp != null && !(disp instanceof X86IntegerTarget) && !(disp instanceof X86LabelTarget))
 			Logger.error("Displacement is not an integer");
 		
-		return new X86MemoryTarget(type, X86Size.of(type), segment, disp, base, index, scale);
+		checkRegister(segment, "Segment");
+		checkRegister(base, "Base");
+		checkRegister(index, "Index");
+		
+		return new X86MemoryTarget(
+			type,
+			X86Size.of(type),
+			segment,
+			disp,
+			requireDword(base),
+			requireDword(index),
+			scale
+		);
 	}
 
 	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
@@ -227,9 +239,12 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			boolean hasBase = base != X86Register.EIP;
 			boolean hasPredecessor = hasBase;
 			
-			if(hasBase)
-				sb = sb.append('[')
-					.append(toAssemblyString(base, attSyntax));
+			if(hasBase) {
+				sb = sb.append('[');
+				
+				if(base != null)
+					sb = sb.append(toAssemblyString(base, attSyntax));
+			}
 
 			if(hasIndex()) {
 				sb = sb.append(

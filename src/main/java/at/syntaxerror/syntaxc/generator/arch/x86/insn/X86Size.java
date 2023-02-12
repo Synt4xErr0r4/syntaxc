@@ -66,8 +66,14 @@ public enum X86Size {
 				? YMMWORD // 64-bit __builtin_va_list has 24 bytes
 				: DWORD; // 64-bit __builtin_va_list has 4 bytes
 		
+		if(type.isEnum())
+			type = type.toEnum().asNumberType();
+		
 		if(!type.isScalar())
 			return X86Size.UNKNOWN;
+		
+		if(type.isArray())
+			type = Type.VOID.addressOf();
 		
 		return ofPrimitive(type.sizeof());
 	}

@@ -33,8 +33,7 @@
 #define LC_NUMERIC  __LC_NUMERIC
 #define LC_TIME     __LC_TIME
 
-#ifndef __HAS_NULL
-#define __HAS_NULL
+#ifndef NULL
 #define NULL ((void *) 0)
 #endif
 

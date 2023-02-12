@@ -151,8 +151,6 @@ public class PreParser extends ExpressionParser implements Logable {
 		if(parenthesized)
 			require(")");
 		
-		next();
-		
 		return ExpressionHelper.newNumber(
 			pos,
 			preprocessor.resolveMacro(macro.getString()) == null
@@ -180,11 +178,21 @@ public class PreParser extends ExpressionParser implements Logable {
 					Type.INT
 				);
 			}
-
-			inserted.addAll(preprocessor.substitute(current, true));
+			
+			if(preprocessor.resolveMacro(current.getString()) == null) {
+				warn(current, "Undefined symbol »%s«", current.getString());
+				
+				inserted.add(Token.ofConstant(
+					current.getPosition(),
+					BigInteger.ZERO,
+					NumericValueType.SIGNED_INT
+				));
+			}
+			
+			else inserted.addAll(preprocessor.substitute(current, true));
 			
 			next();
-
+			
 			return nextExpression();
 		}
 		
@@ -234,8 +242,13 @@ public class PreParser extends ExpressionParser implements Logable {
 		next();
 		
 		try {
-			return nextIntegerConstantExpression()
+			boolean result = nextIntegerConstantExpression()
 				.compareTo(BigInteger.ZERO) != 0;
+			
+			if(!eol)
+				softError("Trailing data after expression");
+			
+			return result;
 		} catch (AbortException e) {
 			return false;
 		}
