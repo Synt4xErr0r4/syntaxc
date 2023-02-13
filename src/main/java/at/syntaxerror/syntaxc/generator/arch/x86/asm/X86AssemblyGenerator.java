@@ -676,7 +676,9 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			unsigned
 				? X86InstructionKinds.DIV
 				: X86InstructionKinds.IDIV,
-			right
+			right.isMemory()
+				? right
+				: toRegister(right, RegisterFlags.NO_LITERAL)
 		);
 		
 		if(size == X86Size.BYTE)
@@ -1149,11 +1151,14 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 	private void generateCall(CallIntermediate call) {
 		callingConvention.beforeCall();
 		
+		Type type = call.getFunction().getType();
+		
+		if(type.isPointer())
+			type = type.dereference();
+		
 		callingConvention.call(
 			generateOperand(call.getFunction()),
-			call.getFunction()
-				.getType()
-				.toFunction(),
+			type.toFunction(),
 			call.getArguments()
 				.stream()
 				.map(this::generateOperand)

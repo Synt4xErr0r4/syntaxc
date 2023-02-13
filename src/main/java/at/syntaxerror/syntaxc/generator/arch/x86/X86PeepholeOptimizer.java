@@ -67,12 +67,34 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 		
 		additives.clear();
 		
+		AssemblyInstruction call = null;
+		
+		boolean hasModified = false;
+		
 		for(AssemblyInstruction insn : asm) {
 			
 			AssemblyInstructionKind insnKind = insn.getKind();
 			
 			if(!(insnKind instanceof X86InstructionKinds kind))
 				continue;
+			
+			if(kind == X86InstructionKinds.RET && call != null) {
+				insn.insertAfter(new X86Instruction(
+					asm,
+					X86InstructionKinds.JMP,
+					call.getDestinations().get(0)
+				));
+				
+				insn.remove();
+				call.remove();
+				
+				call = null;
+				hasModified = true;
+				continue;
+			}
+			
+			if(kind != X86InstructionKinds.LABEL)
+				call = kind == X86InstructionKinds.CALL ? insn : null;
 			
 			if(kind == X86InstructionKinds.CLOBBER) {
 				insn.remove();
@@ -109,7 +131,8 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 							reg
 						));
 						insn.remove();
-						
+
+						hasModified = true;
 						continue;
 					}
 					
@@ -119,6 +142,7 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 						 * 	mov eax, eax
 						 */
 						insn.remove();
+						hasModified = true;
 						continue;
 					}
 					
@@ -141,6 +165,7 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 						 */
 						
 						insn.remove();
+						hasModified = true;
 						continue;
 					}
 					
@@ -195,6 +220,8 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 						}
 						
 						insn.remove();
+						
+						hasModified = true;
 					}
 					
 					additives.put(dst, Pair.of(value, insn));
@@ -203,6 +230,9 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 			}
 			
 		}
+		
+		if(hasModified)
+			optimize(asm);
 	}
 	
 }

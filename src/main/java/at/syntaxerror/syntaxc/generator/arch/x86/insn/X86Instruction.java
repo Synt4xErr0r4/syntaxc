@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86Assembly;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86AssemblyTarget;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
@@ -73,8 +74,13 @@ public class X86Instruction extends AssemblyInstruction {
 		String strrep = "\t" + getKind();
 
 		boolean reverse = false;
+		boolean asterisk = false;
 		
 		if(att && getKind() instanceof X86InstructionKinds kind) {
+			
+			// indirect procedure call: 'call *eax'
+			asterisk = getKind() == X86InstructionKinds.CALL && !(getDestinations().get(0) instanceof X86LabelTarget);
+			
 			if(kind.isTakesSuffix())
 				strrep += X86InstructionSelector.getSuffix(
 					Stream.concat(
@@ -106,6 +112,9 @@ public class X86Instruction extends AssemblyInstruction {
 		
 		String srcStr = toCommaSeparated(getSources(), att, reverse);
 		String dstStr = toCommaSeparated(getDestinations(), att, reverse);
+		
+		if(asterisk)
+			dstStr = "*" + dstStr;
 		
 		if(reverse) {
 			String tmp = srcStr;

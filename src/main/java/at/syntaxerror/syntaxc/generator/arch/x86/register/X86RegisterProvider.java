@@ -65,7 +65,8 @@ public class X86RegisterProvider {
 	
 	private static boolean isInteger(Type type) {
 		return type.isInteger()
-			|| type.isPointerLike();
+			|| type.isPointerLike()
+			|| type.isFunction();
 	}
 	
 	private static boolean isXMMFloat(Type type) {

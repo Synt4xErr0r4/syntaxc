@@ -69,11 +69,11 @@ public enum X86Size {
 		if(type.isEnum())
 			type = type.toEnum().asNumberType();
 		
+		if(type.isArray() || type.isFunction())
+			type = Type.VOID.addressOf();
+		
 		if(!type.isScalar())
 			return X86Size.UNKNOWN;
-		
-		if(type.isArray())
-			type = Type.VOID.addressOf();
 		
 		return ofPrimitive(type.sizeof());
 	}

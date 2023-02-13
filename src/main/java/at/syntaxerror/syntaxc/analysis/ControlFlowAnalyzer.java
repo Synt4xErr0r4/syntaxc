@@ -103,7 +103,7 @@ public class ControlFlowAnalyzer implements Logable {
 		generateNodes(name, intermediates);
 		checkNodes();
 		
-		return blocks.values()
+		List<Intermediate> result = blocks.values()
 			.stream()
 			.map(
 				node -> node.dead || node.code == null
@@ -116,6 +116,11 @@ public class ControlFlowAnalyzer implements Logable {
 					return a;
 				}
 			);
+		
+		if(result.isEmpty() || !(result.get(result.size() - 1) instanceof LabelIntermediate label && label.getLabel().equals(returnLabel)))
+			result.add(new LabelIntermediate(pos, returnLabel));
+		
+		return result;
 	}
 	
 	public CFGNode getGraph() {

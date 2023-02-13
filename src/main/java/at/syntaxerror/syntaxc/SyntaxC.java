@@ -228,20 +228,24 @@ public class SyntaxC {
 				SymbolObject object = function.getObject();
 				String name = object.getName();
 				
-				String returnLabel = object.getFunctionData().returnLabel();
+				final String returnLabel = object.getFunctionData().returnLabel();
 				
-				var intermediates = analyzer.checkDeadCode(
-					function.getPosition(),
-					name,
-					gotoOptimizer.optimize(
-						intermediateGenerator.toIntermediateRepresentation(
-							function.getBody().getStatements()
-						),
-						returnLabel
-					),
-					returnLabel
+				var intermediates = intermediateGenerator.toIntermediateRepresentation(
+					function.getBody().getStatements()
 				);
 				
+				intermediates = gotoOptimizer.optimize(
+					intermediates,
+					returnLabel
+				);
+
+				intermediates = analyzer.checkDeadCode(
+					function.getPosition(),
+					name,
+					intermediates,
+					returnLabel
+				);
+
 				intermediates = gotoOptimizer.optimize(intermediates, returnLabel);
 				
 				intermediate.put(

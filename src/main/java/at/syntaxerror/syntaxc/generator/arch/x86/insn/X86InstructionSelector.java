@@ -100,7 +100,7 @@ public class X86InstructionSelector {
 	}
 	
 	public static String getSuffix(Type type) {
-		if(type.isArray())
+		if(type.isArray() || type.isFunction())
 			type = Type.VOID.addressOf();
 		
 		if(!type.isScalar())
@@ -116,7 +116,7 @@ public class X86InstructionSelector {
 	}
 	
 	public static String getX87Suffix(Type type) {
-		if(type.isArray())
+		if(type.isArray() || type.isFunction())
 			type = Type.VOID.addressOf();
 		
 		if(!type.isScalar())
@@ -142,6 +142,9 @@ public class X86InstructionSelector {
 	public static X86InstructionKinds select(X86InstructionKinds base, Type type) {
 		if(!MAPPINGS.containsKey(base))
 			return base;
+		
+		if(type.isFunction())
+			type = Type.VOID.addressOf();
 		
 		int index;
 		

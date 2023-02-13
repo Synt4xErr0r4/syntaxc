@@ -374,10 +374,22 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 				continue;
 			
 			Set<Long> intervals = new HashSet<>(live.getInterference());
-			
 			intervals.add(key);
 			
-			int spillCount = intervals.size() - maxDegree;
+			Set<LiveInterval> liveIntervals = intervals.stream()
+				.map(this.intervals::get)
+				.collect(Collectors.toSet());
+			
+			long size = liveIntervals.stream()
+				.mapToLong(
+					interval -> liveIntervals.stream()
+						.filter(interval::interferesWith)
+						.count()
+				)
+				.max()
+				.orElse(0);
+			
+			long spillCount = size - maxDegree;
 			
 			if(spillCount > 0)
 				spills.add(new PendingSpill(
@@ -513,7 +525,7 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 		// TODO
 	}
 	
-	private static record PendingSpill(Set<Long> intervals, int count) {
+	private static record PendingSpill(Set<Long> intervals, long count) {
 		
 	}
 	

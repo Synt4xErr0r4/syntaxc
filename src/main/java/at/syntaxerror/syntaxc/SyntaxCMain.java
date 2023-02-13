@@ -78,8 +78,6 @@ public class SyntaxCMain {
 			}
 		);
 		
-		System.out.println();
-		
 		/* make sure to load classes */
 		MachineSpecifics.init();
 		Flags.init();
@@ -99,9 +97,10 @@ public class SyntaxCMain {
 				"-m32", 
 				"-fno-long-double",
 				"-Wno-all",
-				"-o", "-",
+				//"-o", "-",
+				"-o", "/dev/null",
 				"-I/opt/syntaxc/test/benchmark/ansibench-master/coremark/include",
-				"/opt/syntaxc/test/benchmark/ansibench-master/coremark/src/core_state.c",
+				"/opt/syntaxc/test/benchmark/ansibench-master/coremark/src/core_main.c",
 				//"/opt/syntaxc/test/test.c",
 				"-DCORE_DEBUG=0",
 				"-DMEM_METHOD=MEM_STATIC",

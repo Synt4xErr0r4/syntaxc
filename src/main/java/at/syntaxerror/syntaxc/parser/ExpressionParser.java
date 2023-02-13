@@ -487,23 +487,6 @@ public class ExpressionParser extends AbstractParser {
 				if(!kAndR && arguments.size() < n)
 					error(expr, "Too few arguments for function call");
 				
-				/* dereference function pointer:
-				 * 
-				 * void (*func)();
-				 * ...
-				 * func();
-				 * ...
-				 * 
-				 * is equivalent to:
-				 * 
-				 * void (*func)();
-				 * ...
-				 * (*func)();
-				 * ...
-				 */
-				if(exprType.isPointer())
-					expr = PointerHelper.dereference(expr, expr);
-				
 				expr = new CallExpressionNode(expr.getPosition(), expr, arguments, fnType);
 				continue;
 			}
