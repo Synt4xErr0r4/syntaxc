@@ -156,8 +156,13 @@ public class SymbolHelper implements Logable {
 			 *   int some_name;
 			 * 
 			 * here, the second declaration of some_name is discarded, since both declarations are equivalent
+			 * 
+			 *   extern int some_name;
+			 *   int some_name;
+			 *   
+			 * in this case, however, the latter declaration has priority instead
 			 */
-			else if(state.linkage() == Linkage.EXTERNAL)
+			else if(state.linkage() == Linkage.EXTERNAL && obj.isExtern() == state.external())
 				return null;
 			
 			/**

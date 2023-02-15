@@ -1156,8 +1156,23 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		if(type.isPointer())
 			type = type.dereference();
 		
+		AssemblyTarget function = generateOperand(call.getFunction());
+		
+		if(function instanceof X86MemoryTarget mem
+			&& mem.getType().isFunction()
+			&& mem.hasDisplacement()
+			&& mem.getDisplacement() instanceof X86LabelTarget label
+			&& mem.getBase() instanceof X86Register base
+			&& X86Register.RIP.intersects(base)
+			&& !mem.hasIndex())
+			function = X86MemoryTarget.ofDisplaced(
+				Type.VOID,
+				mem.getDisplacement(),
+				x86.RIP
+			);
+		
 		callingConvention.call(
-			generateOperand(call.getFunction()),
+			function,
 			type.toFunction(),
 			call.getArguments()
 				.stream()

@@ -285,7 +285,6 @@ public class SyntaxC {
 		serial.fileBegin();
 		
 		for(SymbolObject sym : symbols) {
-			
 			if(sym.isPrototype() || sym.isTypedef() || sym.isExtern())
 				continue;
 			

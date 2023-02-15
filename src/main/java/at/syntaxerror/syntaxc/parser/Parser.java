@@ -403,7 +403,7 @@ public class Parser extends AbstractParser {
 		while(next() != null)
 			nodes.addAll(nextExternalDeclaration());
 		
-		for(var it = nodes.iterator(); it.hasNext();) {
+		/*for(var it = nodes.iterator(); it.hasNext();) {
 			SymbolObject object = it.next().getObject();
 			
 			if(object.isUnused()) {
@@ -415,7 +415,7 @@ public class Parser extends AbstractParser {
 					it.remove();
 				
 			}
-		}
+		}*/
 		
 		leaveScope();
 		

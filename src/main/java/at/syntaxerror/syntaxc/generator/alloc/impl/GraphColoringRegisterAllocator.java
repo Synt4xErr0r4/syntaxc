@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 import java.util.stream.Collectors;
 
 import at.syntaxerror.syntaxc.SyntaxC;
@@ -516,8 +517,56 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 			);
 	}
 	
+	private boolean areSpillsSatisfied(List<Long> toBeSpilled) {
+		return spills.stream()
+			.allMatch(pending ->
+				pending.intervals()
+					.stream()
+					.map(this::resolveCoalescedId)
+					.filter(toBeSpilled::contains)
+					.count() >= pending.count()
+			);
+	}
+	
 	private void estimateSpillCost() {
+		Map<Long, Long> spillCounts = spills.stream()
+			.map(PendingSpill::intervals)
+			.flatMap(Set::stream)
+			.collect(Collectors.toMap(
+				this::resolveCoalescedId,
+				v -> 1L,
+				Long::sum
+			));
+		
+		List<Long> toBeSpilled = new ArrayList<>();
+		
+		Stack<Long> pending = spillCounts
+			.entrySet()
+			.stream()
+			.map(e -> Pair.of(e, intervals.get(e.getKey())))
+			.sorted((a, b) -> b.getRight().compareTo(a.getRight()))
+			.mapToLong(p -> p.getLeft().getKey())
+			.collect(
+				Stack::new,
+				Stack::add,
+				Stack::addAll
+			);
+		
+		boolean skip;
+		
+		do {
+			if(pending.empty())
+				Logger.error("Spill estimation failed");
+			
+			long id = pending.pop();
+			
+			toBeSpilled.add(id);
+			
+			skip = false;
+		} while(skip || !areSpillsSatisfied(toBeSpilled));
+		
 		// TODO
+		
 		Logger.error("Failed to allocate registers without spilling");
 	}
 	
@@ -526,6 +575,12 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 	}
 	
 	private static record PendingSpill(Set<Long> intervals, long count) {
+		
+	}
+	
+	@SuppressWarnings("unused")
+	private static record EstimatedSpill(LiveInterval interval, List<LiveInterval> spillIntervals,
+			long useCount, long definitionCount, long spillCount) {
 		
 	}
 	

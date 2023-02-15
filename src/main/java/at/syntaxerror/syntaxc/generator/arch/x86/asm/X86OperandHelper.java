@@ -37,6 +37,7 @@ import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget.X86Displacement;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86StringTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
@@ -94,41 +95,70 @@ public class X86OperandHelper {
 		localVariables.put(object, target);
 	}
 	
-	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget index) {
+	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget offset) {
 		AssemblyTarget displacement = null;
+		AssemblyTarget index = null;
 		
 		long scale = 1;
 		
+		boolean isDisplacement = offset instanceof X86IntegerTarget || offset instanceof X86LabelTarget;
+		
 		if(base instanceof X86MemoryTarget mem) {
-			
-			displacement = mem.getDisplacement();
+
 			base = mem.getBase();
+			displacement = mem.getDisplacement();
+			index = mem.getIndex();
 			scale = mem.getScale();
 			
-			if(mem.hasDisplacement()) {
-				boolean dispInt = index instanceof X86IntegerTarget;
-				boolean memInt = displacement instanceof X86IntegerTarget;
+			if(isDisplacement) {
 				
-				if(dispInt && memInt) {
-					X86IntegerTarget idxOff = (X86IntegerTarget) index;
-					X86IntegerTarget memOff = (X86IntegerTarget) displacement;
+				if(mem.hasDisplacement()) {
 					
-					displacement = new X86IntegerTarget(
-						type,
-						idxOff.getValue().add(memOff.getValue())
-					);
+					if(offset instanceof X86IntegerTarget && displacement instanceof X86IntegerTarget) {
+						X86IntegerTarget idxOff = (X86IntegerTarget) offset;
+						X86IntegerTarget memOff = (X86IntegerTarget) displacement;
+						
+						displacement = new X86IntegerTarget(
+							type,
+							idxOff.getValue().add(memOff.getValue())
+						);
+					}
+					else displacement = new X86Displacement(displacement, offset);
+					
 				}
+				else displacement = offset;
+				
+			}
+			else {
+				
+				if(mem.hasIndex()) {
+					
+					AssemblyTarget temporary = toRegister(index, RegisterFlags.REASSIGN);
+					
+					asm.add(X86InstructionKinds.ADD, temporary, offset);
+					
+					index = temporary;
+					
+				}
+				else index = toRegister(offset);
 				
 			}
 		
 		}
 		
+		else if(isDisplacement)
+			displacement = offset;
+		
+		else index = toRegister(offset);
+		
 		return X86MemoryTarget.ofDisplaced(
 			type,
 			displacement,
 			toRegister(base, RegisterFlags.NO_LITERAL),
-			toRegister(index, RegisterFlags.NO_LITERAL),
-			scale
+			index,
+			index == null
+				? 0
+				: Math.max(scale, 1)
 		);
 	}
 	
@@ -234,7 +264,7 @@ public class X86OperandHelper {
 			
 			Member mem = member.getMember();
 			Type type = member.getType();
-			
+
 			if(mem.isBitfield())
 				return generateBitfieldOperand(type, target, mem);
 			

@@ -35,7 +35,7 @@ import lombok.Setter;
  */
 @Setter
 @Getter
-public class LiveInterval {
+public class LiveInterval implements Comparable<LiveInterval> {
 
 	private long from, to;
 	
@@ -62,6 +62,11 @@ public class LiveInterval {
 				|| (to >= live.from && to <= live.to);
 		
 		return other.interferesWith(this);
+	}
+	
+	@Override
+	public int compareTo(LiveInterval o) {
+		return Long.compare(to - from, o.to - o.from);
 	}
 
 	@Override

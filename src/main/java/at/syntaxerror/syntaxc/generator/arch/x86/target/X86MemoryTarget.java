@@ -236,17 +236,17 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 				sb.append(toAssemblyString(segment, attSyntax))
 					.append(':');
 
-			boolean hasBase = base != X86Register.EIP;
+			boolean hasBase = base != X86Register.EIP && base != null;
+			boolean hasIndex = hasIndex();
 			boolean hasPredecessor = hasBase;
 			
-			if(hasBase) {
+			if(hasBase || hasIndex)
 				sb = sb.append('[');
-				
-				if(base != null)
-					sb = sb.append(toAssemblyString(base, attSyntax));
-			}
+			
+			if(hasBase)
+				sb = sb.append(toAssemblyString(base, attSyntax));
 
-			if(hasIndex()) {
+			if(hasIndex) {
 				sb = sb.append(
 					hasPredecessor
 						? toSignedString(index, attSyntax)
@@ -267,7 +267,7 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 						: toAssemblyString(displacement, attSyntax)
 				);
 
-			if(hasBase)
+			if(hasBase || hasIndex)
 				sb = sb.append(']');
 		}
 		
@@ -291,6 +291,39 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			sign = "";
 		
 		return sign + toAssemblyString(target, attSyntax);
+	}
+	
+	public static class X86Displacement extends X86AssemblyTarget {
+
+		private List<AssemblyTarget> targets;
+		
+		public X86Displacement(AssemblyTarget...targets) {
+			this.targets = List.of(targets);
+		}
+		
+		@Override
+		public Type getType() {
+			return Type.LONG;
+		}
+
+		@Override
+		public AssemblyTarget resized(Type type) {
+			return this;
+		}
+
+		@Override
+		public String toAssemblyString(boolean attSyntax) {
+			StringBuilder sb = new StringBuilder();
+			
+			if(!targets.isEmpty())
+				sb.append(X86MemoryTarget.toAssemblyString(targets.get(0), attSyntax));
+			
+			for(int i = 1; i < targets.size(); ++i)
+				sb.append(X86MemoryTarget.toSignedString(targets.get(i), attSyntax));
+			
+			return sb.toString();
+		}
+		
 	}
 	
 }
