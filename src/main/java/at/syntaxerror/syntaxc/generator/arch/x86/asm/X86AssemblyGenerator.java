@@ -54,6 +54,7 @@ import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86OffsetTarget;
 import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.PrologueEpilogueInserter;
@@ -72,6 +73,8 @@ import at.syntaxerror.syntaxc.intermediate.representation.AssignIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BinaryIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BuiltinIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallParameterIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallStartIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.CastIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
@@ -120,7 +123,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 	private List<ConditionFlags> conditionFlags;
 	private Condition condition;
 	
-	private X86CallingConvention callingConvention;
+	private X86CallingConvention<? extends Object> callingConvention;
 	
 	@Override
 	public RegisterAllocator getRegisterAllocator(Instructions asm) {
@@ -211,16 +214,18 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 	@Override
 	public void generate(Intermediate intermediate) {
 		switch(intermediate) {
-		case AssignIntermediate assign:		generateAssign	(assign);	break;
-		case BinaryIntermediate binary:		generateBinary	(binary);	break;
-		case BuiltinIntermediate builtin:	generateBuiltin	(builtin);	break;
-		case CallIntermediate call:			generateCall	(call);		break;
-		case CastIntermediate cast:			generateCast	(cast);		break;
-		case JumpIntermediate jump:			generateJump	(jump);		break;
-		case LabelIntermediate label:		generateLabel	(label);	break;
-		case UnaryIntermediate unary:		generateUnary	(unary);	break;
-		case MemcpyIntermediate memcpy:		generateMemcpy	(memcpy);	break;
-		case MemsetIntermediate memset:		generateMemset	(memset);	break;
+		case AssignIntermediate assign:			generateAssign			(assign);	break;
+		case BinaryIntermediate binary:			generateBinary			(binary);	break;
+		case BuiltinIntermediate builtin:		generateBuiltin			(builtin);	break;
+		case CallStartIntermediate call:		generateCallStart		(call);		break;
+		case CallParameterIntermediate call:	generateCallParameter	(call);		break;
+		case CallIntermediate call:				generateCall			(call);		break;
+		case CastIntermediate cast:				generateCast			(cast);		break;
+		case JumpIntermediate jump:				generateJump			(jump);		break;
+		case LabelIntermediate label:			generateLabel			(label);	break;
+		case UnaryIntermediate unary:			generateUnary			(unary);	break;
+		case MemcpyIntermediate memcpy:			generateMemcpy			(memcpy);	break;
+		case MemsetIntermediate memset:			generateMemset			(memset);	break;
 		default:
 			Logger.error("Illegal intermediate: %s", intermediate.getClass());
 			break;
@@ -1147,16 +1152,27 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			break;
 		}
 	}
+	
+	private Map<CallIntermediate, Object> callingContexts = new HashMap<>();
 
+	private void generateCallStart(CallStartIntermediate call) {
+		callingContexts.put(call.getCall(), callingConvention.createCallingContext(call));
+	}
+	
+	private void generateCallParameter(CallParameterIntermediate call) {
+		callingConvention.passParameterUnchecked(callingContexts.get(call.getCall()), call);
+	}
+	
 	private void generateCall(CallIntermediate call) {
-		callingConvention.beforeCall();
-		
 		Type type = call.getFunction().getType();
 		
 		if(type.isPointer())
 			type = type.dereference();
 		
 		AssemblyTarget function = generateOperand(call.getFunction());
+		
+		if(function instanceof X86IntegerTarget)
+			function = toRegister(function, RegisterFlags.NO_LITERAL);
 		
 		if(function instanceof X86MemoryTarget mem
 			&& mem.getType().isFunction()
@@ -1171,14 +1187,10 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 				x86.RIP
 			);
 		
-		callingConvention.call(
+		callingConvention.callUnchecked(
+			callingContexts.remove(call),
 			function,
-			type.toFunction(),
-			call.getArguments()
-				.stream()
-				.map(this::generateOperand)
-				.iterator(),
-			generateOperand(call.getTarget())
+			call.getTarget()
 		);
 	}
 
@@ -1476,7 +1488,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 				condition,
 				generateOperand(operand),
 				constant(0),
-				false
+				true
 			);
 			
 			operand = condition;
@@ -1546,7 +1558,13 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		if(op == UnaryOperation.ADDRESS_OF)
 			assignDynamicRegister(
 				dst,
-				reg -> asm.add(X86InstructionKinds.LEA, reg, target)
+				reg -> asm.add(
+					target instanceof X86OffsetTarget
+						? X86InstructionKinds.MOV
+						: X86InstructionKinds.LEA,
+					reg,
+					target
+				)
 			);
 
 		/*
@@ -1564,7 +1582,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 				dst,
 				target,
 				constant(0),
-				true
+				false
 			);
 		
 		else assignDynamic(

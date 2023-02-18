@@ -28,6 +28,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import at.syntaxerror.syntaxc.builtin.BuiltinFunction.ExpressionArgument;
 import at.syntaxerror.syntaxc.intermediate.operand.ConditionOperand;
@@ -36,6 +38,7 @@ import at.syntaxerror.syntaxc.intermediate.operand.GlobalOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.IndexOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.MemberOperand;
+import at.syntaxerror.syntaxc.intermediate.operand.OffsetOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.intermediate.operand.TemporaryOperand;
 import at.syntaxerror.syntaxc.intermediate.representation.AssignIntermediate;
@@ -43,6 +46,8 @@ import at.syntaxerror.syntaxc.intermediate.representation.BinaryIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.BinaryIntermediate.BinaryOperation;
 import at.syntaxerror.syntaxc.intermediate.representation.BuiltinIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallParameterIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallStartIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.CastIntermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.Intermediate;
 import at.syntaxerror.syntaxc.intermediate.representation.JumpIntermediate;
@@ -163,6 +168,10 @@ public class IntermediateGenerator {
 		return new TemporaryOperand(type);
 	}
 
+	private static OffsetOperand offset(Operand base, Operand index, Type type) {
+		return new OffsetOperand(base, index, type);
+	}
+	
 	private static IndexOperand index(Operand base, Operand index, Type type) {
 		return new IndexOperand(base, index, type);
 	}
@@ -330,7 +339,7 @@ public class IntermediateGenerator {
 	}
 	
 	private Operand processAssignmentExpression(BinaryExpressionNode expr, IRContext ctx) {
-		
+
 		Position pos = expr.getPosition();
 		
 		boolean needResult = ctx.needResult();
@@ -607,7 +616,7 @@ public class IntermediateGenerator {
 			}
 		}
 		
-		return index(
+		return offset(
 			operands[0],
 			operands[1],
 			expr.getType()
@@ -691,25 +700,48 @@ public class IntermediateGenerator {
 	}
 
 	private Operand processCallExpression(CallExpressionNode expr, IRContext ctx) {
+
+		AtomicReference<CallIntermediate> callRef = new AtomicReference<>();
+		
+		Supplier<CallIntermediate> callSupplier = callRef::get;
+		
+		CallStartIntermediate start = new CallStartIntermediate(callSupplier);
+		ir.add(start);
 		
 		Operand result = result(expr, ctx, false);
-
-		List<Operand> args = expr.getParameters()
-			.stream()
-			.map(arg -> processExpression(arg, IRContext.DEFAULT))
-			.toList();
-
+		
+		List<CallParameterIntermediate> params = new ArrayList<>();
+		List<Operand> args = new ArrayList<>();
+		
+		int index = 0;
+		
+		for(ExpressionNode arg : expr.getParameters()) {
+			
+			Operand operand = processExpression(arg, IRContext.DEFAULT);
+			args.add(operand);
+			
+			CallParameterIntermediate param = new CallParameterIntermediate(callSupplier, index++, operand);
+			params.add(param);
+			
+			ir.add(param);
+		}
+		
 		Operand function = processExpression(
 			expr.getTarget(),
 			ctx.reset()
 		);
 		
-		ir.add(new CallIntermediate(
+		callRef.set(new CallIntermediate(
 			expr.getPosition(),
 			result,
 			function,
 			args
 		));
+		
+		ir.add(callSupplier.get());
+		
+		start.finish();
+		params.forEach(CallParameterIntermediate::finish);
 		
 		return result;
 	}
@@ -723,7 +755,7 @@ public class IntermediateGenerator {
 			return processExpression(
 				expr.getTarget(),
 				ctx.reset()
-			);
+			).withType(castType);
 		
 		Operand result = result(expr, ctx, false);
 
@@ -824,12 +856,12 @@ public class IntermediateGenerator {
 
 		String name = expr.getMember();
 		
-		StructType.Member member = expr
-			.getTarget()
-			.getType()
-			.dereference()
-			.toStructLike()
-			.getMember(name);
+		Type type = expr.getTarget().getType();
+		
+		if(type.isPointer())
+			type = type.dereference();
+		
+		StructType.Member member = type.toStructLike().getMember(name);
 		
 		Operand target = processExpression(
 			expr.getTarget(),

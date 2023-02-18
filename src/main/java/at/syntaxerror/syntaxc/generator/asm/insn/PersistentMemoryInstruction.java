@@ -1,4 +1,4 @@
-/* MIT LicenseAssemblyTarget.super.isRegister()
+/* MIT License
  * 
  * Copyright (c) 2022 Thomas Kasper
  * 
@@ -20,41 +20,38 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.arch.x86.target;
+package at.syntaxerror.syntaxc.generator.asm.insn;
 
-import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
-import at.syntaxerror.syntaxc.type.Type;
+import java.util.List;
+
+import at.syntaxerror.syntaxc.generator.asm.Instructions;
+import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Getter
-@RequiredArgsConstructor
-public class X86StringTarget extends X86AssemblyTarget {
-
-	private final Type type;
-	private final String name;
-
-	@Override
-	public AssemblyTarget resized(Type type) {
-		return this;
+public class PersistentMemoryInstruction extends AssemblyInstruction {
+	
+	@Getter
+	private final VirtualStackTarget target;
+	
+	public PersistentMemoryInstruction(Instructions parent, VirtualStackTarget target) {
+		super(parent, PersistentMemoryInstructionKind.INSTANCE, List.of(target), List.of());
+		
+		this.target = target;
 	}
 	
 	@Override
-	public boolean equals(Object obj) {
-		return obj != null
-			&& obj instanceof X86StringTarget str
-			&& equals(name, str.name);
+	public String toString() {
+		return "\t; PERSISTENT { " + getDestinations().get(0) + " }";
 	}
 	
-	@Override
-	public String toAssemblyString(boolean attSyntax) {
-		return attSyntax
-			? "$" + name
-			: "OFFSET FLAT:" + name;
+	public static enum PersistentMemoryInstructionKind implements AssemblyInstructionKind {
+		
+		INSTANCE;
+		
 	}
 	
 }

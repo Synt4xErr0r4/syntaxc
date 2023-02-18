@@ -40,6 +40,11 @@ public class ConditionOperand implements Operand {
 	private final Type type;
 	
 	@Override
+	public Operand withType(Type type) {
+		return new ConditionOperand(condition, type);
+	}
+	
+	@Override
 	public boolean equals(Operand other) {
 		return false;
 	}

@@ -65,6 +65,10 @@ public class SyntaxCMain {
 	static {
 		Thread.setDefaultUncaughtExceptionHandler(
 			(t, e) -> {
+				
+				if(Flags.VERY_VERBOSE.isEnabled())
+					e.printStackTrace();
+				
 				Logger.softError(
 					"%s: %s",
 					e.getClass().getSimpleName(),
@@ -97,11 +101,9 @@ public class SyntaxCMain {
 				"-m32", 
 				"-fno-long-double",
 				"-Wno-all",
-				"-o", "-",
-				//"-o", "/dev/null",
+				"-o", "-", "/opt/syntaxc/test/test.c",
+//				"-o", "-", "/opt/syntaxc/test/benchmark/syntaxbench/aes256.c",
 				"-I/opt/syntaxc/test/benchmark/ansibench-master/coremark/include",
-				//"/opt/syntaxc/test/benchmark/ansibench-master/coremark/src/core_portme.c",
-				"/opt/syntaxc/test/test.c",
 				"-DCORE_DEBUG=0",
 				"-DMEM_METHOD=MEM_STATIC",
 				"-DCALLGRIND_RUN=0",
@@ -109,6 +111,7 @@ public class SyntaxCMain {
 				"-DUSE_CLOCK=1",
 				"-DMICA=0",
 				"-fcontrol-flow-graph=svg",
+				"-fsyntax-tree=svg",
 				"-Ono-goto",
 				"-Ono-jump-to-jump"
 			};

@@ -51,6 +51,11 @@ public class TemporaryOperand implements Operand {
 	}
 	
 	@Override
+	public Operand withType(Type type) {
+		return new TemporaryOperand(id, type);
+	}
+	
+	@Override
 	public boolean equals(Operand other) {
 		return other instanceof TemporaryOperand temp
 			&& id == temp.id;

@@ -25,6 +25,7 @@ package at.syntaxerror.syntaxc.generator.arch.x86.asm;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import at.syntaxerror.syntaxc.generator.arch.x86.X86FloatTable;
@@ -34,11 +35,12 @@ import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionSelector;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Size;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86DeferredMemoryTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget.X86Displacement;
-import at.syntaxerror.syntaxc.generator.arch.x86.target.X86StringTarget;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86OffsetTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
@@ -50,6 +52,7 @@ import at.syntaxerror.syntaxc.intermediate.operand.GlobalOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.IndexOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.LocalOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.MemberOperand;
+import at.syntaxerror.syntaxc.intermediate.operand.OffsetOperand;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.intermediate.operand.TemporaryOperand;
 import at.syntaxerror.syntaxc.logger.Logger;
@@ -87,7 +90,7 @@ public class X86OperandHelper {
 	private final X86Assembly x86;
 	private final X86FloatTable floatTable;
 	private final X86FPUHelper fpu;
-	private final X86CallingConvention callingConvention;
+	private final X86CallingConvention<?> callingConvention;
 	
 	private final Map<SymbolObject, AssemblyTarget> localVariables = new HashMap<>();
 	
@@ -95,20 +98,22 @@ public class X86OperandHelper {
 		localVariables.put(object, target);
 	}
 	
-	public X86MemoryTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget offset) {
+	public AssemblyTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget offset) {
 		AssemblyTarget displacement = null;
 		AssemblyTarget index = null;
 		
-		long scale = 1;
+		boolean isDisplacement = offset instanceof X86IntegerTarget
+			|| offset instanceof X86LabelTarget
+			|| offset instanceof X86OffsetTarget;
 		
-		boolean isDisplacement = offset instanceof X86IntegerTarget || offset instanceof X86LabelTarget;
+		boolean alreadyProcessed = false;
 		
 		if(base instanceof X86MemoryTarget mem) {
-
+			alreadyProcessed = true;
+			
 			base = mem.getBase();
 			displacement = mem.getDisplacement();
 			index = mem.getIndex();
-			scale = mem.getScale();
 			
 			if(isDisplacement) {
 				
@@ -146,20 +151,36 @@ public class X86OperandHelper {
 		
 		}
 		
-		else if(isDisplacement)
-			displacement = offset;
+		else if(base.isMemory() || base instanceof X86OffsetTarget) {
+			
+			if(base instanceof X86DeferredMemoryTarget deferred) {
+				if(deferred.accepts(offset))
+					return deferred.with(type, offset);
+			}
+			
+			else {
+				var parts = List.of(base, offset);
+				
+				if(X86DeferredMemoryTarget.isValid(parts))
+					return new X86DeferredMemoryTarget(type, parts);
+			}
+		}
 		
-		else index = toRegister(offset);
+		if(!alreadyProcessed) {
+			if(isDisplacement)
+				displacement = offset;
+			
+			else index = toRegister(offset);
+		}
 		
-		return X86MemoryTarget.ofDisplaced(
+		var r = X86MemoryTarget.ofDisplaced(
 			type,
 			displacement,
-			toRegister(base, RegisterFlags.NO_LITERAL),
-			index,
-			index == null
-				? 0
-				: Math.max(scale, 1)
+			toRegister(base, RegisterFlags.NO_LITERAL, RegisterFlags.ARRAY_ADDRESS),
+			index
 		);
+		
+		return r;
 	}
 	
 	public void freeFPUOperand(Operand operand) {
@@ -172,8 +193,12 @@ public class X86OperandHelper {
 			&& X86FPUHelper.useFPU(temp.getType());
 	}
 	
-	@SuppressWarnings("preview")
 	public AssemblyTarget generateOperand(Operand operand) {
+		return generateOperand(operand, false);
+	}
+	
+	@SuppressWarnings("preview")
+	private AssemblyTarget generateOperand(Operand operand, boolean mergable) {
 		if(operand == null)
 			return null;
 		
@@ -210,8 +235,8 @@ public class X86OperandHelper {
 			return null;
 			
 		case GlobalOperand global:
-			if(global.getObject().isString()) // OFFSET FLAT:name
-				return new X86StringTarget(
+			if(global.getObject().getType().isArray()) // OFFSET FLAT:name
+				return new X86OffsetTarget(
 					global.getType(),
 					global.getObject().getFullName()
 				);
@@ -224,30 +249,8 @@ public class X86OperandHelper {
 			);
 			
 		case IndexOperand index: { // [target+offset]
-			AssemblyTarget base = generateOperand(index.getTarget());
-			AssemblyTarget offset = generateOperand(index.getOffset());
-			
-			if(base.getType().isArray() && !base.isRegister()) {
-				VirtualRegisterTarget reg = new VirtualRegisterTarget(base.getType());
-				
-				asm.add(X86InstructionKinds.LEA, reg, base);
-				
-				base = reg;
-			}
-			
-			/*
-			 * mov dword ptr [eax+5], 0
-			 * 
-			 * mov dword ptr [eax+ebx], 0
-			 * 
-			 * mov 
-			 */
-			
-			if(offset instanceof X86IntegerTarget integer && integer.getValue().compareTo(BigInteger.ZERO) == 0)
-				return X86MemoryTarget.of(
-					index.getType(),
-					toRegister(base, RegisterFlags.NO_LITERAL)
-				);
+			AssemblyTarget base = generateOperand(index.getTarget(), true);
+			AssemblyTarget offset = generateOperand(index.getOffset(), true);
 			
 			return mergeMemory(
 				index.getType(),
@@ -255,12 +258,44 @@ public class X86OperandHelper {
 				offset
 			);
 		}
+		
+		case OffsetOperand off: { // target+offset
+			AssemblyTarget base = generateOperand(off.getTarget(), true);
+			AssemblyTarget offset = generateOperand(off.getOffset(), true);
 			
+			AssemblyTarget result = mergeMemory(
+				off.getType(),
+				base,
+				offset
+			);
+			
+			return mergable
+				? result
+				: toRegister(
+					result,
+					RegisterFlags.FORCE_ADDRESS
+				);
+		}
+		
 		case LocalOperand local: // -offset[rbp]
 			return generateLocalOperand(local.getObject());
 			
 		case MemberOperand member: {
-			AssemblyTarget target = generateOperand(member.getTarget());
+			AssemblyTarget target = generateOperand(member.getTarget(), true);
+			
+			Type structType = member.getTarget().getType();
+			
+			if(structType.isPointer()) {
+				VirtualRegisterTarget temporary = new VirtualRegisterTarget(structType);
+				
+				asm.add(
+					X86InstructionKinds.MOV,
+					temporary,
+					mergeMemory(structType, target, constant(0))
+				);
+				
+				target = temporary;
+			}
 			
 			Member mem = member.getMember();
 			Type type = member.getType();
@@ -381,6 +416,8 @@ public class X86OperandHelper {
 		boolean reassign = false;
 		boolean zeroExtend = false;
 		boolean signExtend = false;
+		boolean arrayAddress = false;
+		boolean forceAddress = false;
 		
 		for(RegisterFlags flag : flags)
 			if(flag != null)
@@ -389,6 +426,8 @@ public class X86OperandHelper {
 				case REASSIGN:		reassign = true; break;
 				case ZERO_EXTEND:	zeroExtend = true; break;
 				case SIGN_EXTEND:	signExtend = true; break;
+				case ARRAY_ADDRESS:	arrayAddress = true; break;
+				case FORCE_ADDRESS:	forceAddress = true; break;
 				}
 
 		Type type = target.getType();
@@ -442,7 +481,12 @@ public class X86OperandHelper {
 			dest = virt.resized(X86Size.DWORD.getType());
 		}
 		
-		else insn = X86InstructionSelector.select(X86InstructionKinds.MOV, type);
+		else insn = X86InstructionSelector.select(
+			target.isMemory() && (forceAddress || (arrayAddress && type.isArray())) && !(target instanceof X86OffsetTarget)
+				? X86InstructionKinds.LEA
+				: X86InstructionKinds.MOV,
+			type
+		);
 		
 		asm.add(insn, dest, target);
 		
@@ -503,8 +547,7 @@ public class X86OperandHelper {
 				mem.getSegment(),
 				constant(disp),
 				mem.getBase(),
-				mem.getIndex(),
-				mem.getScale()
+				mem.getIndex()
 			);
 		}
 		
@@ -528,7 +571,9 @@ public class X86OperandHelper {
 		ZERO_EXTEND,
 		SIGN_EXTEND,
 		REASSIGN,
-		NO_LITERAL
+		NO_LITERAL,
+		ARRAY_ADDRESS,
+		FORCE_ADDRESS
 	}
 	
 }

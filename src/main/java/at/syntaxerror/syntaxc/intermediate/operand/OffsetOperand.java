@@ -20,60 +20,53 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.alloc.impl;
+package at.syntaxerror.syntaxc.intermediate.operand;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
+import at.syntaxerror.syntaxc.type.Type;
+import at.syntaxerror.syntaxc.type.TypeUtils;
 import lombok.Getter;
-import lombok.Setter;
 
 /**
- * @author Thomas Kasper
+ * operand representing an index into an array
  * 
+ * @author Thomas Kasper
  */
-@Setter
 @Getter
-public class LiveInterval implements Comparable<LiveInterval> {
+public class OffsetOperand implements Operand {
 
-	private long from, to;
+	private final Operand target;
+	private final Operand offset;
+	private final Type type;
 	
-	private RegisterTarget assignedRegister;
-	
-	private final Set<Long> interference = new HashSet<>();
-	
-	public LiveInterval(long from, long to) {
-		this.from = from;
-		this.to = to;
-	}
-	
-	public boolean isAssigned() {
-		return assignedRegister != null;
-	}
-	
-	public boolean isUnassigned() {
-		return assignedRegister == null;
-	}
-	
-	public boolean interferesWith(LiveInterval other) {
-		return Math.max(from, other.from) <= Math.min(to, other.to);
+	public OffsetOperand(Operand target, Operand offset, Type type) {
+		this.target = target;
+		this.offset = offset;
+		this.type = type.normalize();
 	}
 	
 	@Override
-	public int compareTo(LiveInterval o) {
-		return Long.compare(to - from, o.to - o.from);
+	public Operand withType(Type type) {
+		return new OffsetOperand(target, offset, type);
 	}
 
+	@Override
+	public boolean isMemory() {
+		return true;
+	}
+	
+	@Override
+	public boolean equals(Operand other) {
+		return other instanceof OffsetOperand index
+			&& target.equals(index.getTarget())
+			&& this.offset == index.getOffset()
+			&& TypeUtils.isEqual(type, index.type);
+	}
+	
 	@Override
 	public String toString() {
-		return "[" + from + ";" + to + "]"
-			+ (interference.isEmpty()
-				? ""
-				: ":" + interference)
-			+ (assignedRegister == null
-				? ""
-				: "@" + assignedRegister);
+		return offset instanceof ConstantOperand constant && constant.isZero()
+			? "%s".formatted(target)
+			: "(%s+%s)".formatted(target, offset);
 	}
 	
 }

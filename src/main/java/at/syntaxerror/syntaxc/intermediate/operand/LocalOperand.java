@@ -48,6 +48,11 @@ public class LocalOperand implements Operand {
 	}
 
 	@Override
+	public Operand withType(Type type) {
+		return new LocalOperand(object, type);
+	}
+	
+	@Override
 	public boolean isMemory() {
 		return true;
 	}

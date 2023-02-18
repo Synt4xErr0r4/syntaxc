@@ -45,6 +45,7 @@ import at.syntaxerror.syntaxc.parser.node.declaration.Initializer;
 import at.syntaxerror.syntaxc.parser.node.expression.BinaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.NumberLiteralExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.statement.CompoundStatementNode;
 import at.syntaxerror.syntaxc.parser.node.statement.ExpressionStatementNode;
@@ -380,6 +381,10 @@ public class StatementParser extends AbstractParser {
 	}
 	
 	private ExpressionNode negate(ExpressionNode condition) {
+		
+		if(condition instanceof UnaryExpressionNode unary && unary.getOperation() == Punctuator.LOGICAL_NOT)
+			return unary.getTarget();
+		
 		return ExpressionHelper.newUnary(
 			condition,
 			condition,
@@ -970,7 +975,9 @@ public class StatementParser extends AbstractParser {
 		statements.add(newLabel( // cont: operation;
 			pos,
 			getLabelContinue(),
-			new ExpressionStatementNode(operation)
+			operation == null
+				? new NullStatementNode(pos)
+				: new ExpressionStatementNode(operation)
 		));
 
 		if(!infiniteLoop)

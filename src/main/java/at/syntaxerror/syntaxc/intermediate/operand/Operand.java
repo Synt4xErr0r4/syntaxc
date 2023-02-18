@@ -33,6 +33,8 @@ public interface Operand {
 
 	Type getType();
 	
+	Operand withType(Type type);
+	
 	default int getSize() {
 		return getType().sizeof();
 	}

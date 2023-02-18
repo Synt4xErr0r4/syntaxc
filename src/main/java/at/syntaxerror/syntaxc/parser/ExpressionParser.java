@@ -504,8 +504,6 @@ public class ExpressionParser extends AbstractParser {
 				if(equal(".")) {
 					if(!exprType.isStructLike())
 						error(op, "Target for member access is not struct or union");
-					
-					expr = PointerHelper.addressOf(op, expr);
 				}
 				else if(!exprType.isPointer() || !exprType.dereference().isStructLike())
 					error(op, "Target for member access is not pointer to struct or union");

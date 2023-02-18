@@ -58,12 +58,19 @@ typedef __builtin_va_list va_list;
 #define TMP_MAX __TMP_MAX
 
 #ifdef _WIN32
-FILE* __acrt_iob_func(unsigned _Ix);
-#endif /* !_WIN32 */
+extern FILE* __acrt_iob_func(unsigned _Ix);
 
 #define stderr __stderr
 #define stdin __stdin
 #define stdout __stdout
+
+#else
+
+extern FILE *stdin;
+extern FILE *stdout;
+extern FILE *stderr;
+
+#endif /* !_WIN32 */
 
 extern int remove(const char *filename);
 extern int rename(const char *old, const char *new);

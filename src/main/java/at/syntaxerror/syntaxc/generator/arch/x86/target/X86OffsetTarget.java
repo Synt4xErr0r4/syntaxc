@@ -1,4 +1,4 @@
-/* MIT License
+/* MIT LicenseAssemblyTarget.super.isRegister()
  * 
  * Copyright (c) 2022 Thomas Kasper
  * 
@@ -20,60 +20,41 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.alloc.impl;
+package at.syntaxerror.syntaxc.generator.arch.x86.target;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.type.Type;
 import lombok.Getter;
-import lombok.Setter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Setter
 @Getter
-public class LiveInterval implements Comparable<LiveInterval> {
+@RequiredArgsConstructor
+public class X86OffsetTarget extends X86AssemblyTarget {
 
-	private long from, to;
-	
-	private RegisterTarget assignedRegister;
-	
-	private final Set<Long> interference = new HashSet<>();
-	
-	public LiveInterval(long from, long to) {
-		this.from = from;
-		this.to = to;
-	}
-	
-	public boolean isAssigned() {
-		return assignedRegister != null;
-	}
-	
-	public boolean isUnassigned() {
-		return assignedRegister == null;
-	}
-	
-	public boolean interferesWith(LiveInterval other) {
-		return Math.max(from, other.from) <= Math.min(to, other.to);
+	private final Type type;
+	private final String name;
+
+	@Override
+	public AssemblyTarget resized(Type type) {
+		return this;
 	}
 	
 	@Override
-	public int compareTo(LiveInterval o) {
-		return Long.compare(to - from, o.to - o.from);
+	public boolean equals(Object obj) {
+		return obj != null
+			&& obj instanceof X86OffsetTarget str
+			&& equals(name, str.name);
 	}
-
+	
 	@Override
-	public String toString() {
-		return "[" + from + ";" + to + "]"
-			+ (interference.isEmpty()
-				? ""
-				: ":" + interference)
-			+ (assignedRegister == null
-				? ""
-				: "@" + assignedRegister);
+	public String toAssemblyString(boolean attSyntax) {
+		return attSyntax
+			? "$" + name
+			: "OFFSET FLAT:" + name;
 	}
 	
 }

@@ -27,10 +27,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import at.syntaxerror.syntaxc.SystemUtils.BitSize;
+import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Instruction;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionSelector;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86DeferredMemoryTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.PeepholeOptimizer;
@@ -38,6 +41,7 @@ import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.misc.Pair;
+import at.syntaxerror.syntaxc.type.Type;
 
 /**
  * @author Thomas Kasper
@@ -62,16 +66,26 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 			.forEach(this::clobber);
 	}
 	
+	private void processDeferredMemory(List<AssemblyTarget> targets) {
+		for(int i = 0; i < targets.size(); ++i)
+			if(targets.get(i) instanceof X86DeferredMemoryTarget deferred)
+				targets.set(i, deferred.combine());
+	}
+	
 	@Override
 	public void optimize(Instructions asm) {
-		
 		additives.clear();
+		
+		boolean x32 = ArchitectureRegistry.getBitSize() == BitSize.B32;
 		
 		AssemblyInstruction call = null;
 		
 		boolean hasModified = false;
 		
 		for(AssemblyInstruction insn : asm) {
+			
+			processDeferredMemory(insn.getSources());
+			processDeferredMemory(insn.getDestinations());
 			
 			AssemblyInstructionKind insnKind = insn.getKind();
 			
@@ -95,61 +109,6 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 			
 			if(kind != X86InstructionKinds.LABEL)
 				call = kind == X86InstructionKinds.CALL ? insn : null;
-			
-			if(kind == X86InstructionKinds.CLOBBER) {
-				insn.remove();
-				clobber(insn);
-				continue;
-			}
-			
-			if(kind.isCopy()) {
-
-				clobber(insn);
-				
-				AssemblyTarget dst = insn.getDestinations().get(0);
-				AssemblyTarget src = insn.getSources().get(0);
-				
-				if(dst instanceof X86Register reg) {
-					
-					if(reg.getType().isInteger()
-						&& src instanceof X86IntegerTarget i
-						&& i.getValue().compareTo(BigInteger.ZERO) == 0) {
-						
-						/* convert
-						 * 	
-						 * 	mov eax, 0
-						 * 
-						 * into
-						 * 
-						 * 	xor eax, eax
-						 */
-						
-						insn.insertBefore(new X86Instruction(
-							asm,
-							X86InstructionKinds.XOR,
-							reg,
-							reg
-						));
-						insn.remove();
-
-						hasModified = true;
-						continue;
-					}
-					
-					if(src == reg) {
-						/* remove
-						 * 	
-						 * 	mov eax, eax
-						 */
-						insn.remove();
-						hasModified = true;
-						continue;
-					}
-					
-				}
-				
-				continue;
-			}
 			
 			if(kind.isAdditive()) {
 				
@@ -229,10 +188,108 @@ public class X86PeepholeOptimizer extends PeepholeOptimizer {
 				
 			}
 			
+			clobber(insn);
+			
+			if(kind == X86InstructionKinds.CLOBBER) {
+				insn.remove();
+				continue;
+			}
+			
+			if(kind.isCopy()) {
+				
+				AssemblyTarget dst = insn.getDestinations().get(0);
+				AssemblyTarget src = insn.getSources().get(0);
+				
+				if(dst instanceof X86Register reg) {
+					
+					if(x32 && reg == X86Register.SIL || reg == X86Register.DIL) {
+						
+						if(insn.getKind() == X86InstructionKinds.MOV)
+							insn.setKind(X86InstructionKinds.MOVZX);
+						
+						insn.getDestinations().set(0, reg.resized(Type.SHORT));
+					}
+					
+					if(reg.getType().isInteger() && isZero(src)) {
+						
+						/* convert
+						 * 	
+						 * 	mov eax, 0
+						 * 
+						 * into
+						 * 
+						 * 	xor eax, eax
+						 */
+						
+						insn.insertBefore(new X86Instruction(
+							asm,
+							X86InstructionKinds.XOR,
+							reg,
+							reg
+						));
+						insn.remove();
+
+						hasModified = true;
+						continue;
+					}
+					
+					if(src == reg) {
+						/* remove
+						 * 	
+						 * 	mov eax, eax
+						 */
+						insn.remove();
+						hasModified = true;
+						continue;
+					}
+					
+				}
+				
+				if(src instanceof X86Register reg) {
+
+					if(x32 && reg == X86Register.SIL || reg == X86Register.DIL)
+						insn.getSources().set(0, reg.resized(Type.SHORT));
+					
+				}
+				
+				continue;
+			}
+			
+			if(kind == X86InstructionKinds.CMP) {
+
+				AssemblyTarget a = insn.getSources().get(0);
+				AssemblyTarget b = insn.getSources().get(1);
+				
+				if(a.isRegister() && isZero(b)) {
+					/* convert
+					 * 
+					 * 	cmp eax, 0
+					 * 
+					 * into
+					 * 
+					 * 	test eax, eax
+					 */
+					
+					insn.insertBefore(new X86Instruction(
+						asm,
+						X86InstructionKinds.TEST,
+						null, a, a
+					));
+					insn.remove();
+					continue;
+				}
+				
+			}
+			
 		}
 		
 		if(hasModified)
 			optimize(asm);
+	}
+	
+	private static boolean isZero(AssemblyTarget target) {
+		return target instanceof X86IntegerTarget integer
+			&& integer.getValue().compareTo(BigInteger.ZERO) == 0;
 	}
 	
 }

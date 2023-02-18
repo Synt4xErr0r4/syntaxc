@@ -22,8 +22,6 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
-import java.util.Iterator;
-
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
@@ -31,6 +29,7 @@ import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
+import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.type.FunctionType;
 
 /**
@@ -39,10 +38,11 @@ import at.syntaxerror.syntaxc.type.FunctionType;
  * @author Thomas Kasper
  * 
  */
-public class X86Microsoftx64Call extends X86CallingConvention {
+public class X86Microsoftx64Call extends X86CallingConvention<Void> {
 
 	public X86Microsoftx64Call(FunctionType function, Instructions asm, X86AssemblyGenerator generator) {
 		super(function, asm, generator);
+		Logger.error("Not implemented yet (Microsoft x64 calling convention)");
 	}
 
 	@Override
@@ -62,11 +62,6 @@ public class X86Microsoftx64Call extends X86CallingConvention {
 
 	@Override
 	public void onLeave() {
-		
-	}
-
-	@Override
-	public void call(AssemblyTarget functionTarget, FunctionType callee, Iterator<AssemblyTarget> args, AssemblyTarget destination) {
 		
 	}
 	

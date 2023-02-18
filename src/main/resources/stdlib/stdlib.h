@@ -31,7 +31,9 @@
 #endif
 
 #ifdef _WIN32
-int ___mb_cur_max_func(void);
+extern int ___mb_cur_max_func(void);
+#else
+extern size_t __ctype_get_mb_cur_max(void);
 #endif /* !_WIN32 */
 
 #define EXIT_FAILURE __EXIT_FAILURE

@@ -81,6 +81,7 @@ public class Instructions implements Iterable<AssemblyInstruction> {
 			head = insn;
 		
 		++count;
+		insn.onAdd();
 	}
 	
 	public AssemblyInstruction get(int i) {

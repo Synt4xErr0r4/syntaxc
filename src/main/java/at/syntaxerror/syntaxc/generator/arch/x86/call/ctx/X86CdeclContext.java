@@ -20,60 +20,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package at.syntaxerror.syntaxc.generator.alloc.impl;
+package at.syntaxerror.syntaxc.generator.arch.x86.call.ctx;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import at.syntaxerror.syntaxc.generator.asm.target.RegisterTarget;
-import lombok.Getter;
-import lombok.Setter;
+import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Instruction;
+import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.type.FunctionType;
+import at.syntaxerror.syntaxc.type.Type;
+import lombok.AccessLevel;
+import lombok.experimental.FieldDefaults;
 
 /**
  * @author Thomas Kasper
  * 
  */
-@Setter
-@Getter
-public class LiveInterval implements Comparable<LiveInterval> {
+@FieldDefaults(level = AccessLevel.PUBLIC)
+public class X86CdeclContext {
 
-	private long from, to;
+	long structPointerOffset;
+	long allocatedStackSpace;
+	long alignmentOffset;
+	FunctionType callee;
+	Type returnType;
+	AssemblyTarget returnValue;
+	X86Instruction stackSetup;
 	
-	private RegisterTarget assignedRegister;
-	
-	private final Set<Long> interference = new HashSet<>();
-	
-	public LiveInterval(long from, long to) {
-		this.from = from;
-		this.to = to;
-	}
-	
-	public boolean isAssigned() {
-		return assignedRegister != null;
-	}
-	
-	public boolean isUnassigned() {
-		return assignedRegister == null;
-	}
-	
-	public boolean interferesWith(LiveInterval other) {
-		return Math.max(from, other.from) <= Math.min(to, other.to);
-	}
-	
-	@Override
-	public int compareTo(LiveInterval o) {
-		return Long.compare(to - from, o.to - o.from);
-	}
-
-	@Override
-	public String toString() {
-		return "[" + from + ";" + to + "]"
-			+ (interference.isEmpty()
-				? ""
-				: ":" + interference)
-			+ (assignedRegister == null
-				? ""
-				: "@" + assignedRegister);
-	}
+	int argN;
+	int paramCount;
 	
 }

@@ -51,6 +51,11 @@ public class GlobalOperand implements Operand {
 	}
 	
 	@Override
+	public Operand withType(Type type) {
+		return new GlobalOperand(object, extern, type);
+	}
+	
+	@Override
 	public boolean isMemory() {
 		return true;
 	}

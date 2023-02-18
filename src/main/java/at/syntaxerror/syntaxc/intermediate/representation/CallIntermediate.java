@@ -23,11 +23,14 @@
 package at.syntaxerror.syntaxc.intermediate.representation;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
 import at.syntaxerror.syntaxc.tracking.Position;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Intermediate representation of function calls ('fun(a, b, c)')
@@ -60,6 +63,64 @@ public class CallIntermediate extends Intermediate {
 					.reduce((a, b) -> a + ", " + b)
 					.orElse("")
 			);
+	}
+	
+	@RequiredArgsConstructor
+	public static class CallStartIntermediate extends Intermediate {
+		
+		private final Supplier<CallIntermediate> callSupplier;
+		
+		@Getter
+		private CallIntermediate call;
+		
+		public void finish() {
+			call = callSupplier.get();
+		}
+		
+		@Override
+		public Position getPosition() {
+			return call.getPosition();
+		}
+
+		@Override
+		public void withResult(Operand operand) { }
+		
+		@Override
+		protected String toStringInternal() {
+			return "/*synthetic*/ /*begin function call*/";
+		}
+		
+	}
+	
+	@RequiredArgsConstructor
+	@Getter
+	public static class CallParameterIntermediate extends Intermediate {
+
+		@Getter(AccessLevel.NONE)
+		private final Supplier<CallIntermediate> callSupplier;
+		
+		private final int index;
+		private final Operand operand;
+		
+		private CallIntermediate call;
+		
+		public void finish() {
+			call = callSupplier.get();
+		}
+
+		@Override
+		public Position getPosition() {
+			return call.getPosition();
+		}
+
+		@Override
+		public void withResult(Operand operand) { }
+		
+		@Override
+		protected String toStringInternal() {
+			return "/*synthetic*/ /*function call operand %d*/".formatted(index);
+		}
+		
 	}
 	
 }

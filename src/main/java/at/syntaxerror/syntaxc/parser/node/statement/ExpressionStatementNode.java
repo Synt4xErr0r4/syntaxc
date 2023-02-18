@@ -31,6 +31,7 @@ import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
 import at.syntaxerror.syntaxc.parser.tree.SyntaxTreeNode;
 import at.syntaxerror.syntaxc.tracking.Position;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
@@ -43,6 +44,7 @@ import lombok.ToString;
 @ToString
 public class ExpressionStatementNode extends StatementNode {
 	
+	@NonNull
 	private final ExpressionNode expression;
 	
 	@Override

@@ -54,6 +54,8 @@ public abstract class Architecture {
 	
 	private String syntax;
 	
+	private boolean isWindows;
+	
 	public Architecture(@NonNull String name, String...more) {
 		names = new String[1 + more.length];
 		names[0] = name;
@@ -130,6 +132,8 @@ public abstract class Architecture {
 			break;
 		
 		case WINDOWS:
+			isWindows = true;
+			
 			switch(bitSize) {
 			case B16:
 				BuiltinMacro.define("_WIN16");
@@ -304,46 +308,76 @@ public abstract class Architecture {
 	protected void initStdlib() {
 		defineNumber("__EXIT_FAILURE",	1);
 		defineNumber("__EXIT_SUCCESS",	0);
-		defineType("__MB_CUR_MAX",		"___mb_cur_max_func ( )");
-		defineNumber("__RAND_MAX",		0x7fff);
 		defineType("__DIV_TYPE__",		"struct { int quot ; int rem ; }");
 		defineType("__LDIV_TYPE__",		"struct { long quot ; long rem ; }");
+		
+		if(isWindows) {
+			defineType("__MB_CUR_MAX",		"___mb_cur_max_func ( )");
+			defineNumber("__RAND_MAX",		0x7fff);
+		}
+		
+		else {
+			defineType("__MB_CUR_MAX",		"__ctype_get_mb_cur_max ( )");
+			defineNumber("__RAND_MAX",		0x7fffffff);
+		}
 	}
 	
 	protected void initStdio() {
-		defineType("__FILE_TYPE__",		"struct { void * _Placeholder ; }");
-		defineType("__FPOS_TYPE__",		"long");
-		defineNumber("___IOFBF",		0x0000);
-		defineNumber("___IOLBF",		0x0040);
-		defineNumber("___IONBF",		0x0004);
-		defineNumber("__BUFSIZ",		512);
 		defineNumber("__EOF",			-1);
-		defineNumber("__FILENAME_MAX",	260);
-		defineNumber("__FOPEN_MAX",		20);
-		defineNumber("__L_tmpnam",		260);
 		defineNumber("__SEEK_CUR",		1);
 		defineNumber("__SEEK_END",		2);
 		defineNumber("__SEEK_SET",		0);
-		defineType("__TMP_MAX",			"__INT_MAX__");
-		defineType("__stderr",			"__acrt_iob_func ( 2 )");
-		defineType("__stdin",			"__acrt_iob_func ( 0 )");
-		defineType("__stdout",			"__acrt_iob_func ( 1 )");
+		
+		if(isWindows) {
+			defineType("__FILE_TYPE__",		"struct { void * _Placeholder ; }");
+			defineType("__stderr",			"__acrt_iob_func ( 2 )");
+			defineType("__stdin",			"__acrt_iob_func ( 0 )");
+			defineType("__stdout",			"__acrt_iob_func ( 1 )");
+			defineType("__TMP_MAX",			"__INT_MAX__");
+			defineNumber("__L_tmpnam",		260);
+			defineNumber("__FILENAME_MAX",	260);
+			defineNumber("__FOPEN_MAX",		20);
+			defineNumber("__BUFSIZ",		512);
+			defineNumber("___IOFBF",		0x0000);
+			defineNumber("___IOLBF",		0x0040);
+			defineNumber("___IONBF",		0x0004);
+			defineType("__FPOS_TYPE__",		"long");
+		}
+		else {
+			defineType("__FILE_TYPE__",		"struct _IO_FILE");
+			defineType("__stderr",			"stderr");
+			defineType("__stdin",			"stdin");
+			defineType("__stdout",			"stdout");
+			defineNumber("__TMP_MAX",		238328);
+			defineNumber("__L_tmpnam",		20);
+			defineNumber("__FILENAME_MAX",	4096);
+			defineNumber("__FOPEN_MAX",		16);
+			defineNumber("__BUFSIZ",		8192);
+			defineNumber("___IOFBF",		0);
+			defineNumber("___IOLBF",		1);
+			defineNumber("___IONBF",		2);
+			defineType("__FPOS_TYPE__",		"struct _G_fpos_t { long __pos ; struct { int __count ; union { unsigned int __wch ; char __wchb [ 4 ] ; } __value ; } __state ; }");
+		}
 	}
 	
 	protected void initSetjmp() {
-		defineType("__JMP_BUF_TYPE__",	"struct __jmp_buf_tag");
+		defineType("__JMP_BUF_TYPE__",	"struct __jmp_buf_tag { long __jmpbuf [ 8 ] ; int __mask_was_saved ; struct { unsigned long __val [ 32 ] ; } __saved_mask ; }");
 	}
 	
 	protected void initSignal() {
 		defineNumber("__SIG_DFL",	0);
 		defineNumber("__SIG_ERR",	-1);
 		defineNumber("__SIG_IGN",	1);
-		defineNumber("__SIGABRT",	22);
+		
 		defineNumber("__SIGFPE",	8);
 		defineNumber("__SIGILL",	4);
 		defineNumber("__SIGINT",	2);
 		defineNumber("__SIGSEGV",	11);
 		defineNumber("__SIGTERM",	15);
+		
+		if(isWindows)
+			defineNumber("__SIGABRT",	22);
+		else defineNumber("__SIGABRT",	6);
 		
 		defineType("__SIG_ATOMIC_TYPE__", "int");
 	}
@@ -353,9 +387,13 @@ public abstract class Architecture {
 	}
 	
 	protected void initTime() {
-		defineNumber("__CLOCKS_PER_SEC",	1000, NumericValueType.SIGNED_LONG);
 		defineType("__CLOCK_TYPE__",		"long");
 		defineType("__TIME_TYPE__",			"long");
+		
+		if(isWindows)
+			defineNumber("__CLOCKS_PER_SEC",	1000, NumericValueType.SIGNED_LONG);
+		
+		else defineNumber("__CLOCKS_PER_SEC",	1000000, NumericValueType.SIGNED_LONG);
 	}
 	
 	protected void initLocale() {

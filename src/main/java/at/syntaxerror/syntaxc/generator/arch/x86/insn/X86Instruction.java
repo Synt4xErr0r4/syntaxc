@@ -30,10 +30,13 @@ import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86Assembly;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86AssemblyTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86LabelTarget;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86OffsetTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstructionKind;
+import at.syntaxerror.syntaxc.generator.asm.insn.PersistentMemoryInstruction;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
 import at.syntaxerror.syntaxc.type.Type;
 
 /**
@@ -54,6 +57,15 @@ public class X86Instruction extends AssemblyInstruction {
 				.filter(t -> t != null)
 				.toList()
 		);
+		
+		if(kind == X86InstructionKinds.LEA && sources[0] instanceof X86OffsetTarget)
+			new Throwable().printStackTrace();
+	}
+	
+	@Override
+	public void onAdd() {
+		if(getKind() == X86InstructionKinds.LEA && getSources().get(0) instanceof VirtualStackTarget stack)
+			insertAfter(new PersistentMemoryInstruction(getParent(), stack));
 	}
 	
 	public String toAssemblyString(boolean att) {

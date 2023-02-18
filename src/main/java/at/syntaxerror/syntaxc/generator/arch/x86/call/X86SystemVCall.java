@@ -25,7 +25,6 @@ package at.syntaxerror.syntaxc.generator.arch.x86.call;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +38,7 @@ import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.insn.StoreRegistersInstruction;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
+import at.syntaxerror.syntaxc.logger.Logger;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
 import at.syntaxerror.syntaxc.type.StructType.Member;
@@ -76,7 +76,7 @@ import at.syntaxerror.syntaxc.type.Type;
  * 
  */
 @SuppressWarnings("unused")
-public class X86SystemVCall extends X86CallingConvention {
+public class X86SystemVCall extends X86CallingConvention<Void> {
 
 	private boolean hasRegisterSaveArea;
 
@@ -84,6 +84,7 @@ public class X86SystemVCall extends X86CallingConvention {
 	
 	public X86SystemVCall(FunctionType function, Instructions asm, X86AssemblyGenerator generator) {
 		super(function, asm, generator);
+		Logger.error("Not implemented yet (System V calling convention)");
 	}
 	
 	private void createRegisterSaveArea() {
@@ -142,13 +143,6 @@ public class X86SystemVCall extends X86CallingConvention {
 	@Override
 	public void onLeave() {
 		asm.add(registerStore.restore());
-	}
-
-	@Override
-	public void call(AssemblyTarget functionTarget, FunctionType callee, Iterator<AssemblyTarget> args, AssemblyTarget destination) {
-		
-		classifyParameters(callee);
-		
 	}
 	
 	@Override

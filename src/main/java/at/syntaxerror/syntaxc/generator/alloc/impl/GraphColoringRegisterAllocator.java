@@ -36,6 +36,7 @@ import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
 import at.syntaxerror.syntaxc.generator.arch.Alignment;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.insn.AssemblyInstruction;
+import at.syntaxerror.syntaxc.generator.asm.insn.PersistentMemoryInstruction;
 import at.syntaxerror.syntaxc.generator.asm.insn.RestoreRegistersInstruction;
 import at.syntaxerror.syntaxc.generator.asm.insn.StoreRegistersInstruction;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
@@ -157,8 +158,12 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 	
 	private void checkStackMemory(List<AssemblyTarget> targets, Map<Long, Long> lastUse, long pos) {
 		for(int i = 0; i < targets.size(); ++i)
-			if(targets.get(i) instanceof VirtualStackTarget virtual)
-				lastUse.put(virtual.getId(), pos);
+			if(targets.get(i) instanceof VirtualStackTarget virtual) {
+				long id = virtual.getId();
+				
+				if(lastUse.getOrDefault(id, -1L) < pos)
+					lastUse.put(id, pos);
+			}
 
 		targets.stream()
 			.filter(target -> target != null)
@@ -195,6 +200,13 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 		long pos = 0;
 		
 		for(AssemblyInstruction insn : asm) {
+			
+			if(insn instanceof PersistentMemoryInstruction persistent) {
+				lastUse.put(persistent.getTarget().getId(), Long.MAX_VALUE);
+				persistent.remove();
+				continue;
+			}
+			
 			checkStackMemory(insn.getSources(), lastUse, pos);
 			checkStackMemory(insn.getDestinations(), lastUse, pos);
 			++pos;
@@ -382,6 +394,7 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 				.collect(Collectors.toSet());
 			
 			long size = liveIntervals.stream()
+				.filter(LiveInterval::isUnassigned)
 				.mapToLong(
 					interval -> liveIntervals.stream()
 						.filter(interval::interferesWith)
@@ -566,6 +579,15 @@ public abstract class GraphColoringRegisterAllocator extends RegisterAllocator {
 		} while(skip || !areSpillsSatisfied(toBeSpilled));
 		
 		// TODO
+		
+		System.out.println(spills);
+		System.out.println(toBeSpilled);
+		System.out.println(
+			toBeSpilled.stream()
+				.map(intervals::get)
+				.map(LiveInterval::getInterference)
+				.toList()
+		);
 		
 		Logger.error("Failed to allocate registers without spilling");
 	}

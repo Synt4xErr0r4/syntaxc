@@ -22,8 +22,6 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
-import java.util.Iterator;
-
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
@@ -31,6 +29,8 @@ import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallParameterIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallStartIntermediate;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +40,7 @@ import lombok.RequiredArgsConstructor;
  * 
  */
 @RequiredArgsConstructor
-public abstract class X86CallingConvention {
+public abstract class X86CallingConvention<CONTEXT> {
 	
 	@Getter
 	protected final FunctionType function;
@@ -52,9 +52,19 @@ public abstract class X86CallingConvention {
 	public void onEntry() { }
 	public void onLeave() { }
 	
-	public void beforeCall() { }
-	
-	public abstract void call(AssemblyTarget functionTarget, FunctionType callee, Iterator<AssemblyTarget> args, AssemblyTarget destination);
+	public CONTEXT createCallingContext(CallStartIntermediate call) { return null; }
+	public void passParameter(CONTEXT ctx, CallParameterIntermediate call) { }
+	public void call(CONTEXT ctx, AssemblyTarget function, Operand destination) { }
+
+	@SuppressWarnings("unchecked")
+	public void passParameterUnchecked(Object ctx, CallParameterIntermediate call) {
+		passParameter((CONTEXT) ctx, call);
+	}
+
+	@SuppressWarnings("unchecked")
+	public void callUnchecked(Object ctx, AssemblyTarget function, Operand destination) {
+		call((CONTEXT) ctx, function, destination);
+	}
 	
 	public abstract AssemblyTarget getReturnValue();
 	

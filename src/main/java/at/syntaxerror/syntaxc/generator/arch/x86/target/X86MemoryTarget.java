@@ -60,13 +60,14 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	}
 
 	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
-			AssemblyTarget base, AssemblyTarget index, long scale) {
+			AssemblyTarget base, AssemblyTarget index) {
 		
-		if(scale != 0 && scale != 1 && scale != 2 && scale != 4 && scale != 8)
-			Logger.error("Illegal scale %d for memory target", scale);
-		
-		if(disp != null && !(disp instanceof X86IntegerTarget) && !(disp instanceof X86LabelTarget))
-			Logger.error("Displacement is not an integer");
+		if(disp != null
+			&& !(disp instanceof X86IntegerTarget)
+			&& !(disp instanceof X86LabelTarget)
+			&& !(disp instanceof X86OffsetTarget)
+			&& !(disp instanceof X86Displacement))
+			Logger.error("Displacement is not constant");
 		
 		checkRegister(segment, "Segment");
 		checkRegister(base, "Base");
@@ -78,63 +79,43 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			segment,
 			disp,
 			requireDword(base),
-			requireDword(index),
-			scale
+			requireDword(index)
 		);
 	}
 
 	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
-			AssemblyTarget base, AssemblyTarget index) {
-		return ofSegmentedDisplaced(type, segment, disp, base, index, 1);
-	}
-
-	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
 			AssemblyTarget base) {
-		return ofSegmentedDisplaced(type, segment, disp, base, null, 0);
+		return ofSegmentedDisplaced(type, segment, disp, base, null);
 	}
 	
 	
 	
-	public static X86MemoryTarget ofSegmented(Type type, AssemblyTarget segment, AssemblyTarget base,
-			AssemblyTarget index, long scale) {
-		return ofSegmentedDisplaced(type, segment, null, base, index, scale);
-	}
-
 	public static X86MemoryTarget ofSegmented(Type type, AssemblyTarget segment, AssemblyTarget base, AssemblyTarget index) {
-		return ofSegmentedDisplaced(type, segment, null, base, index, 1);
+		return ofSegmentedDisplaced(type, segment, null, base, index);
 	}
 
 	public static X86MemoryTarget ofSegmented(Type type, AssemblyTarget segment, AssemblyTarget base) {
-		return ofSegmentedDisplaced(type, segment, null, base, null, 0);
+		return ofSegmentedDisplaced(type, segment, null, base, null);
 	}
 	
 	
 	
-	public static X86MemoryTarget ofDisplaced(Type type, AssemblyTarget disp, AssemblyTarget base,
-			AssemblyTarget index, long scale) {
-		return ofSegmentedDisplaced(type, null, disp, base, index, scale);
-	}
-
 	public static X86MemoryTarget ofDisplaced(Type type, AssemblyTarget disp, AssemblyTarget base, AssemblyTarget index) {
-		return ofSegmentedDisplaced(type, null, disp, base, index, 1);
+		return ofSegmentedDisplaced(type, null, disp, base, index);
 	}
 
 	public static X86MemoryTarget ofDisplaced(Type type, AssemblyTarget disp, AssemblyTarget base) {
-		return ofSegmentedDisplaced(type, null, disp, base, null, 0);
+		return ofSegmentedDisplaced(type, null, disp, base, null);
 	}
 	
 	
-
-	public static X86MemoryTarget of(Type type, AssemblyTarget base, AssemblyTarget index, long scale) {
-		return ofSegmentedDisplaced(type, null, null, base, index, scale);
-	}
-
+	
 	public static X86MemoryTarget of(Type type, AssemblyTarget base, AssemblyTarget index) {
-		return ofSegmentedDisplaced(type, null, null, base, index, 1);
+		return ofSegmentedDisplaced(type, null, null, base, index);
 	}
 
 	public static X86MemoryTarget of(Type type, AssemblyTarget base) {
-		return ofSegmentedDisplaced(type, null, null, base, null, 0);
+		return ofSegmentedDisplaced(type, null, null, base, null);
 	}
 	
 	private final Type type;
@@ -143,7 +124,6 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	private AssemblyTarget displacement;
 	private AssemblyTarget base;
 	private AssemblyTarget index;
-	private final long scale;
 	
 	@SuppressWarnings("unchecked")
 	@Override
@@ -165,12 +145,12 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	}
 
 	public boolean hasIndex() {
-		return index != null && scale != 0;
+		return index != null;
 	}
 	
 	@Override
 	public AssemblyTarget resized(Type type) {
-		return new X86MemoryTarget(type, X86Size.of(type), segment, displacement, base, index, scale);
+		return new X86MemoryTarget(type, X86Size.of(type), segment, displacement, base, index);
 	}
 	
 	@Override
@@ -191,8 +171,7 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			&& equals(segment, mem.segment)
 			&& equals(displacement, mem.displacement)
 			&& equals(base, mem.base)
-			&& equals(index, mem.index)
-			&& scale == mem.scale;
+			&& equals(index, mem.index);
 	}
 	
 	@Override
@@ -213,14 +192,9 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 				sb = sb.append('(')
 					.append(toAssemblyString(base, attSyntax));
 				
-				if(hasIndex()) {
+				if(hasIndex())
 					sb = sb.append(',')
 						.append(toAssemblyString(index, attSyntax));
-					
-					if(scale != 1)
-						sb = sb.append(',')
-							.append(scale);
-				}
 				
 				sb = sb.append(')');
 			}
@@ -254,10 +228,6 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 				);
 				
 				hasPredecessor = true;
-				
-				if(scale != 1)
-					sb = sb.append('*')
-						.append(scale);
 			}
 			
 			if(hasDisplacement())
@@ -295,6 +265,7 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 	
 	public static class X86Displacement extends X86AssemblyTarget {
 
+		@Getter
 		private List<AssemblyTarget> targets;
 		
 		public X86Displacement(AssemblyTarget...targets) {

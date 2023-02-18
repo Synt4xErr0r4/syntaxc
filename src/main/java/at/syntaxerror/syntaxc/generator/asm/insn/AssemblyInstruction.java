@@ -49,7 +49,8 @@ public class AssemblyInstruction {
 	@Setter
 	private AssemblyInstruction next;
 	
-	private final AssemblyInstructionKind kind;
+	@Setter
+	private AssemblyInstructionKind kind;
 	
 	private final List<AssemblyTarget> destinations;
 	private final List<AssemblyTarget> sources;
@@ -73,6 +74,8 @@ public class AssemblyInstruction {
 		strrep = copy.toString();
 	}
 	
+	public void onAdd() { }
+	
 	public final void insertBefore(AssemblyInstruction insn) {
 		insn.next = this;
 		insn.previous = previous;
@@ -83,7 +86,10 @@ public class AssemblyInstruction {
 		
 		previous = insn;
 		
-		parent.setCount(parent.size() + 1);;
+		parent.setCount(parent.size() + 1);
+		
+		if(insn != null)
+			insn.onAdd();
 	}
 
 	public final void insertAfter(AssemblyInstruction insn) {
@@ -97,6 +103,9 @@ public class AssemblyInstruction {
 		next = insn;
 
 		parent.setCount(parent.size() + 1);
+		
+		if(insn != null)
+			insn.onAdd();
 	}
 	
 	public final void remove() {

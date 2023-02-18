@@ -37,6 +37,11 @@ public class DiscardOperand implements Operand {
 	}
 	
 	@Override
+	public Operand withType(Type type) {
+		return this;
+	}
+	
+	@Override
 	public boolean equals(Operand other) {
 		return false;
 	}

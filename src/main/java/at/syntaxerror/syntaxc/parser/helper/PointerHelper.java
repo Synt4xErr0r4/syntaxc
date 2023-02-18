@@ -27,6 +27,7 @@ import at.syntaxerror.syntaxc.logger.Logable;
 import at.syntaxerror.syntaxc.misc.config.Warnings;
 import at.syntaxerror.syntaxc.parser.node.expression.ArrayIndexExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.ExpressionNode;
+import at.syntaxerror.syntaxc.parser.node.expression.MemberAccessExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.UnaryExpressionNode;
 import at.syntaxerror.syntaxc.parser.node.expression.VariableExpressionNode;
 import at.syntaxerror.syntaxc.tracking.Position;
@@ -97,8 +98,10 @@ public class PointerHelper implements Logable {
 		if(type.isBitfield())
 			error(pos, "Cannot take address of bit-field");
 		
-		else if(!synthetic && !((expr instanceof VariableExpressionNode var)
-			&& var.getVariable().isFunction()) && !expr.isLvalue())
+		else if(!synthetic
+			&& !(expr instanceof VariableExpressionNode)
+			&& !(expr instanceof ArrayIndexExpressionNode)
+			&& !(expr instanceof MemberAccessExpressionNode))
 			error(pos, "Cannot take address of rvalue");
 
 		if(expr instanceof UnaryExpressionNode unop)

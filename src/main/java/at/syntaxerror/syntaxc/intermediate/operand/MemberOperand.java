@@ -46,6 +46,11 @@ public class MemberOperand implements Operand {
 	}
 	
 	@Override
+	public Operand withType(Type type) {
+		return new MemberOperand(target, member, type);
+	}
+	
+	@Override
 	public boolean isMemory() {
 		return true;
 	}

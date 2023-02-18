@@ -92,7 +92,9 @@ public class X86Assembly {
 				X86Register.RDI,
 				X86Register.RBP,
 				X86Register.RSP,
-				X86Register.RIP
+				X86Register.RIP,
+				X86Register.SIL,
+				X86Register.DIL
 			);
 			
 			X86Register.disable(
@@ -164,7 +166,7 @@ public class X86Assembly {
 		registerProvider = new X86RegisterProvider();
 	}
 	
-	public X86CallingConvention getCallingConvention(FunctionType type, Instructions asm, X86AssemblyGenerator generator) {
+	public X86CallingConvention<?> getCallingConvention(FunctionType type, Instructions asm, X86AssemblyGenerator generator) {
 		
 		if(bit32) // cdecl (32-bit)
 			return new X86Cdecl(type, asm, generator);

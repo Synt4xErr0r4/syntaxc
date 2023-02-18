@@ -75,10 +75,10 @@ public class ArrayType extends PointerLikeType {
 		size = getBase().size * length;
 	}
 	
-	@Override
+	/*@Override
 	public Type normalize() {
 		return getBase().addressOf();
-	}
+	}*/
 	
 	@Override
 	protected Type clone() {

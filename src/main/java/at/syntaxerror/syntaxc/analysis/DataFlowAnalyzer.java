@@ -95,6 +95,8 @@ public class DataFlowAnalyzer implements Logable {
 	}
 
 	private void scanInitializedSingle(StatementNode stmt, BranchList branches) {
+		if(stmt == null)
+			return;
 		
 		if(stmt instanceof ExpressionStatementNode node) {
 			if(!scanInitialized(node.getExpression(), branches) && !node.getExpression().getType().isVoid())

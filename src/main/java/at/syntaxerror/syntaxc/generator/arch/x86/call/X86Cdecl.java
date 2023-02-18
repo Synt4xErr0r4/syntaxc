@@ -22,10 +22,9 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86.call;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,14 +33,20 @@ import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86AssemblyGenerator;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86OperandHelper;
+import at.syntaxerror.syntaxc.generator.arch.x86.call.ctx.X86CdeclContext;
+import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86Instruction;
 import at.syntaxerror.syntaxc.generator.arch.x86.insn.X86InstructionKinds;
 import at.syntaxerror.syntaxc.generator.arch.x86.register.X86Register;
+import at.syntaxerror.syntaxc.generator.arch.x86.target.X86IntegerTarget;
 import at.syntaxerror.syntaxc.generator.arch.x86.target.X86MemoryTarget;
 import at.syntaxerror.syntaxc.generator.asm.Instructions;
 import at.syntaxerror.syntaxc.generator.asm.insn.StoreRegistersInstruction;
 import at.syntaxerror.syntaxc.generator.asm.target.AssemblyTarget;
+import at.syntaxerror.syntaxc.generator.asm.target.VirtualRegisterTarget;
 import at.syntaxerror.syntaxc.generator.asm.target.VirtualStackTarget;
 import at.syntaxerror.syntaxc.intermediate.operand.Operand;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallParameterIntermediate;
+import at.syntaxerror.syntaxc.intermediate.representation.CallIntermediate.CallStartIntermediate;
 import at.syntaxerror.syntaxc.type.FunctionType;
 import at.syntaxerror.syntaxc.type.FunctionType.Parameter;
 import at.syntaxerror.syntaxc.type.NumericValueType;
@@ -66,14 +71,14 @@ import lombok.Getter;
  * @author Thomas Kasper
  * 
  */
-public class X86Cdecl extends X86CallingConvention {
+public class X86Cdecl extends X86CallingConvention<X86CdeclContext> {
 	
 	@Getter
 	private AssemblyTarget returnValue;
 
 	private Map<String, X86MemoryTarget> parameters;
 	
-	private StoreRegistersInstruction registerStore, callStore;
+	private StoreRegistersInstruction registerStore;
 	private List<VirtualStackTarget> fpuStore;
 	
 	public X86Cdecl(FunctionType function, Instructions asm, X86AssemblyGenerator generator) {
@@ -141,52 +146,28 @@ public class X86Cdecl extends X86CallingConvention {
 	public void onLeave() {
 		asm.add(registerStore.restore());
 	}
-
-	@Override
-	public void beforeCall() {
-		// eax, ecx, edx belong to the callee
-		X86Register[] scratchRegisters;
-		
-		if(returnValue == X86Register.EAX)
-			scratchRegisters = new X86Register[] {
-				X86Register.ECX,
-				X86Register.EDX,
-			};
-		
-		else scratchRegisters = new X86Register[] {
-			X86Register.EAX,
-			X86Register.ECX,
-			X86Register.EDX,
-		};
-		
-		callStore = new StoreRegistersInstruction(asm, scratchRegisters);
-		asm.add(callStore);
-	}
 	
 	@Override
-	public void call(AssemblyTarget functionTarget, FunctionType callee,
-			Iterator<AssemblyTarget> args, AssemblyTarget callerReturnDestination) {
+	public X86CdeclContext createCallingContext(CallStartIntermediate call) {
+		X86CdeclContext ctx = new X86CdeclContext();
 		
-		/* calculate stack offsets for arguments */
+		ctx.stackSetup = new X86Instruction(
+			asm,
+			X86InstructionKinds.SUB,
+			X86Register.ESP,
+			new X86IntegerTarget(Type.INT, BigInteger.ZERO)
+		);
+		asm.add(ctx.stackSetup);
 		
-		LinkedHashMap<Long, AssemblyTarget> argOffsets = new LinkedHashMap<>();
+		Type callee = call.getCall().getFunction().getType();
 		
-		long allocatedStackSpace = 0;
+		if(callee.isPointer())
+			callee = callee.dereference();
 		
-		while(args.hasNext()) {
-			AssemblyTarget arg = args.next();
-			
-			int size = arg.getType().sizeof();
-
-			argOffsets.put(allocatedStackSpace, arg);
-			
-			allocatedStackSpace += size;
-		}
+		ctx.callee = callee.toFunction();
+		Type returnType = ctx.returnType = ctx.callee.getReturnType();
 		
-		long structPointerOffset;
-		
-		Type returnType = callee.getReturnType();
-		AssemblyTarget returnValue;
+		ctx.paramCount = ctx.callee.getParameters().size();
 		
 		if(returnType.isStructLike()) {
 			/* 
@@ -205,16 +186,20 @@ public class X86Cdecl extends X86CallingConvention {
 			 * 	mov [esp], eax
 			 */
 			
-			returnValue = null;
+			ctx.returnValue = null;
 			
 			Type returnTypePointer = returnType.addressOf();
 			
 			long structSize = returnType.sizeof();
-			structPointerOffset = returnTypePointer.sizeof();
 			
-			long alignTo = allocatedStackSpace + structPointerOffset;
+			ctx.structPointerOffset = returnTypePointer.sizeof();
+			ctx.alignmentOffset = ctx.structPointerOffset;
 			
-			if(callerReturnDestination == null || !callerReturnDestination.isMemory()) {
+			Operand destination = call.getCall().getTarget();
+			
+			VirtualRegisterTarget temporary = new VirtualRegisterTarget(Type.INT);
+			
+			if(destination == null || !destination.isMemory()) {
 				asm.add(
 					X86InstructionKinds.SUB,
 					X86Register.ESP,
@@ -223,27 +208,19 @@ public class X86Cdecl extends X86CallingConvention {
 				
 				asm.add(
 					X86InstructionKinds.LEA,
-					X86Register.EAX,
+					temporary,
 					X86MemoryTarget.of(
 						returnTypePointer,
 						X86Register.ESP
 					)
 				);
 				
-				alignTo += structSize;
+				ctx.alignmentOffset += structSize;
 			}
 			else asm.add(
 				X86InstructionKinds.LEA,
-				X86Register.EAX,
-				callerReturnDestination
-			);
-			
-			allocatedStackSpace += structPointerOffset + alignStack(alignTo);
-			
-			asm.add(
-				X86InstructionKinds.SUB,
-				X86Register.ESP,
-				X86OperandHelper.constant(allocatedStackSpace)
+				temporary,
+				generator.generateOperand(destination)
 			);
 			
 			generator.assign(
@@ -251,26 +228,31 @@ public class X86Cdecl extends X86CallingConvention {
 					returnTypePointer,
 					X86Register.ESP
 				),
-				X86Register.EAX
+				temporary
 			);
 		}
-		else {
-			returnValue = getReturnValue(returnType);
-			structPointerOffset = 0;
+		else ctx.returnValue = getReturnValue(returnType);
+		
+		return ctx;
+	}
+	
+	@Override
+	public void passParameter(X86CdeclContext ctx, CallParameterIntermediate call) {
+		AssemblyTarget arg = generator.generateOperand(call.getOperand());
+		
+		Type type = arg.getType();
+		
+		if(ctx.argN < ctx.paramCount) {
+			Type paramType = ctx.callee.getParameters().get(ctx.argN).type();
 			
-			/*
-			 * allocate space for arguments
-			 * 
-			 * 	sub esp, <required space>
-			 */
-			asm.add(
-				X86InstructionKinds.SUB,
-				X86Register.ESP,
-				X86OperandHelper.constant(
-					allocatedStackSpace += alignStack(allocatedStackSpace)
-				)
-			);
+			if(paramType.isArray())
+				type = paramType;
+			
+			else if(type.isArray())
+				type = Type.VOID.addressOf();
 		}
+		
+		int size = type.sizeof();
 		
 		/*
 		 * Push all arguments to the stack (reverse order):
@@ -282,17 +264,52 @@ public class X86Cdecl extends X86CallingConvention {
 		 * 
 		 * Stack is aligned to 16 bytes
 		 */
+		generator.assign(
+			X86MemoryTarget.ofDisplaced(
+				arg.getType(),
+				X86OperandHelper.constant(ctx.allocatedStackSpace + ctx.structPointerOffset),
+				X86Register.ESP
+			),
+			arg
+		);
+
+		ctx.allocatedStackSpace += size;
+		++ctx.argN;
+	}
+	
+	@Override
+	public void call(X86CdeclContext ctx, AssemblyTarget function, Operand destination) {
+
+		long alloc = ctx.allocatedStackSpace + ctx.structPointerOffset
+			+ alignStack(ctx.allocatedStackSpace + ctx.alignmentOffset);
 		
-		argOffsets.forEach(
-			(argOffset, arg) -> generator.assign(
-				X86MemoryTarget.ofDisplaced(
-					arg.getType(),
-					X86OperandHelper.constant(argOffset + structPointerOffset),
-					X86Register.ESP
-				),
-				arg
+		ctx.stackSetup.getSources().set(
+			0,
+			new X86IntegerTarget(
+				Type.INT,
+				BigInteger.valueOf(alloc)
 			)
 		);
+		
+		AssemblyTarget returnValue = ctx.returnValue;
+		
+		// eax, ecx, edx belong to the callee
+		X86Register[] scratchRegisters;
+		
+		if(returnValue == X86Register.EAX)
+			scratchRegisters = new X86Register[] {
+				X86Register.ECX,
+				X86Register.EDX,
+			};
+		
+		else scratchRegisters = new X86Register[] {
+			X86Register.EAX,
+			X86Register.ECX,
+			X86Register.EDX,
+		};
+		
+		StoreRegistersInstruction callStore = new StoreRegistersInstruction(asm, scratchRegisters);
+		asm.add(callStore);
 		
 		// FPU stack must be empty
 		fpuStore = new ArrayList<>();
@@ -312,27 +329,27 @@ public class X86Cdecl extends X86CallingConvention {
 		 * 	add esp, <required space>
 		 */
 		
-		asm.add(X86InstructionKinds.CALL, functionTarget);
+		asm.add(X86InstructionKinds.CALL, function);
 		
 		asm.add(
 			X86InstructionKinds.ADD,
 			X86Register.ESP,
-			X86OperandHelper.constant(allocatedStackSpace)
+			X86OperandHelper.constant(alloc)
 		);
 		
 		// structs are already written
-		if(!returnType.isStructLike()) {
+		if(!ctx.returnType.isStructLike()) {
 			/*
 			 * assign return value or clear FPU stack:
 			 * 
 			 * 	fstp st(0)
 			 */
-			if(callerReturnDestination != null) {
+			if(destination != null) {
 				
 				if(returnValue == X86Register.ST0)
 					generator.fpuStackPush();
 				
-				generator.assign(callerReturnDestination, returnValue);
+				generator.assign(destination, returnValue);
 			}
 			
 			else if(returnValue == X86Register.ST0) {

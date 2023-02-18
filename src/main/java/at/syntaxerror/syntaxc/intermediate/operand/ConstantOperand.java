@@ -66,6 +66,11 @@ public class ConstantOperand implements Operand {
 	}
 	
 	@Override
+	public Operand withType(Type type) {
+		return new ConstantOperand(value, type);
+	}
+	
+	@Override
 	public boolean equals(Operand other) {
 		return other instanceof ConstantOperand constant
 			&& value.equals(constant.value)
@@ -76,6 +81,11 @@ public class ConstantOperand implements Operand {
 	public String toString() {
 		if(strval != null)
 			return strval;
+		
+		Type type = this.type;
+		
+		if(!type.isScalar())
+			type = Type.INT;
 		
 		NumericValueType num;
 		

@@ -384,7 +384,8 @@ public class SymbolObject implements Symbol, Positioned {
 			|| kind == SymbolKind.VARIABLE_GLOBAL
 			|| kind == SymbolKind.VARIABLE_TEMPORARY
 			|| kind == SymbolKind.STRING
-			|| kind == SymbolKind.FUNCTION;
+			|| kind == SymbolKind.FUNCTION
+			|| kind == SymbolKind.PROTOTYPE;
 	}
 	
 	public boolean isReturnValue() {

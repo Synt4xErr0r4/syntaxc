@@ -47,6 +47,11 @@ public class IndexOperand implements Operand {
 	public IndexOperand(Operand target, Type type) {
 		this(target, ConstantOperand.zero(type), type);
 	}
+	
+	@Override
+	public Operand withType(Type type) {
+		return new IndexOperand(target, offset, type);
+	}
 
 	@Override
 	public boolean isMemory() {
@@ -64,8 +69,8 @@ public class IndexOperand implements Operand {
 	@Override
 	public String toString() {
 		return offset instanceof ConstantOperand constant && constant.isZero()
-			? "*%s".formatted(target)
-			: "%s[%s]".formatted(target, offset);
+			? "*(%s)".formatted(target)
+			: "(%s)[%s]".formatted(target, offset);
 	}
 	
 }

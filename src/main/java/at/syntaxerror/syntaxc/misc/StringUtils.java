@@ -72,7 +72,7 @@ public class StringUtils {
 			}
 			
 			if(b < ' ' || b >= 0x7F)
-				part.append('\\').append(Integer.toOctalString(b));
+				part.append('\\').append(Integer.toOctalString(b & 0xFF));
 			
 			else part.append((char) b);
 		}
