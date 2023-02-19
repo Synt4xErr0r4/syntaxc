@@ -60,6 +60,9 @@ public class X86Instruction extends AssemblyInstruction {
 		
 		if(kind == X86InstructionKinds.LEA && sources[0] instanceof X86OffsetTarget)
 			new Throwable().printStackTrace();
+		
+		if(kind == null || kind.toString().contains("null"))
+			new Throwable().printStackTrace();
 	}
 	
 	@Override

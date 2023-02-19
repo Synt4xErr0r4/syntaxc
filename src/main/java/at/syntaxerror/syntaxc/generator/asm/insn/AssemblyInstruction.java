@@ -57,7 +57,7 @@ public class AssemblyInstruction {
 	
 	private String strrep;
 	
-	public AssemblyInstruction(@NonNull Instructions parent, AssemblyInstructionKind kind,
+	public AssemblyInstruction(@NonNull Instructions parent, @NonNull AssemblyInstructionKind kind,
 			List<AssemblyTarget> destinations, List<AssemblyTarget> sources) {
 		this.parent = parent;
 		this.kind = kind;

@@ -53,10 +53,11 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 			Logger.error("%s is not a register", name);
 	}
 	
-	private static AssemblyTarget requireDword(AssemblyTarget target) {
-		return target == null
-			? null
-			: target.minimum(X86Size.DWORD.getType());
+	private static void requireDword(AssemblyTarget target) {
+		if(target != null && target.getType().sizeof() < X86Size.DWORD.getType().sizeof()) {
+			new Throwable().printStackTrace();
+			Logger.error("Expected at least 32 bits for memory register");
+		}
 	}
 
 	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
@@ -73,32 +74,22 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 		checkRegister(base, "Base");
 		checkRegister(index, "Index");
 		
+		requireDword(base);
+		requireDword(index);
+		
 		return new X86MemoryTarget(
 			type,
 			X86Size.of(type),
 			segment,
 			disp,
-			requireDword(base),
-			requireDword(index)
+			base,
+			index
 		);
 	}
-
-	public static X86MemoryTarget ofSegmentedDisplaced(Type type, AssemblyTarget segment, AssemblyTarget disp,
-			AssemblyTarget base) {
-		return ofSegmentedDisplaced(type, segment, disp, base, null);
-	}
 	
-	
-	
-	public static X86MemoryTarget ofSegmented(Type type, AssemblyTarget segment, AssemblyTarget base, AssemblyTarget index) {
-		return ofSegmentedDisplaced(type, segment, null, base, index);
-	}
-
 	public static X86MemoryTarget ofSegmented(Type type, AssemblyTarget segment, AssemblyTarget base) {
 		return ofSegmentedDisplaced(type, segment, null, base, null);
 	}
-	
-	
 	
 	public static X86MemoryTarget ofDisplaced(Type type, AssemblyTarget disp, AssemblyTarget base, AssemblyTarget index) {
 		return ofSegmentedDisplaced(type, null, disp, base, index);
@@ -108,12 +99,6 @@ public class X86MemoryTarget extends X86AssemblyTarget {
 		return ofSegmentedDisplaced(type, null, disp, base, null);
 	}
 	
-	
-	
-	public static X86MemoryTarget of(Type type, AssemblyTarget base, AssemblyTarget index) {
-		return ofSegmentedDisplaced(type, null, null, base, index);
-	}
-
 	public static X86MemoryTarget of(Type type, AssemblyTarget base) {
 		return ofSegmentedDisplaced(type, null, null, base, null);
 	}

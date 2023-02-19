@@ -251,7 +251,7 @@ public class X86Cdecl extends X86CallingConvention<X86CdeclContext> {
 			else if(type.isArray())
 				type = Type.VOID.addressOf();
 		}
-		
+
 		int size = type.sizeof();
 		
 		/*
@@ -266,7 +266,7 @@ public class X86Cdecl extends X86CallingConvention<X86CdeclContext> {
 		 */
 		generator.assign(
 			X86MemoryTarget.ofDisplaced(
-				arg.getType(),
+				type,
 				X86OperandHelper.constant(ctx.allocatedStackSpace + ctx.structPointerOffset),
 				X86Register.ESP
 			),
@@ -409,7 +409,7 @@ public class X86Cdecl extends X86CallingConvention<X86CdeclContext> {
 			result,
 			X86MemoryTarget.of(
 				type,
-				generator.toRegister(vp)
+				generator.requireDword(generator.toRegister(vp))
 			)
 		);
 		

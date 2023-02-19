@@ -32,14 +32,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import at.syntaxerror.syntaxc.SystemUtils.BitSize;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaArg;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaEnd;
 import at.syntaxerror.syntaxc.builtin.impl.BuiltinVaStart;
 import at.syntaxerror.syntaxc.generator.alloc.RegisterAllocator;
 import at.syntaxerror.syntaxc.generator.alloc.impl.GraphColoringRegisterAllocator;
 import at.syntaxerror.syntaxc.generator.alloc.impl.RegisterSupplier;
-import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.arch.x86.X86Architecture;
 import at.syntaxerror.syntaxc.generator.arch.x86.X86FloatTable;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86BitfieldHelper.BitfieldSegment;
@@ -393,7 +391,10 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 			
 			VirtualRegisterTarget tmp = new VirtualRegisterTarget(typeDst);
 			
-			asm.add(mov, tmp, src);
+			if(dst.getType().isPointer() && src.getType().isArray())
+				asm.add(X86InstructionKinds.LEA, tmp, src);
+			else asm.add(mov, tmp, src);
+			
 			asm.add(mov, dst, tmp);
 			
 			return;
@@ -1605,7 +1606,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 						dyn,
 						X86MemoryTarget.of(
 							dyn.getType(),
-							toRegister(target)
+							requireDword(toRegister(target))
 						)
 					);
 					
@@ -1856,7 +1857,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		 * assuming dword/qword alignment
 		 */
 		
-		final int blockSizes[] = ArchitectureRegistry.getBitSize() == BitSize.B32
+		final int blockSizes[] = x86.bit32
 			? new int[] { 4, 2, 1 }
 			: new int[] { 8, 4, 2, 1 };
 		
@@ -1879,7 +1880,7 @@ public class X86AssemblyGenerator extends AssemblyGenerator {
 		int byteCount = size;
 		X86Size wordSize = X86Size.BYTE;
 		
-		if((byteCount & 7) == 0) {
+		if((byteCount & 7) == 0 && !x86.bit32) {
 			/* divisible by 8: process 8 bytes at once */
 
 			byteCount >>= 3;

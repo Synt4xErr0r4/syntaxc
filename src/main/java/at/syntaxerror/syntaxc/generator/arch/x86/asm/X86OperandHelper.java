@@ -98,13 +98,66 @@ public class X86OperandHelper {
 		localVariables.put(object, target);
 	}
 	
+	public boolean isConstant(AssemblyTarget target) {
+		return target != null
+			&& ((target instanceof X86IntegerTarget)
+			|| (target instanceof X86LabelTarget)
+			|| (target instanceof X86OffsetTarget));
+	}
+	
+	public AssemblyTarget requireDword(AssemblyTarget target) {
+		if(target == null || !(target instanceof VirtualRegisterTarget || target instanceof X86Register))
+			return target;
+		
+		Type type = target.getType();
+		
+		if(type.sizeof() < X86Size.DWORD.getType().sizeof())
+			target = toRegister(
+				target,
+				RegisterFlags.REASSIGN,
+				type.isSigned()
+					? RegisterFlags.SIGN_EXTEND
+					: RegisterFlags.ZERO_EXTEND
+			);
+		
+		return target;
+	}
+	
+	public AssemblyTarget scale(int size, AssemblyTarget target) {
+		if(size == 1)
+			return target;
+		
+		Type type = target.getType();
+		
+		if(target instanceof X86IntegerTarget integer)
+			return new X86IntegerTarget(
+				type,
+				integer.getValue()
+					.multiply(BigInteger.valueOf(size))
+			);
+		
+		if(isConstant(target) && type.sizeof() < X86Size.DWORD.getType().sizeof())
+			type = X86Size.DWORD.getType();
+		
+		AssemblyTarget scaled = new VirtualRegisterTarget(type)
+			.minimum(X86Size.WORD.getType());
+		
+		asm.add(
+			X86InstructionKinds.IMUL,
+			scaled,
+			toRegister(target, RegisterFlags.NO_LITERAL)
+				.minimum(X86Size.WORD.getType()),
+			constant(size)
+		);
+		
+		return scaled;
+	}
+	
 	public AssemblyTarget mergeMemory(Type type, AssemblyTarget base, AssemblyTarget offset) {
 		AssemblyTarget displacement = null;
 		AssemblyTarget index = null;
 		
-		boolean isDisplacement = offset instanceof X86IntegerTarget
-			|| offset instanceof X86LabelTarget
-			|| offset instanceof X86OffsetTarget;
+		boolean isDisplacement = isConstant(offset);
 		
 		boolean alreadyProcessed = false;
 		
@@ -155,11 +208,11 @@ public class X86OperandHelper {
 			
 			if(base instanceof X86DeferredMemoryTarget deferred) {
 				if(deferred.accepts(offset))
-					return deferred.with(type, offset);
+					return deferred.with(type, requireDword(offset));
 			}
 			
 			else {
-				var parts = List.of(base, offset);
+				var parts = List.of(requireDword(base), requireDword(offset));
 				
 				if(X86DeferredMemoryTarget.isValid(parts))
 					return new X86DeferredMemoryTarget(type, parts);
@@ -176,8 +229,8 @@ public class X86OperandHelper {
 		var r = X86MemoryTarget.ofDisplaced(
 			type,
 			displacement,
-			toRegister(base, RegisterFlags.NO_LITERAL, RegisterFlags.ARRAY_ADDRESS),
-			index
+			requireDword(toRegister(base, RegisterFlags.NO_LITERAL, RegisterFlags.ARRAY_ADDRESS)),
+			requireDword(index)
 		);
 		
 		return r;
@@ -251,11 +304,23 @@ public class X86OperandHelper {
 		case IndexOperand index: { // [target+offset]
 			AssemblyTarget base = generateOperand(index.getTarget(), true);
 			AssemblyTarget offset = generateOperand(index.getOffset(), true);
+
+			if(base.getType().isPointer())
+				base = toRegister(base);
+
+			if(base.getType().isPointerLike())
+				offset = scale(
+					base.getType()
+						.toPointerLike()
+						.getBase()
+						.sizeof(),
+					offset
+				);
 			
 			return mergeMemory(
 				index.getType(),
 				base,
-				offset
+				toRegister(offset)
 			);
 		}
 		
@@ -263,10 +328,22 @@ public class X86OperandHelper {
 			AssemblyTarget base = generateOperand(off.getTarget(), true);
 			AssemblyTarget offset = generateOperand(off.getOffset(), true);
 			
+			if(base.getType().isPointer())
+				base = toRegister(base);
+
+			if(base.getType().isPointerLike())
+				offset = scale(
+					base.getType()
+						.toPointerLike()
+						.getBase()
+						.sizeof(),
+					offset
+				);
+			
 			AssemblyTarget result = mergeMemory(
 				off.getType(),
 				base,
-				offset
+				toRegister(offset)
 			);
 			
 			return mergable
@@ -433,7 +510,7 @@ public class X86OperandHelper {
 		Type type = target.getType();
 		X86Size size = X86Size.of(type);
 		
-		boolean needExtension = size != X86Size.DWORD && size != X86Size.QWORD;
+		boolean needExtension = size != X86Size.DWORD && size != X86Size.QWORD && !isConstant(target);
 		
 		boolean quickExit = false;
 		
@@ -467,28 +544,27 @@ public class X86OperandHelper {
 		}
 		
 		VirtualRegisterTarget virt = new VirtualRegisterTarget(type);
-		VirtualRegisterTarget dest = virt;
 		
 		X86InstructionKinds insn;
 		
 		if(zeroExtend && needExtension) {
 			insn = X86InstructionKinds.MOVZX;
-			dest = virt.resized(X86Size.DWORD.getType());
+			virt = virt.resized(X86Size.DWORD.getType());
 		}
 		
 		else if(signExtend && needExtension) {
 			insn = X86InstructionKinds.MOVSX;
-			dest = virt.resized(X86Size.DWORD.getType());
+			virt = virt.resized(X86Size.DWORD.getType());
 		}
 		
-		else insn = X86InstructionSelector.select(
-			target.isMemory() && (forceAddress || (arrayAddress && type.isArray())) && !(target instanceof X86OffsetTarget)
-				? X86InstructionKinds.LEA
-				: X86InstructionKinds.MOV,
-			type
-		);
+		else insn = target.isMemory() && (forceAddress || (arrayAddress && type.isArray())) && !(target instanceof X86OffsetTarget)
+			? X86InstructionKinds.LEA
+			: X86InstructionSelector.select(
+				X86InstructionKinds.MOV,
+				type
+			);
 		
-		asm.add(insn, dest, target);
+		asm.add(insn, virt, target);
 		
 		return virt;
 	}
@@ -546,8 +622,8 @@ public class X86OperandHelper {
 				type,
 				mem.getSegment(),
 				constant(disp),
-				mem.getBase(),
-				mem.getIndex()
+				requireDword(mem.getBase()),
+				requireDword(mem.getIndex())
 			);
 		}
 		

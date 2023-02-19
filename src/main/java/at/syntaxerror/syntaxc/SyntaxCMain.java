@@ -102,7 +102,7 @@ public class SyntaxCMain {
 				"-fno-long-double",
 				"-Wno-all",
 				"-o", "-", "/opt/syntaxc/test/test.c",
-//				"-o", "-", "/opt/syntaxc/test/benchmark/syntaxbench/aes256.c",
+//				"-o", "-", "/opt/syntaxc/test/benchmark/syntaxbench/qsort.c",
 				"-I/opt/syntaxc/test/benchmark/ansibench-master/coremark/include",
 				"-DCORE_DEBUG=0",
 				"-DMEM_METHOD=MEM_STATIC",

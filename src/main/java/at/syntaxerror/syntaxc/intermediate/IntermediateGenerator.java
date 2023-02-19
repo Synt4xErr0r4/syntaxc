@@ -587,35 +587,6 @@ public class IntermediateGenerator {
 			ctx
 		);
 		
-		if(sz == 0)
-			operands[1] = new ConstantOperand(BigInteger.ZERO, operands[1].getType());
-		
-		else if(sz != 1) {
-			BigInteger scale = BigInteger.valueOf(sz);
-			
-			if(operands[1] instanceof ConstantOperand cnst)
-				operands[1] = new ConstantOperand(
-					scale.multiply((BigInteger) cnst.getValue()),
-					cnst.getType()
-				);
-			
-			else {
-				Type type = operands[1].getType();
-				
-				Operand scaled = temporary(type);
-				
-				ir.add(new BinaryIntermediate(
-					pos,
-					scaled,
-					operands[1],
-					constant(scale, type),
-					BinaryOperation.MULTIPLY
-				));
-				
-				operands[1] = scaled;
-			}
-		}
-		
 		return offset(
 			operands[0],
 			operands[1],
