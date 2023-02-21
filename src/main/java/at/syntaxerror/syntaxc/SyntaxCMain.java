@@ -95,27 +95,6 @@ public class SyntaxCMain {
 		Locale.setDefault(Locale.ROOT);
 		AnsiPipe.init();
 		
-		if(Boolean.getBoolean("DEBUG"))
-			args = new String[] {
-				"-S",
-				"-m32", 
-				"-fno-long-double",
-				"-Wno-all",
-				"-o", "-", "/opt/syntaxc/test/test.c",
-//				"-o", "-", "/opt/syntaxc/test/benchmark/syntaxbench/qsort.c",
-				"-I/opt/syntaxc/test/benchmark/ansibench-master/coremark/include",
-				"-DCORE_DEBUG=0",
-				"-DMEM_METHOD=MEM_STATIC",
-				"-DCALLGRIND_RUN=0",
-				"-DCOMPILER_REQUIRES_SORT_RETURN",
-				"-DUSE_CLOCK=1",
-				"-DMICA=0",
-				"-fcontrol-flow-graph=svg",
-				"-fsyntax-tree=svg",
-				"-Ono-goto",
-				"-Ono-jump-to-jump"
-			};
-		
 		/*
 		 * TODO:
 		 * 
