@@ -95,15 +95,6 @@ public class SyntaxCMain {
 		Locale.setDefault(Locale.ROOT);
 		AnsiPipe.init();
 		
-		/*
-		 * TODO:
-		 * 
-		 * - System V calling convention
-		 * - Microsoft x64 calling convention
-		 * - register allocator spilling
-		 * - fix __LINE__ macro
-		 */
-		
 		OptionParser parser = new OptionParser()
 			.withCommand("java -jar syntaxc.jar")
 			.withHeader("§9§lSyntax§1C§r §8- §fAn ANSI-C compiler written in Java")

@@ -366,22 +366,23 @@ public class SyntaxC {
 			
 			return;
 		}
-		
-		/* Assemble */
 
-		// TODO assemble
+		if(onlyAssemble) /* Assemble */
+			codeGen.getAssemblerLinker().assemble(asmOut, getOutputFileName(".o"));
+			
+		/* Link */
+		else codeGen.getAssemblerLinker().assembleAndLink(
+				asmOut,
+				outputFileName == null
+					? Paths.get(inputFileName)
+						.getParent()
+						.resolve("a.out")
+						.toAbsolutePath()
+						.toString()
+					: outputFileName
+			);
 		
 		asmOut.delete();
-		
-		if(onlyAssemble) {
-			
-			
-			return;
-		}
-		
-		/* Link */
-		
-		// TODO link
 	}
 	
 	public static Token postprocess(Token token) {
@@ -460,11 +461,15 @@ public class SyntaxC {
 		
 		return createStream(
 			null,
-			Objects.requireNonNullElseGet(
-				outputFileName,
-				() -> inputFileName.substring(0, inputFileName.length() - 2)
-					+ extension
-			)
+			getOutputFileName(extension)
+		);
+	}
+	
+	private static String getOutputFileName(String extension) {
+		return Objects.requireNonNullElseGet(
+			outputFileName,
+			() -> inputFileName.substring(0, inputFileName.length() - 2)
+				+ extension
 		);
 	}
 	

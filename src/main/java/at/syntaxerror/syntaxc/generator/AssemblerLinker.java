@@ -22,23 +22,16 @@
  */
 package at.syntaxerror.syntaxc.generator;
 
-import at.syntaxerror.syntaxc.generator.asm.AssemblyGenerator;
-import at.syntaxerror.syntaxc.generator.asm.ObjectSerializer;
-import at.syntaxerror.syntaxc.generator.asm.PeepholeOptimizer;
+import java.io.File;
 
 /**
  * @author Thomas Kasper
  * 
  */
-public abstract class CodeGenerator {
+public abstract class AssemblerLinker {
 
-	public abstract AssemblyGenerator getAssemblyGenerator();
-	public abstract ObjectSerializer getObjectSerializer();
-	
-	public PeepholeOptimizer getPeepholeOptimizer() {
-		return PeepholeOptimizer.NO_OPTIMIZATIONS;
-	}
-	
-	public abstract AssemblerLinker getAssemblerLinker();
+	public abstract void assemble(File input, String output);
+
+	public abstract void assembleAndLink(File input, String output);
 	
 }

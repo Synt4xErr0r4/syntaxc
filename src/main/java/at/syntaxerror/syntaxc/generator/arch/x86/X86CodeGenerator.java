@@ -22,6 +22,7 @@
  */
 package at.syntaxerror.syntaxc.generator.arch.x86;
 
+import at.syntaxerror.syntaxc.generator.AssemblerLinker;
 import at.syntaxerror.syntaxc.generator.CodeGenerator;
 import at.syntaxerror.syntaxc.generator.arch.ArchitectureRegistry;
 import at.syntaxerror.syntaxc.generator.arch.x86.asm.X86Assembly;
@@ -47,6 +48,8 @@ public class X86CodeGenerator extends CodeGenerator {
 	
 	private X86Architecture arch;
 	
+	private X86GCCAssemblerLinker assemblerLinker;
+	
 	public X86CodeGenerator(String inputFileName, X86Architecture arch) {
 		floatTable = new X86FloatTable();
 		
@@ -64,6 +67,13 @@ public class X86CodeGenerator extends CodeGenerator {
 		registerProvider = new X86RegisterProvider();
 		
 		peepholeOptimizer = new X86PeepholeOptimizer();
+		
+		assemblerLinker = new X86GCCAssemblerLinker();
+	}
+	
+	@Override
+	public AssemblerLinker getAssemblerLinker() {
+		return assemblerLinker;
 	}
 	
 }
