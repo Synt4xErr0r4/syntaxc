@@ -156,6 +156,8 @@ For full documentation of all command line parameters,
 use `java -jar syntaxc.jar --help`.  
 You can also use `--doc option_here` to get extended documentation about a specific option (e.g. `--doc D` prints the documentation for the `-D` option).
 
+*Note*: Currently, due to the slow `long double` implementation, compiling even very small files can take a few seconds. Therefore it is advised to specify `-fno-long-double` if you do not need x87 80-bit precision `long double`s.
+
 ## Extensions
 
 The following extensions are supported:
