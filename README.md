@@ -1,5 +1,7 @@
 # SyntaxC ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/Synt4xErr0r4/syntaxc/maven.yml) ![LoC](https://raw.githubusercontent.com/Synt4xErr0r4/syntaxc/image-data/badge.svg)
 
+**This compiler is currently *not* properly operational (at least the code generation and some optimizations). I'm currently working on a rewrite for the C23 standard. Progress will be published on the `c23` branch at some point.**
+
 An ANSI-C (C89, C90) compiler written in Java 19.  
 Currently only working for x86 (32-bit, Linux/Windows).
 
