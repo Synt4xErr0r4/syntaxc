@@ -1,0 +1,10 @@
+BasedOnStyle: LLVM
+ColumnLimit: 120
+SpaceAfterCStyleCast: true
+IndentWidth: 4
+AccessModifierOffset: -4
+IndentCaseLabels: true
+SeparateDefinitionBlocks: Always
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: Yes
+NamespaceIndentation: All
